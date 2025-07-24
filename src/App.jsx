@@ -1,216 +1,215 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
+import './App.css';
 
-export default function Taikinakalkulaattori() {
-  const [inputGrams, setInputGrams] = useState("");
-  const [inputType, setInputType] = useState("jauho");
-  const [hydration, setHydration] = useState(75);
+export default function App() {
+  const [inputGrams, setInputGrams] = useState('');
+  const [inputType, setInputType] = useState('jauho');
+  const [hydration, setHydration] = useState(70);
   const [saltPct, setSaltPct] = useState(2);
-  const [oilPct, setOilPct] = useState(3);
-  const [mode, setMode] = useState("leipa");
-  const [coldFermentation, setColdFermentation] = useState(false);
-  const [includeRye, setIncludeRye] = useState(false);
-  const [includeSeeds, setIncludeSeeds] = useState(false);
+  const [mode, setMode] = useState('leipa');
   const [showRecipe, setShowRecipe] = useState(false);
   const [foldsDone, setFoldsDone] = useState(0);
+
+  const [useOil, setUseOil] = useState(false);
+  const [coldFerment, setColdFerment] = useState(false);
+  const [useRye, setUseRye] = useState(false);
+  const [useSeeds, setUseSeeds] = useState(false);
+
+  const resetAll = () => {
+    setInputGrams('');
+    setInputType('jauho');
+    setHydration(70);
+    setSaltPct(2);
+    setMode('leipa');
+    setShowRecipe(false);
+    setFoldsDone(0);
+    setUseOil(false);
+    setColdFerment(false);
+    setUseRye(false);
+    setUseSeeds(false);
+  };
 
   const calculate = () => {
     const grams = parseFloat(inputGrams);
     if (isNaN(grams) || grams <= 0) return {};
 
-    const h = Math.max(0.55, hydration / 100);
+    const h = hydration / 100;
     const s = saltPct / 100;
-    const o = oilPct / 100;
 
-    let flour, water, salt, starter, oil = 0;
+    let jauho, vesi, suola, juuri, öljy = 0, siemenet = 0;
 
-    if (inputType === "jauho") {
-      flour = grams;
-      water = h * flour;
+    if (inputType === 'jauho') {
+      jauho = grams;
+      vesi = h * jauho;
     } else {
-      water = grams;
-      flour = water / h;
+      vesi = grams;
+      jauho = vesi / h;
     }
 
-    salt = flour * s;
-    starter = flour * 0.2;
-    if (mode === "pizza") oil = flour * o;
+    suola = jauho * s;
+    juuri = jauho * 0.2;
 
-    const ingredients = {
-      water: water.toFixed(1),
-      salt: salt.toFixed(1),
-      starter: starter.toFixed(1),
-      oil: oil.toFixed(1),
-      total: (flour + water + salt + starter + oil).toFixed(1),
-      flourTypes: {},
-    };
-
-    if (mode === "pizza") {
-      ingredients.flourTypes = {
-        "00-jauho": (flour * (1000 / 1070)).toFixed(1),
-        "puolikarkea": (flour * (70 / 1070)).toFixed(1),
-      };
-    } else {
-      const rye = includeRye ? flour * 0.2 : 0;
-      const white = flour - rye;
-      ingredients.flourTypes = {
-        "puolikarkea": (white * (500 / 620)).toFixed(1),
-        "täysjyvä": (white * (120 / 620)).toFixed(1),
-      };
-      if (includeRye) ingredients.flourTypes["ruisjauho"] = rye.toFixed(1);
-      if (includeSeeds) ingredients.seeds = (flour * 0.15).toFixed(1);
+    if (mode === 'pizza' && useOil) {
+      öljy = jauho * 0.03;
     }
 
-    return ingredients;
+    if (useSeeds && mode === 'leipa') {
+      siemenet = jauho * 0.15;
+    }
+
+    const jauhotyypit = mode === 'pizza'
+      ? {
+          '00-jauho': jauho * (1000 / 1070),
+          'puolikarkea': jauho * (70 / 1070),
+        }
+      : useRye
+      ? {
+          'puolikarkea': jauho * 0.8,
+          'ruisjauho': jauho * 0.2,
+        }
+      : {
+          'puolikarkea': jauho * (500 / 620),
+          'täysjyvä': jauho * (120 / 620),
+        };
+
+    const yhteensa = jauho + vesi + suola + juuri + öljy + siemenet;
+
+    return { jauho, vesi, suola, juuri, öljy, siemenet, yhteensa, jauhotyypit };
   };
 
-  const ingredients = calculate();
+  const result = calculate();
 
-  const steps = [
-    "Sekoita jauhot ja vesi, anna levätä 30 min.",
-    "Lisää juuri ja sekoita taikinaksi.",
-    "Taita taikinaa (30min, 30min, 45min, 60min).",
-    includeSeeds ? "Lisää siemenet ennen viimeistä taittoa." : null,
-    coldFermentation
-      ? "Muotoile, laita kylmään yön yli, paista 230°C."
-      : "Muotoile, kohota ja paista 230°C.",
-  ].filter(Boolean);
+  const foldSchedule = ['30min', '30min', '45min', '60min'];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-yellow-100 p-4 flex justify-center">
-      <div className="bg-white max-w-xl w-full rounded-xl shadow-lg p-6 space-y-5 border border-yellow-200">
-        <h1 className="text-2xl font-bold text-yellow-700 text-center">🥖 Taikinakalkulaattori</h1>
+    <div className="app">
+      <div className="calculator">
+        <h1>🥖 Taikinakalkulaattori</h1>
 
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-sm">Tyyppi</span>
-            <select value={mode} onChange={e => setMode(e.target.value)} className="w-full p-2 border rounded">
+        <div className="controls">
+          <div className="row">
+            <label>Tyyppi:</label>
+            <select value={mode} onChange={e => setMode(e.target.value)}>
               <option value="leipa">Leipä</option>
               <option value="pizza">Pizza</option>
             </select>
-          </label>
+          </div>
 
           <input
             type="number"
+            min="0"
             value={inputGrams}
             onChange={e => setInputGrams(e.target.value)}
             placeholder="Syötä määrä grammoina"
-            className="w-full p-3 border rounded"
           />
 
           <select
             value={inputType}
             onChange={e => setInputType(e.target.value)}
-            className="w-full p-2 border rounded"
           >
             <option value="jauho">Tämä on jauhojen määrä</option>
             <option value="vesi">Tämä on veden määrä</option>
           </select>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label>
-              <span className="text-sm">Hydraatio (%)</span>
-              <input
-                type="number"
-                min="55"
-                value={hydration}
-                onChange={e => setHydration(e.target.value)}
-                className="w-full p-2 border rounded"
-              />
-            </label>
-
-            <label>
-              <span className="text-sm">Suola (%)</span>
-              <input
-                type="number"
-                value={saltPct}
-                onChange={e => setSaltPct(e.target.value)}
-                className="w-full p-2 border rounded"
-              />
-            </label>
+          <div className="row">
+            <label>Hydraatio (%)</label>
+            <input
+              type="number"
+              min={55}
+              value={hydration}
+              onChange={e => setHydration(Math.max(55, parseFloat(e.target.value)))}
+            />
           </div>
 
-          {mode === "pizza" && (
-            <label>
-              <span className="text-sm">Öljy (%)</span>
-              <input
-                type="number"
-                value={oilPct}
-                onChange={e => setOilPct(e.target.value)}
-                className="w-full p-2 border rounded"
-              />
-            </label>
+          <div className="row">
+            <label>Suola (%)</label>
+            <input
+              type="number"
+              value={saltPct}
+              onChange={e => setSaltPct(parseFloat(e.target.value))}
+            />
+          </div>
+
+          {mode === 'pizza' && (
+            <div className="row">
+              <label>Lisätäänkö öljyä? (3%)</label>
+              <input type="checkbox" checked={useOil} onChange={e => setUseOil(e.target.checked)} />
+            </div>
           )}
 
-          {mode === "leipa" && (
+          {mode === 'leipa' && (
             <>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={includeRye} onChange={() => setIncludeRye(!includeRye)} />
-                Lisää ruisjauhoa (20 %)
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={includeSeeds} onChange={() => setIncludeSeeds(!includeSeeds)} />
-                Lisää siemeniä (15 %)
-              </label>
+              <div className="row">
+                <label>Käytetäänkö ruisjauhoa? (20%)</label>
+                <input type="checkbox" checked={useRye} onChange={e => setUseRye(e.target.checked)} />
+              </div>
+              <div className="row">
+                <label>Lisätäänkö siemeniä? (15%)</label>
+                <input type="checkbox" checked={useSeeds} onChange={e => setUseSeeds(e.target.checked)} />
+              </div>
             </>
           )}
 
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={coldFermentation} onChange={() => setColdFermentation(!coldFermentation)} />
-            Kylmäkohotus
-          </label>
+          <div className="row">
+            <label>Kylmäfermentointi?</label>
+            <input type="checkbox" checked={coldFerment} onChange={e => setColdFerment(e.target.checked)} />
+          </div>
 
-          <button
-            onClick={() => setShowRecipe(!showRecipe)}
-            className="w-full bg-yellow-500 text-white py-2 rounded hover:bg-yellow-600"
-          >
-            {showRecipe ? "Piilota resepti" : "Näytä resepti"}
+          <button onClick={() => setShowRecipe(!showRecipe)}>
+            {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
           </button>
+
+          <button onClick={resetAll} className="secondary">Tyhjennä</button>
         </div>
 
-        <div className="bg-yellow-50 p-4 rounded border border-yellow-200">
-          <h2 className="font-bold text-yellow-700 mb-2">Ainesosat</h2>
-          <ul className="space-y-1 text-sm">
-            <li>Vesi: {ingredients.water} g</li>
-            <li>Suola: {ingredients.salt} g</li>
-            <li>Juuri: {ingredients.starter} g</li>
-            {mode === "pizza" && <li>Öljy: {ingredients.oil} g</li>}
-            {ingredients.seeds && <li>Siemenet: {ingredients.seeds} g</li>}
-            <li>Yhteensä: {ingredients.total} g</li>
-          </ul>
-          <h3 className="mt-3 font-medium">Jauhotyypit:</h3>
-          <ul className="text-sm">
-            {Object.entries(ingredients.flourTypes || {}).map(([type, amount]) => (
-              <li key={type}>{type}: {amount} g</li>
-            ))}
-          </ul>
-        </div>
+        {result && result.jauho && (
+          <div className="results">
+            <h2>🍞 Ainesosien määrät:</h2>
+            <ul>
+              <li><strong>Vesi:</strong> {result.vesi.toFixed(1)} g</li>
+              <li><strong>Suola:</strong> {result.suola.toFixed(1)} g</li>
+              <li><strong>Juuri:</strong> {result.juuri.toFixed(1)} g</li>
+              {mode === 'pizza' && useOil && <li><strong>Öljy:</strong> {result.öljy.toFixed(1)} g</li>}
+              {mode === 'leipa' && useSeeds && <li><strong>Siemenet:</strong> {result.siemenet.toFixed(1)} g</li>}
+              <li><strong>Yhteensä:</strong> {result.yhteensa.toFixed(1)} g</li>
+            </ul>
 
-        {showRecipe && (
-          <div className="p-4 bg-white border border-yellow-300 rounded space-y-3">
-            <h2 className="text-lg font-semibold text-yellow-700">📋 Resepti</h2>
-            {steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-3">
-                {i === 2 ? (
-                  <>
-                    <span>{step}</span>
-                    {[1, 2, 3, 4].map(n => (
-                      <input
-                        key={n}
-                        type="checkbox"
-                        checked={foldsDone >= n}
-                        onChange={() =>
-                          setFoldsDone(prev => (prev === n ? n - 1 : Math.max(n, prev)))
-                        }
-                      />
-                    ))}
-                  </>
-                ) : (
-                  <span>{step}</span>
-                )}
-              </div>
-            ))}
+            <h3>Jauhotyypit:</h3>
+            <ul>
+              {Object.entries(result.jauhotyypit).map(([key, val]) => (
+                <li key={key}>{key}: {val.toFixed(1)} g</li>
+              ))}
+            </ul>
           </div>
         )}
+
+        <div className={`recipe ${showRecipe ? 'open' : ''}`}>
+          {showRecipe && (
+            <>
+              <h2>📋 Resepti</h2>
+              <p>1. Sekoita jauhot ja vesi, anna levätä 30 min.</p>
+              <p>2. Lisää juuri ja sekoita tasaiseksi.</p>
+              <p>3. Tee taittelut:</p>
+              <div className="folds">
+                {foldSchedule.map((label, idx) => (
+                  <label key={idx}>
+                    <input
+                      type="checkbox"
+                      checked={foldsDone > idx}
+                      onChange={() => setFoldsDone(prev => (prev > idx ? idx : idx + 1))}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {useSeeds && <p>4. Lisää siemenet ennen viimeistä taittelua.</p>}
+              <p>{coldFerment
+                ? '5. Nosta jääkaappiin yön yli ja paista 230 °C.'
+                : '5. Kohota ja paista 230 °C.'}
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
