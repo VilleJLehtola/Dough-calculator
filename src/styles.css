@@ -1,90 +1,76 @@
-:root {
-  --bg-light: #faf9f6;
-  --card-bg: #ffffff;
-  --accent: #fbbf24;
-  --accent-dark: #d97706;
-  --border-light: #e5e7eb;
-  --text-dark: #1f2937;
-}
-
+/* styles.css */
 body {
+  background-color: #f5f6f8;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
-  font-family: "Inter", sans-serif;
-  background: var(--bg-light);
-  color: var(--text-dark);
+  padding: 0;
 }
 
 .container {
-  max-width: 480px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
 }
 
 .card {
-  background: var(--card-bg);
-  padding: 1.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  margin-bottom: 1.5rem;
-}
-
-input, select {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--border-light);
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  margin-top: 0.5rem;
+  max-width: 420px;
+  text-align: center;
 }
 
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--accent-dark);
-  box-shadow: 0 0 0 2px rgba(251,191,36,0.2);
-}
-
-button {
-  width: 100%;
-  padding: 0.75rem;
+button.mode {
   border: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 9999px;
+  margin: 0.25rem;
   cursor: pointer;
-  transition: background 0.2s;
-  margin-top: 0.5rem;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
 }
 
-.btn-primary {
-  background: var(--accent);
+button.active {
+  background-color: #22c55e;
   color: white;
 }
 
-.btn-primary:hover {
-  background: var(--accent-dark);
+button.inactive {
+  background-color: #e5e7eb;
+  color: #374151;
 }
 
-.btn-secondary {
-  background: var(--border-light);
-  color: var(--text-dark);
+input {
+  width: 100%;
+  padding: 0.75rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease;
 }
 
-.btn-secondary:hover {
-  background: #d1d5db;
+input:focus {
+  border-color: #60a5fa;
 }
 
-.result {
-  border-left: 4px solid var(--accent);
-  padding-left: 1rem;
+.output {
+  margin-top: 1.5rem;
+  font-size: 1.1rem;
 }
 
-.checklist li {
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.75rem;
+.output span {
+  font-weight: bold;
 }
 
-.checklist input[type="checkbox"] {
-  margin-right: 0.5rem;
-  width: 1.25rem;
-  height: 1.25rem;
+.subtext {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
 }
