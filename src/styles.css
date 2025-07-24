@@ -1,0 +1,85 @@
+:root {
+  --primary: #d97706;
+  --secondary: #fef3c7;
+  --card-bg: #ffffff;
+  --card-shadow: rgba(0,0,0,0.06);
+  --border-color: #f3e8ff;
+}
+
+body {
+  background: var(--secondary);
+  font-family: "Inter", sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #374151;
+}
+
+.container {
+  max-width: 480px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 10px var(--card-shadow);
+  margin-bottom: 1.5rem;
+}
+
+input, select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--border-color);
+  border-radius: 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 1rem;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(217,119,6,0.2);
+}
+
+button {
+  cursor: pointer;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #b45309;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.result {
+  background: var(--secondary);
+  border-left: 4px solid var(--primary);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.checklist input[type="checkbox"] {
+  margin-right: 0.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
+}
