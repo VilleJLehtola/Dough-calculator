@@ -75,7 +75,7 @@ export default function App() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-200 p-4 transition-all">
       <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-blue-200 space-y-6 transition-all duration-500">
-        <h1 className="text-2xl font-bold text-center text-blue-700">🥖 Taikinakalkulaattori</h1>
+        <h1 className="text-2xl font-bold text-center text-blue-700">🥖 Taikinalaskin</h1>
 
         <div className="flex justify-center gap-4">
           <button
