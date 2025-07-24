@@ -1,20 +1,21 @@
-import React, { useState } from "react";
+import React, { useState } from 'react';
+import './styles.css';
 
-export default function Taikinakalkulaattori() {
-  const [inputGrams, setInputGrams] = useState("");
-  const [inputType, setInputType] = useState("jauho");
+export default function App() {
+  const [inputGrams, setInputGrams] = useState('');
+  const [inputType, setInputType] = useState('jauho');
   const [hydration, setHydration] = useState(75);
   const [saltPct, setSaltPct] = useState(2);
-  const [mode, setMode] = useState("leipa"); // 'pizza' or 'leipa'
+  const [mode, setMode] = useState('leipa');
   const [showRecipe, setShowRecipe] = useState(false);
   const [foldsDone, setFoldsDone] = useState(0);
 
   const resetAll = () => {
-    setInputGrams("");
-    setInputType("jauho");
+    setInputGrams('');
+    setInputType('jauho');
     setHydration(75);
     setSaltPct(2);
-    setMode("leipa");
+    setMode('leipa');
     setShowRecipe(false);
     setFoldsDone(0);
   };
@@ -35,9 +36,8 @@ export default function Taikinakalkulaattori() {
     const h = hydration / 100;
     const s = saltPct / 100;
 
-    let jauho, vesi, suola, juuri;
-
-    if (inputType === "jauho") {
+    let jauho, vesi;
+    if (inputType === 'jauho') {
       jauho = grams;
       vesi = h * jauho;
     } else {
@@ -45,14 +45,14 @@ export default function Taikinakalkulaattori() {
       jauho = vesi / h;
     }
 
-    suola = jauho * s;
-    juuri = jauho * 0.2;
+    const suola = jauho * s;
+    const juuri = jauho * 0.2;
     const yhteensa = jauho + vesi + suola + juuri;
 
     const jauhotyypit =
-      mode === "pizza"
+      mode === 'pizza'
         ? {
-            "00-jauho": jauho * (1000 / 1070),
+            '00-jauho': jauho * (1000 / 1070),
             puolikarkea: jauho * (70 / 1070),
           }
         : {
@@ -66,15 +66,27 @@ export default function Taikinakalkulaattori() {
   const result = calculate();
 
   const reseptiSteps = [
-    { id: 1, text: "Sekoita jauhot ja vesi, anna levätä 30 minuuttia." },
-    { id: 2, text: "Lisää juuri ja sekoita tasaiseksi taikinaksi." },
-    { id: 3, text: "Taita taikinaa 4 kertaa 30 min välein." },
-    { id: 4, text: "Muotoile, kohota yön yli ja paista uunissa 230 °C." },
+    {
+      id: 1,
+      text: 'Sekoita jauhot ja vesi, anna levätä 30 minuuttia.',
+    },
+    {
+      id: 2,
+      text: 'Lisää juuri ja sekoita tasaiseksi taikinaksi.',
+    },
+    {
+      id: 3,
+      text: 'Taita taikinaa 4 kertaa 30 min välein.',
+    },
+    {
+      id: 4,
+      text: 'Muotoile, kohota yön yli ja paista uunissa 230 °C.',
+    },
   ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-100 via-white to-yellow-200 p-4">
-      <div className="bg-white p-6 rounded-2xl shadow-xl max-w-xl w-full space-y-6 border border-yellow-200">
+    <div className="container">
+      <div className="card">
         <h1 className="text-2xl font-bold text-center text-yellow-800">
           🥖 Taikinakalkulaattori
         </h1>
@@ -120,7 +132,9 @@ export default function Taikinakalkulaattori() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium">Suolan määrä (%)</label>
+              <label className="block text-sm font-medium">
+                Suolan määrä (%)
+              </label>
               <input
                 type="number"
                 value={saltPct}
@@ -131,38 +145,24 @@ export default function Taikinakalkulaattori() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <button
-              onClick={() => setShowRecipe(!showRecipe)}
-              className="w-full bg-yellow-600 text-white py-2 rounded-lg hover:bg-yellow-700 transition"
-            >
-              {showRecipe ? "Piilota resepti" : "Näytä resepti"}
+            <button onClick={() => setShowRecipe(!showRecipe)} className="btn-primary">
+              {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
             </button>
-            <button
-              onClick={resetAll}
-              className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
-            >
+            <button onClick={resetAll} className="btn-secondary">
               Tyhjennä kaikki
             </button>
           </div>
         </div>
 
-        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+        <div className="card result">
           <h2 className="text-lg font-semibold text-yellow-700 mb-2">
             🍞 Ainesosien määrät:
           </h2>
           <ul className="text-gray-800 space-y-1">
-            <li>
-              <strong>Vesi:</strong> {result.vesi.toFixed(1)} g
-            </li>
-            <li>
-              <strong>Suola:</strong> {result.suola.toFixed(1)} g
-            </li>
-            <li>
-              <strong>Juuri:</strong> {result.juuri.toFixed(1)} g
-            </li>
-            <li>
-              <strong>Yhteensä:</strong> {result.yhteensa.toFixed(1)} g
-            </li>
+            <li><strong>Vesi:</strong> {result.vesi.toFixed(1)} g</li>
+            <li><strong>Suola:</strong> {result.suola.toFixed(1)} g</li>
+            <li><strong>Juuri:</strong> {result.juuri.toFixed(1)} g</li>
+            <li><strong>Yhteensä:</strong> {result.yhteensa.toFixed(1)} g</li>
           </ul>
           <h3 className="mt-3 font-semibold">Jauhotyypit:</h3>
           <ul>
@@ -175,7 +175,7 @@ export default function Taikinakalkulaattori() {
         </div>
 
         {showRecipe && (
-          <div className="bg-white p-4 border border-yellow-300 rounded-lg space-y-4">
+          <div className="card checklist">
             <h2 className="text-lg font-bold text-yellow-700">📋 Resepti</h2>
             {reseptiSteps.map((step) => (
               <div key={step.id} className="space-y-2">
@@ -190,9 +190,7 @@ export default function Taikinakalkulaattori() {
                             type="checkbox"
                             checked={foldsDone >= n}
                             onChange={() =>
-                              setFoldsDone((prev) =>
-                                prev === n ? n - 1 : Math.max(n, prev)
-                              )
+                              setFoldsDone((prev) => (prev === n ? n - 1 : Math.max(n, prev)))
                             }
                           />
                         ))}
