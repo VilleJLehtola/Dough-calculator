@@ -1,5 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 import "./index.css";
+
+const supabase = createClient(
+  "https://<your-supabase-url>.supabase.co",
+  "<your-anon-key>"
+);
 
 export default function App() {
   const [inputGrams, setInputGrams] = useState("");
@@ -7,15 +13,42 @@ export default function App() {
   const [hydration, setHydration] = useState(75);
   const [saltPct, setSaltPct] = useState(2);
   const [mode, setMode] = useState("leipa");
-  const [showRecipe, setShowRecipe] = useState(false);
-  const [foldsDone, setFoldsDone] = useState(0);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
   const [coldFerment, setColdFerment] = useState(false);
-  const [oilPct, setOilPct] = useState(3);
-  const [showLogin, setShowLogin] = useState(false);
+  const [useOil, setUseOil] = useState(false);
+  const [showRecipe, setShowRecipe] = useState(false);
+  const [foldsDone, setFoldsDone] = useState(0);
+  const [expanded, setExpanded] = useState(false);
 
-  const [loginForm, setLoginForm] = useState({ email: "", password: "" });
+  const [authView, setAuthView] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState("");
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) setUser(data.user);
+    });
+  }, []);
+
+  const handleAuth = async () => {
+    setAuthError("");
+    if (authView === "login") {
+      const { error, data } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setAuthError(error.message);
+      else setUser(data.user);
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) setAuthError(error.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   const resetAll = () => {
     setInputGrams("");
@@ -23,51 +56,32 @@ export default function App() {
     setHydration(75);
     setSaltPct(2);
     setMode("leipa");
-    setShowRecipe(false);
-    setFoldsDone(0);
     setUseRye(false);
     setUseSeeds(false);
     setColdFerment(false);
-    setOilPct(3);
+    setUseOil(false);
+    setShowRecipe(false);
+    setFoldsDone(0);
   };
 
   const calculate = () => {
     const grams = parseFloat(inputGrams);
-    if (isNaN(grams) || grams <= 0) {
-      return {
-        jauho: 0,
-        vesi: 0,
-        suola: 0,
-        juuri: 0,
-        oljy: 0,
-        yhteensa: 0,
-        jauhotyypit: {},
-        seeds: 0,
-      };
-    }
+    if (isNaN(grams) || grams <= 0) return {};
 
     const h = hydration / 100;
     const s = saltPct / 100;
-    const oil = oilPct / 100;
+    const oil = useOil && mode === "pizza" ? 0.03 : 0;
 
-    let jauho, vesi;
+    let jauho = inputType === "jauho" ? grams : grams / h;
+    let vesi = h * jauho;
+    let suola = jauho * s;
+    let juuri = jauho * 0.2;
+    let oljy = jauho * oil;
+    let siemenet = useSeeds ? jauho * 0.15 : 0;
 
-    if (inputType === "jauho") {
-      jauho = grams;
-      vesi = h * jauho;
-    } else {
-      vesi = grams;
-      jauho = vesi / h;
-    }
+    let yhteensa = jauho + vesi + suola + juuri + oljy + siemenet;
 
-    const suola = jauho * s;
-    const juuri = jauho * 0.2;
-    const oljy = mode === "pizza" ? jauho * oil : 0;
-    const seeds = useSeeds ? jauho * 0.15 : 0;
-
-    const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
-
-    let jauhotyypit = {};
+    let jauhotyypit;
     if (mode === "pizza") {
       jauhotyypit = {
         "00-jauho": jauho * (1000 / 1070),
@@ -76,7 +90,7 @@ export default function App() {
     } else if (useRye) {
       jauhotyypit = {
         puolikarkea: jauho * 0.8,
-        ruis: jauho * 0.2,
+        ruisjauho: jauho * 0.2,
       };
     } else {
       jauhotyypit = {
@@ -85,242 +99,222 @@ export default function App() {
       };
     }
 
-    return { jauho, vesi, suola, juuri, oljy, yhteensa, jauhotyypit, seeds };
+    return { jauho, vesi, suola, juuri, oljy, yhteensa, jauhotyypit, siemenet };
   };
 
   const result = calculate();
 
-  const foldTimes = [30, 30, 45, 60];
   const reseptiSteps = [
-    {
-      id: 1,
-      text: "Sekoita jauhot ja vesi, anna levätä 30 minuuttia.",
-    },
-    {
-      id: 2,
-      text: "Lisää juuri ja suola, sekoita tasaiseksi taikinaksi.",
-    },
-    {
-      id: 3,
-      text: `Taita taikinaa ${foldTimes.length} kertaa: ${foldTimes.join("min, ")}min välein.`,
-    },
-    useSeeds && {
-      id: 4,
-      text: "Lisää siemenet ennen viimeistä taittoa.",
-    },
-    coldFerment && {
-      id: 5,
-      text: "Kohota taikinaa jääkaapissa yön yli.",
-    },
-    {
-      id: 6,
-      text: "Muotoile ja paista uunissa 230 °C.",
-    },
-  ].filter(Boolean);
+    "Sekoita jauhot ja vesi, anna levätä 30 minuuttia.",
+    "Lisää juuri ja sekoita tasaiseksi taikinaksi.",
+    "Taita taikinaa 4 kertaa 30/30/45/60 min välein.",
+    ...(useSeeds ? ["Lisää siemenet ennen viimeistä taittoa."] : []),
+    coldFerment
+      ? "Muotoile ja nosta kylmäkohotukseen jääkaappiin yön yli."
+      : "Muotoile, kohota huoneenlämmössä ja paista uunissa 230 °C.",
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center p-4">
-      <div className="absolute top-4 right-6">
-        <button
-          onClick={() => setShowLogin(prev => !prev)}
-          className="text-blue-800 hover:underline"
-        >
-          {showLogin ? "Sulje" : "Kirjaudu"}
-        </button>
-        {showLogin && (
-          <div className="bg-white p-4 rounded shadow-md mt-2 w-64 border border-blue-200">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex flex-col items-center p-6">
+      <div className="w-full max-w-3xl bg-white shadow-xl rounded-2xl p-6 transition-all duration-300 border border-blue-200">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-blue-700">🥖 Taikinalaskin</h1>
+          {user ? (
+            <button onClick={handleLogout} className="text-sm text-red-500">
+              Kirjaudu ulos
+            </button>
+          ) : (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="text-sm text-blue-600 underline"
+            >
+              {expanded ? "Sulje" : "Kirjaudu"}
+            </button>
+          )}
+        </div>
+
+        {expanded && !user && (
+          <div className="bg-blue-50 p-4 rounded mb-4">
+            <h2 className="text-lg font-semibold mb-2">
+              {authView === "login" ? "Kirjaudu sisään" : "Rekisteröidy"}
+            </h2>
             <input
               type="email"
               placeholder="Sähköposti"
-              className="w-full p-2 mb-2 border rounded"
-              value={loginForm.email}
-              onChange={e =>
-                setLoginForm({ ...loginForm, email: e.target.value })
-              }
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-2 border mb-2 rounded"
             />
             <input
               type="password"
               placeholder="Salasana"
-              className="w-full p-2 mb-2 border rounded"
-              value={loginForm.password}
-              onChange={e =>
-                setLoginForm({ ...loginForm, password: e.target.value })
-              }
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 border mb-2 rounded"
             />
-            <button className="bg-blue-600 text-white py-2 px-4 rounded w-full">
-              Kirjaudu
+            {authError && <p className="text-red-500 text-sm">{authError}</p>}
+            <button
+              onClick={handleAuth}
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            >
+              {authView === "login" ? "Kirjaudu" : "Rekisteröidy"}
+            </button>
+            <button
+              onClick={() => setAuthView(authView === "login" ? "register" : "login")}
+              className="w-full mt-2 text-sm text-blue-500"
+            >
+              {authView === "login" ? "Luo uusi tili" : "Takaisin kirjautumiseen"}
             </button>
           </div>
         )}
-      </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow-xl max-w-xl w-full space-y-6 border border-blue-200 transition-all duration-500">
-        <h1 className="text-2xl font-bold text-center text-blue-800">
-          🥖 Taikinalaskin
-        </h1>
-
-        {/* Mode and Input */}
-        <div className="flex justify-center gap-4">
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <button
-            className={`px-4 py-2 rounded-full border ${
-              mode === "leipa" ? "bg-blue-500 text-white" : "bg-gray-100"
-            }`}
             onClick={() => setMode("leipa")}
+            className={`p-2 rounded ${
+              mode === "leipa" ? "bg-blue-600 text-white" : "bg-blue-100"
+            }`}
           >
             Leipä
           </button>
           <button
-            className={`px-4 py-2 rounded-full border ${
-              mode === "pizza" ? "bg-blue-500 text-white" : "bg-gray-100"
-            }`}
             onClick={() => setMode("pizza")}
+            className={`p-2 rounded ${
+              mode === "pizza" ? "bg-blue-600 text-white" : "bg-blue-100"
+            }`}
           >
             Pizza
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <input
-            type="number"
-            min={0}
-            value={inputGrams}
-            onChange={e => setInputGrams(e.target.value)}
-            placeholder="Määrä (g)"
-            className="w-full p-2 border rounded col-span-2"
-          />
+        <input
+          type="number"
+          placeholder="Syötä määrä grammoina"
+          value={inputGrams}
+          onChange={(e) => setInputGrams(e.target.value)}
+          className="w-full p-3 border mb-2 rounded"
+        />
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
           <button
             onClick={() => setInputType("jauho")}
             className={`p-2 rounded ${
-              inputType === "jauho" ? "bg-blue-500 text-white" : "bg-gray-100"
+              inputType === "jauho" ? "bg-blue-600 text-white" : "bg-blue-100"
             }`}
           >
-            Jauho
+            Määrä on jauhoja
           </button>
           <button
             onClick={() => setInputType("vesi")}
             className={`p-2 rounded ${
-              inputType === "vesi" ? "bg-blue-500 text-white" : "bg-gray-100"
+              inputType === "vesi" ? "bg-blue-600 text-white" : "bg-blue-100"
             }`}
           >
-            Vesi
+            Määrä on vettä
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label>Hydraatio (%)</label>
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <label className="text-sm">
+            Hydraatio (%)
             <input
               type="number"
               min={55}
               value={hydration}
-              onChange={e => setHydration(e.target.value)}
-              className="w-full p-2 border rounded"
+              onChange={(e) => setHydration(e.target.value)}
+              className="w-full mt-1 p-2 border rounded"
             />
-          </div>
-          <div>
-            <label>Suola (%)</label>
+          </label>
+          <label className="text-sm">
+            Suola (%)
             <input
               type="number"
               value={saltPct}
-              onChange={e => setSaltPct(e.target.value)}
-              className="w-full p-2 border rounded"
+              onChange={(e) => setSaltPct(e.target.value)}
+              className="w-full mt-1 p-2 border rounded"
             />
-          </div>
+          </label>
         </div>
 
-        {mode === "pizza" && (
-          <div>
-            <label>Öljy (%)</label>
+        <div className="space-y-2 mb-4">
+          {mode === "pizza" && (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={useOil} onChange={() => setUseOil(!useOil)} />
+              Lisää öljyä taikinaan
+            </label>
+          )}
+          {mode === "leipa" && (
+            <>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={useRye} onChange={() => setUseRye(!useRye)} />
+                Käytä ruisjauhoja
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={useSeeds} onChange={() => setUseSeeds(!useSeeds)} />
+                Lisää siemeniä (15%)
+              </label>
+            </>
+          )}
+          <label className="flex items-center gap-2">
             <input
-              type="number"
-              value={oilPct}
-              onChange={e => setOilPct(e.target.value)}
-              className="w-full p-2 border rounded"
+              type="checkbox"
+              checked={coldFerment}
+              onChange={() => setColdFerment(!coldFerment)}
             />
-          </div>
-        )}
-
-        {mode === "leipa" && (
-          <>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={useRye}
-                onChange={e => setUseRye(e.target.checked)}
-              />
-              Käytä ruisjauhoja (20 %)
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={useSeeds}
-                onChange={e => setUseSeeds(e.target.checked)}
-              />
-              Lisää siemeniä (15 %)
-            </label>
-          </>
-        )}
-
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={coldFerment}
-            onChange={e => setColdFerment(e.target.checked)}
-          />
-          Kylmäkohotus (yön yli)
-        </label>
+            Kylmäkohotus
+          </label>
+        </div>
 
         <button
-          onClick={() => setShowRecipe(prev => !prev)}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          onClick={() => setShowRecipe(!showRecipe)}
+          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
         >
           {showRecipe ? "Piilota resepti" : "Näytä resepti"}
         </button>
 
-        {/* Results */}
-        <div className="bg-blue-50 p-4 rounded border border-blue-200">
-          <h2 className="font-bold mb-2">Ainesosat</h2>
-          <ul className="space-y-1 text-gray-800">
-            <li>Vesi: {result.vesi.toFixed(1)} g</li>
-            <li>Suola: {result.suola.toFixed(1)} g</li>
-            <li>Juuri: {result.juuri.toFixed(1)} g</li>
-            {mode === "pizza" && <li>Öljy: {result.oljyu?.toFixed(1)} g</li>}
-            {useSeeds && <li>Siemenet: {result.seeds.toFixed(1)} g</li>}
-            <li>Yhteensä: {result.yhteensa.toFixed(1)} g</li>
-          </ul>
-          <h3 className="mt-2 font-semibold">Jauhot:</h3>
-          <ul>
-            {Object.entries(result.jauhotyypit).map(([key, val]) => (
-              <li key={key}>
-                {key}: {val.toFixed(1)} g
-              </li>
-            ))}
-          </ul>
-        </div>
+        {result?.yhteensa > 0 && (
+          <div className="mt-4 p-4 bg-blue-50 border rounded">
+            <h2 className="font-bold mb-2">Ainesosat</h2>
+            <ul className="text-sm space-y-1">
+              <li>Vesi: {result.vesi.toFixed(1)} g</li>
+              <li>Suola: {result.suola.toFixed(1)} g</li>
+              <li>Juuri: {result.juuri.toFixed(1)} g</li>
+              {useOil && <li>Öljy: {result.olj?.toFixed(1)} g</li>}
+              {useSeeds && <li>Siemenet: {result.siemenet.toFixed(1)} g</li>}
+              <li>Yhteensä: {result.yhteensa.toFixed(1)} g</li>
+            </ul>
+            <h3 className="font-semibold mt-2">Jauhot:</h3>
+            <ul>
+              {Object.entries(result.jauhotyypit).map(([type, val]) => (
+                <li key={type}>
+                  {type}: {val.toFixed(1)} g
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-        {/* Recipe */}
         {showRecipe && (
-          <div className="bg-white p-4 border border-blue-300 rounded-lg space-y-3 animate-fade-in">
+          <div className="mt-4 p-4 bg-white border rounded space-y-3 animate-fade-in">
             <h2 className="font-bold text-blue-700">📋 Resepti</h2>
-            {reseptiSteps.map((step, idx) => (
-              <div key={idx} className="flex gap-2 items-start">
-                <span>{idx + 1}.</span>
-                <span>{step.text}</span>
-                {step.id === 3 && (
-                  <div className="flex gap-1">
-                    {[1, 2, 3, 4].map(n => (
+            {reseptiSteps.map((step, i) => (
+              <div key={i} className="text-sm flex items-center gap-2">
+                {i === 2 ? (
+                  <>
+                    <span>{step}</span>
+                    {[1, 2, 3, 4].map((n) => (
                       <input
                         key={n}
                         type="checkbox"
                         checked={foldsDone >= n}
                         onChange={() =>
-                          setFoldsDone(prev =>
-                            prev === n ? n - 1 : Math.max(n, prev)
-                          )
+                          setFoldsDone((prev) => (prev === n ? n - 1 : Math.max(n, prev)))
                         }
                       />
                     ))}
-                  </div>
+                  </>
+                ) : (
+                  <span>{step}</span>
                 )}
               </div>
             ))}
