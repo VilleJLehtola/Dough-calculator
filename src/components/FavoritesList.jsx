@@ -1,51 +1,50 @@
 // src/components/FavoritesList.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../supabaseClient';
 
-export default function FavoritesList({ favorites, onLoadFavorite, onDeleteFavorite }) {
-  if (!favorites || favorites.length === 0) {
-    return (
-      <div className="bg-white border border-blue-200 p-4 rounded-lg text-center">
-        <p className="text-gray-600">Ei tallennettuja suosikkeja.</p>
-      </div>
-    );
-  }
+export default function FavoritesList({ user, setActiveView }) {
+  const [favorites, setFavorites] = useState([]);
+
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (!error) setFavorites(data);
+    };
+
+    if (user) fetchFavorites();
+  }, [user]);
 
   return (
-    <div className="bg-white border border-blue-200 p-4 rounded-lg space-y-3">
-      <h2 className="text-lg font-semibold text-blue-700">⭐ Suosikit</h2>
-      {favorites.map((fav, index) => (
-        <div
-          key={index}
-          className="border border-blue-100 rounded p-3 bg-blue-50 flex justify-between items-center"
-        >
-          <div className="text-sm text-gray-800">
-            <p>
-              <strong>{fav.mode === 'pizza' ? '🍕 Pizza' : '🍞 Leipä'}</strong> – {fav.inputGrams} g {fav.inputType === 'jauho' ? 'jauhoa' : 'vettä'}
-            </p>
-            <p>
-              Hydraatio: {fav.hydration}% | Suola: {fav.saltPct}%
-              {fav.useOil && ' | Öljy mukana'}
-              {fav.coldFermentation && ' | Kylmäkohotus'}
-              {fav.useRye && ' | Ruisjauho'}
-              {fav.useSeeds && ' | Siemenet'}
-            </p>
+    <div className="space-y-4">
+      <h2 className="text-xl font-bold text-blue-800">Suosikit</h2>
+      {favorites.length === 0 ? (
+        <p>Ei tallennettuja suosikkeja.</p>
+      ) : (
+        favorites.map((fav, idx) => (
+          <div
+            key={idx}
+            className="p-4 border rounded-lg bg-white shadow-sm space-y-1"
+          >
+            <h3 className="font-semibold">{fav.name}</h3>
+            <p>Jauhot: {fav.flour}g</p>
+            <p>Hydraatio: {fav.hydration}%</p>
+            <p>Suola: {fav.salt}%</p>
+            <p>Tyyppi: {fav.mode}</p>
+            <p>Ruis: {fav.useRye ? 'Kyllä' : 'Ei'}, Siemenet: {fav.useSeeds ? 'Kyllä' : 'Ei'}</p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onLoadFavorite(fav)}
-              className="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Lataa
-            </button>
-            <button
-              onClick={() => onDeleteFavorite(fav.id)}
-              className="text-sm px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-            >
-              Poista
-            </button>
-          </div>
-        </div>
-      ))}
+        ))
+      )}
+
+      <button
+        onClick={() => setActiveView('calculator')}
+        className="text-sm text-blue-600 underline hover:text-blue-800"
+      >
+        Takaisin laskimeen
+      </button>
     </div>
   );
 }
