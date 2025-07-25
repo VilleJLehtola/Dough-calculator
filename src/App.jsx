@@ -134,50 +134,44 @@ export default function App() {
         />
 
         {!user && <AuthForm />}
-        {user && activeView === 'favorites' && (
-          <FavoritesList user={user} setActiveView={setActiveView} />
-        )}
-        {activeView === 'calculator' && (
-          <>
-            <CalculatorForm
-              inputGrams={inputGrams}
-              setInputGrams={setInputGrams}
-              inputType={inputType}
-              setInputType={setInputType}
-              hydration={hydration}
-              setHydration={setHydration}
-              saltPct={saltPct}
-              setSaltPct={setSaltPct}
-              mode={mode}
-              setMode={setMode}
-              useOil={useOil}
-              setUseOil={setUseOil}
-              coldFermentation={coldFermentation}
-              setColdFermentation={setColdFermentation}
-              useRye={useRye}
-              setUseRye={setUseRye}
-              useSeeds={useSeeds}
-              setUseSeeds={setUseSeeds}
-              showRecipe={showRecipe}
-              setShowRecipe={setShowRecipe}
-              resetAll={resetAll}
-            />
+        {user && activeView === 'favorites' && <FavoritesList user={user} setActiveView={setActiveView} />}
 
-            <ResultDisplay result={result} />
+{activeView === 'calculator' && (
+  <>
+    <CalculatorForm
+      inputGrams={inputGrams}
+      setInputGrams={setInputGrams}
+      inputType={inputType}
+      setInputType={setInputType}
+      hydration={hydration}
+      setHydration={setHydration}
+      saltPct={saltPct}
+      setSaltPct={setSaltPct}
+      mode={mode}
+      setMode={setMode}
+      useOil={useOil}
+      setUseOil={setUseOil}
+      coldFermentation={coldFermentation}
+      setColdFermentation={setColdFermentation}
+      useRye={useRye}
+      setUseRye={setUseRye}
+      useSeeds={useSeeds}
+      setUseSeeds={setUseSeeds}
+      showRecipe={showRecipe}
+      setShowRecipe={setShowRecipe}
+      resetAll={resetAll}
+    />
 
-            {showRecipe && (
-              <RecipeView
-                mode={mode}
-                useSeeds={useSeeds}
-                coldFermentation={coldFermentation}
-                foldsDone={foldsDone}
-                setFoldsDone={setFoldsDone}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+    <ResultDisplay result={result} />
 
+    {showRecipe && (
+      <RecipeView
+        mode={mode}
+        useSeeds={useSeeds}
+        coldFermentation={coldFermentation}
+        foldsDone={foldsDone}
+        setFoldsDone={setFoldsDone}
+      />
+    )}
+  </>
+)}
