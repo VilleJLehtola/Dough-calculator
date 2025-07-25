@@ -141,6 +141,24 @@ export default function CalculatorForm({
         >
           {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
         </button>
+{user && (
+  <div className="mt-2">
+    <input
+      type="text"
+      placeholder="Suosikin nimi"
+      value={favoriteName}
+      onChange={(e) => setFavoriteName(e.target.value)}
+      className="w-full p-2 mb-2 border border-blue-300 rounded-lg"
+    />
+    <button
+      onClick={handleSaveFavorite}
+      className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
+    >
+      Tallenna suosikiksi
+    </button>
+  </div>
+)}
+
         <button
           onClick={resetAll}
           className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
