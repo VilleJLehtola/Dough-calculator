@@ -1,88 +1,87 @@
-import React, { useEffect, useState } from "react";
-import "./index.css";
-import { createClient } from "@supabase/supabase-js";
-import { GiHamburgerMenu } from "react-icons/gi";
+import React, { useState, useEffect } from 'react';
+import './index.css';
+import { createClient } from '@supabase/supabase-js';
+import { GiHamburgerMenu } from 'react-icons/gi';
 
-const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_KEY);
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 export default function App() {
-  const [inputGrams, setInputGrams] = useState("");
-  const [inputType, setInputType] = useState("flour");
-  const [hydration, setHydration] = useState(70);
+  const [inputGrams, setInputGrams] = useState('');
+  const [inputType, setInputType] = useState('flour');
+  const [hydration, setHydration] = useState(65);
   const [saltPct, setSaltPct] = useState(2);
-  const [mode, setMode] = useState("bread");
-  const [useOil, setUseOil] = useState(false);
-  const [coldFermentation, setColdFermentation] = useState(false);
+  const [mode, setMode] = useState('bread');
+  const [foldsDone, setFoldsDone] = useState(0);
+  const [showRecipe, setShowRecipe] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [user, setUser] = useState(null);
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [favorites, setFavorites] = useState([]);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
-  const [showRecipe, setShowRecipe] = useState(false);
-  const [foldsDone, setFoldsDone] = useState(0);
-  const [user, setUser] = useState(null);
-  const [view, setView] = useState("calculator"); // 'calculator' or 'favorites'
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [authMode, setAuthMode] = useState("login");
-  const [favorites, setFavorites] = useState([]);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [coldFermentation, setColdFermentation] = useState(false);
+  const [oilPct, setOilPct] = useState(3);
 
-  const toggleFold = (n) => {
-    setFoldsDone(prev => (prev === n ? n - 1 : Math.max(n, prev)));
-  };
-
-  const resetAll = () => {
-    setInputGrams("");
-    setInputType("flour");
-    setHydration(70);
-    setSaltPct(2);
-    setMode("bread");
-    setUseOil(false);
-    setColdFermentation(false);
-    setUseRye(false);
-    setUseSeeds(false);
-    setShowRecipe(false);
+  const reset = () => {
+    setInputGrams('');
     setFoldsDone(0);
-  };
-
-  const handleAuth = async () => {
-    const fn = authMode === "login" ? supabase.auth.signInWithPassword : supabase.auth.signUp;
-    const { data, error } = await fn({ email, password });
-    if (!error) setUser(data.user ?? data.session?.user ?? null);
-    else alert(error.message);
+    setShowRecipe(false);
   };
 
   const fetchUser = async () => {
     const { data } = await supabase.auth.getUser();
-    setUser(data.user ?? null);
-  };
-
-  const saveFavorite = async () => {
-    if (!user) return alert("Kirjaudu sisään tallentaaksesi suosikin");
-    const settings = {
-      user_id: user.id,
-      inputGrams,
-      inputType,
-      hydration,
-      saltPct,
-      mode,
-      useOil,
-      coldFermentation,
-      useRye,
-      useSeeds,
-      created_at: new Date().toISOString(),
-    };
-    await supabase.from("favorites").insert(settings);
-    alert("Suosikki tallennettu!");
-  };
-
-  const fetchFavorites = async () => {
-    if (!user) return;
-    const { data } = await supabase.from("favorites").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-    setFavorites(data ?? []);
+    setUser(data?.user || null);
   };
 
   useEffect(() => {
     fetchUser();
   }, []);
+
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) fetchUser();
+  };
+
+  const handleRegister = async () => {
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (!error) fetchUser();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
+
+  const saveFavorite = async () => {
+    if (!user) return;
+    await supabase.from('favorites').insert({
+      user_id: user.id,
+      input_grams: inputGrams,
+      hydration,
+      salt: saltPct,
+      type: inputType,
+      mode,
+      oil: oilPct,
+      cold_fermentation: coldFermentation,
+      rye: useRye,
+      seeds: useSeeds
+    });
+    fetchFavorites();
+  };
+
+  const fetchFavorites = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('favorites')
+      .select('*')
+      .eq('user_id', user.id);
+    setFavorites(data || []);
+  };
 
   useEffect(() => {
     if (user) fetchFavorites();
@@ -90,13 +89,13 @@ export default function App() {
 
   const calculate = () => {
     const grams = parseFloat(inputGrams);
-    if (isNaN(grams) || grams <= 0) return {};
-
-    const h = hydration / 100;
+    if (isNaN(grams) || grams <= 0) return null;
+    const h = Math.max(55, hydration) / 100;
     const s = saltPct / 100;
+    const oil = mode === 'pizza' ? oilPct / 100 : 0;
 
     let flour, water;
-    if (inputType === "flour") {
+    if (inputType === 'flour') {
       flour = grams;
       water = flour * h;
     } else {
@@ -106,181 +105,207 @@ export default function App() {
 
     const salt = flour * s;
     const starter = flour * 0.2;
-    const oil = useOil ? flour * 0.03 : 0;
+    const oilAmount = flour * oil;
     const seeds = useSeeds ? flour * 0.15 : 0;
+    const rye = useRye && mode === 'bread' ? flour * 0.2 : 0;
 
-    const flourTypes = mode === "pizza"
-      ? { "00-jauho": flour * (1000 / 1070), puolikarkea: flour * (70 / 1070) }
-      : useRye
-      ? { puolikarkea: flour * 0.8, ruisjauho: flour * 0.2 }
-      : { puolikarkea: flour * (500 / 620), täysjyvä: flour * (120 / 620) };
-
-    const total = flour + water + salt + starter + oil + seeds;
-
-    return { flour, water, salt, starter, oil, seeds, flourTypes, total };
+    return {
+      flour,
+      water,
+      salt,
+      starter,
+      total: flour + water + salt + starter + oilAmount + seeds,
+      oil: oilAmount,
+      seeds,
+      rye,
+      types: mode === 'pizza'
+        ? { '00-jauho': flour * 0.93, 'puolikarkea': flour * 0.07 }
+        : useRye
+        ? { 'puolikarkea': flour * 0.8, 'ruisjauho': rye }
+        : { 'puolikarkea': flour * 0.8, 'täysjyvä': flour * 0.2 }
+    };
   };
 
   const result = calculate();
 
-  const foldTimes = ["30 min", "30 min", "45 min", "60 min"];
-  const steps = [
-    "Sekoita jauhot ja vesi, anna levätä 30 min.",
-    "Lisää juuri ja suola, sekoita.",
-    "Taittele taikinaa:",
-    ...(foldTimes.map((time, i) => `Taitto ${i + 1} – ${time} välein`)),
-    useSeeds ? "Lisää siemenet ennen viimeistä taittoa." : null,
-    "Muotoile ja kohota.",
-    coldFermentation ? "Kohota kylmässä yön yli." : "Anna kohota huoneenlämmössä.",
-    "Paista uunissa 230°C."
-  ].filter(Boolean);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4 transition-all duration-500 ease-in-out">
-      <div className="max-w-xl mx-auto bg-white p-6 rounded-2xl shadow-md relative border border-blue-100">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-xl font-bold text-blue-700">🥖 Taikinalaskin</h1>
-          <div className="flex gap-2 items-center">
+    <div className="bg-gray-100 min-h-screen p-4 text-gray-800">
+      <div className="max-w-md mx-auto mt-10 bg-white p-6 rounded-xl shadow-md relative overflow-hidden transition-all duration-500">
+        <div className="flex justify-between mb-4 items-center">
+          <h1 className="text-2xl font-bold">🥖 Taikinalaskin</h1>
+          <div className="flex items-center gap-2">
+            <GiHamburgerMenu
+              onClick={() => setShowFavorites(!showFavorites)}
+              className="text-xl cursor-pointer"
+            />
             {user ? (
-              <span className="text-sm text-gray-500">Hei, {user.email}</span>
+              <button onClick={handleLogout} className="text-sm underline">Logout</button>
             ) : (
-              <button onClick={() => setMenuOpen(!menuOpen)}>
-                <GiHamburgerMenu className="text-xl text-blue-700" />
-              </button>
+              <button onClick={() => setShowLogin(!showLogin)} className="text-sm underline">Login</button>
             )}
           </div>
         </div>
 
-        {menuOpen && (
-          <div className="mb-4 space-x-2">
-            <button
-              onClick={() => setView("calculator")}
-              className={`px-4 py-1 rounded ${view === "calculator" ? "bg-blue-200" : "bg-gray-100"}`}
-            >
-              Laskuri
-            </button>
-            <button
-              onClick={() => setView("favorites")}
-              className={`px-4 py-1 rounded ${view === "favorites" ? "bg-blue-200" : "bg-gray-100"}`}
-            >
-              Suosikit
-            </button>
-            {!user && (
-              <button
-                onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}
-                className="text-sm text-blue-600 underline ml-2"
-              >
-                {authMode === "login" ? "Rekisteröidy" : "Kirjaudu"}
-              </button>
-            )}
+        {showLogin && (
+          <div className="space-y-2 mb-4">
+            <input
+              type="email"
+              placeholder="Email"
+              className="input"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              className="input"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button className="btn" onClick={handleLogin}>Login</button>
+              <button className="btn" onClick={handleRegister}>Register</button>
+            </div>
           </div>
         )}
 
-        {!user && (
-          <div className="bg-blue-50 p-3 rounded mb-4 space-y-2">
-            <input className="w-full p-2 border rounded" type="email" placeholder="Sähköposti" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input className="w-full p-2 border rounded" type="password" placeholder="Salasana" value={password} onChange={(e) => setPassword(e.target.value)} />
-            <button onClick={handleAuth} className="w-full bg-blue-600 text-white py-2 rounded">
-              {authMode === "login" ? "Kirjaudu" : "Rekisteröidy"}
-            </button>
-          </div>
-        )}
-
-        {view === "favorites" && user && (
-          <div className="space-y-2">
-            <h2 className="text-blue-700 font-bold">Tallennetut suosikit</h2>
-            {favorites.map((fav, i) => (
-              <div key={i} className="text-sm bg-blue-50 p-2 rounded border">
-                {fav.mode} – {fav.inputGrams}g ({fav.inputType}), hydr: {fav.hydration}%, salt: {fav.saltPct}%
-              </div>
-            ))}
-          </div>
-        )}
-
-        {view === "calculator" && (
+        {!showFavorites && (
           <>
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <button onClick={() => setMode("bread")} className={`flex-1 py-2 rounded ${mode === "bread" ? "bg-blue-300" : "bg-gray-100"}`}>Leipä</button>
-                <button onClick={() => setMode("pizza")} className={`flex-1 py-2 rounded ${mode === "pizza" ? "bg-blue-300" : "bg-gray-100"}`}>Pizza</button>
-              </div>
-
-              <input type="number" value={inputGrams} onChange={(e) => setInputGrams(e.target.value)} placeholder="Gramma määrä" className="w-full p-3 border rounded" />
-
-              <div className="flex gap-2">
-                <button onClick={() => setInputType("flour")} className={`flex-1 py-2 rounded ${inputType === "flour" ? "bg-blue-200" : "bg-gray-100"}`}>Jauho</button>
-                <button onClick={() => setInputType("water")} className={`flex-1 py-2 rounded ${inputType === "water" ? "bg-blue-200" : "bg-gray-100"}`}>Vesi</button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label>Hydraatio (%)</label>
-                  <input type="number" min="55" value={hydration} onChange={(e) => setHydration(e.target.value)} className="w-full p-2 border rounded" />
-                </div>
-                <div>
-                  <label>Suola (%)</label>
-                  <input type="number" value={saltPct} onChange={(e) => setSaltPct(e.target.value)} className="w-full p-2 border rounded" />
-                </div>
-              </div>
-
-              {mode === "pizza" && (
-                <label className="block">
-                  <input type="checkbox" checked={useOil} onChange={() => setUseOil(!useOil)} className="mr-2" />
-                  Lisää öljyä (3%)
-                </label>
-              )}
-
-              {mode === "bread" && (
-                <>
-                  <label className="block">
-                    <input type="checkbox" checked={useRye} onChange={() => setUseRye(!useRye)} className="mr-2" />
-                    Käytä ruisjauhoja (20%)
-                  </label>
-                  <label className="block">
-                    <input type="checkbox" checked={useSeeds} onChange={() => setUseSeeds(!useSeeds)} className="mr-2" />
-                    Lisää siemeniä (15%)
-                  </label>
-                </>
-              )}
-
-              <label className="block">
-                <input type="checkbox" checked={coldFermentation} onChange={() => setColdFermentation(!coldFermentation)} className="mr-2" />
-                Kylmäkohotus
-              </label>
-
-              <button onClick={() => setShowRecipe(!showRecipe)} className="w-full bg-blue-600 text-white py-2 rounded">{showRecipe ? "Piilota" : "Näytä resepti"}</button>
-              {user && <button onClick={saveFavorite} className="w-full bg-blue-100 text-blue-700 py-2 rounded">Tallenna suosikiksi</button>}
+            <div className="flex justify-center mb-3">
+              <button
+                className={`px-4 py-1 rounded-full ${mode === 'pizza' ? 'bg-gray-300' : 'bg-green-500 text-white'}`}
+                onClick={() => setMode('bread')}
+              >
+                Bread
+              </button>
+              <button
+                className={`px-4 py-1 ml-2 rounded-full ${mode === 'pizza' ? 'bg-green-500 text-white' : 'bg-gray-300'}`}
+                onClick={() => setMode('pizza')}
+              >
+                Pizza
+              </button>
             </div>
 
-            <div className="mt-4 p-4 bg-blue-50 rounded border">
-              <h2 className="font-bold text-blue-700">Ainesosat</h2>
-              <ul className="text-sm mt-2">
-                <li>Vesi: {result.water?.toFixed(1)} g</li>
-                <li>Suola: {result.salt?.toFixed(1)} g</li>
-                <li>Juuri: {result.starter?.toFixed(1)} g</li>
-                {result.oil > 0 && <li>Öljy: {result.oil.toFixed(1)} g</li>}
-                {result.seeds > 0 && <li>Siemenet: {result.seeds.toFixed(1)} g</li>}
-                <li>Yhteensä: {result.total?.toFixed(1)} g</li>
-              </ul>
-              <h3 className="mt-3 font-semibold">Jauhot:</h3>
-              <ul className="text-sm">
-                {Object.entries(result.flourTypes ?? {}).map(([key, val]) => (
-                  <li key={key}>{key}: {val.toFixed(1)} g</li>
-                ))}
-              </ul>
+            <div className="flex justify-center mb-3">
+              <button
+                className={`px-2 py-1 rounded ${inputType === 'flour' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                onClick={() => setInputType('flour')}
+              >
+                Flour
+              </button>
+              <button
+                className={`px-2 py-1 ml-2 rounded ${inputType === 'water' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                onClick={() => setInputType('water')}
+              >
+                Water
+              </button>
             </div>
+
+            <input
+              type="number"
+              value={inputGrams}
+              onChange={e => setInputGrams(e.target.value)}
+              placeholder="Enter amount"
+              className="input"
+            />
+
+            <div className="flex gap-2 my-2">
+              <input
+                type="number"
+                min={55}
+                value={hydration}
+                onChange={e => setHydration(Number(e.target.value))}
+                className="input"
+                placeholder="Hydration %"
+              />
+              <input
+                type="number"
+                value={saltPct}
+                onChange={e => setSaltPct(Number(e.target.value))}
+                className="input"
+                placeholder="Salt %"
+              />
+            </div>
+
+            {mode === 'pizza' && (
+              <input
+                type="number"
+                value={oilPct}
+                onChange={e => setOilPct(Number(e.target.value))}
+                className="input"
+                placeholder="Oil %"
+              />
+            )}
+
+            {mode === 'bread' && (
+              <>
+                <label><input type="checkbox" checked={useRye} onChange={() => setUseRye(!useRye)} /> Käytä ruisjauhoja</label><br />
+                <label><input type="checkbox" checked={useSeeds} onChange={() => setUseSeeds(!useSeeds)} /> Lisää siemeniä</label><br />
+              </>
+            )}
+
+            <label><input type="checkbox" checked={coldFermentation} onChange={() => setColdFermentation(!coldFermentation)} /> Kylmäfermentointi</label>
+
+            <div className="flex gap-2 my-3">
+              <button onClick={() => setShowRecipe(!showRecipe)} className="btn">
+                {showRecipe ? "Hide" : "Show"} Recipe
+              </button>
+              {user && <button className="btn" onClick={saveFavorite}>⭐ Save Favorite</button>}
+              <button onClick={reset} className="btn">Reset</button>
+            </div>
+
+            {result && (
+              <div className="bg-gray-50 p-3 rounded-lg shadow-inner mt-4 space-y-1">
+                <p>💧 Water: {result.water.toFixed(1)} g</p>
+                <p>🧂 Salt: {result.salt.toFixed(1)} g</p>
+                <p>🍞 Starter: {result.starter.toFixed(1)} g</p>
+                {result.oil > 0 && <p>🫒 Oil: {result.oil.toFixed(1)} g</p>}
+                {result.seeds > 0 && <p>🌻 Seeds: {result.seeds.toFixed(1)} g</p>}
+                <p>Total: {result.total.toFixed(1)} g</p>
+                <p className="mt-2 font-semibold">Flour types:</p>
+                <ul className="pl-4">
+                  {Object.entries(result.types).map(([name, val]) => (
+                    <li key={name}>{name}: {val.toFixed(1)} g</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {showRecipe && (
-              <div className="mt-4 p-4 bg-white border rounded space-y-2">
-                <h2 className="text-blue-700 font-bold text-lg">📋 Resepti</h2>
-                {steps.map((step, i) => (
-                  <div key={i} className="flex gap-2 items-center text-sm">
-                    {step.includes("Taitto") && <input type="checkbox" checked={foldsDone >= i - 2} onChange={() => toggleFold(i - 2)} />}
-                    <span>{step}</span>
-                  </div>
-                ))}
+              <div className="mt-4 transition-all duration-500 ease-in-out">
+                <p>1. Mix flour and water, rest 30 min.</p>
+                <p>2. Add starter and salt.</p>
+                <p>3. Folds: 30min, 30min, 45min, 60min.</p>
+                <div className="flex gap-1 my-2">
+                  {[1, 2, 3, 4].map(n => (
+                    <input
+                      key={n}
+                      type="checkbox"
+                      checked={foldsDone >= n}
+                      onChange={() => setFoldsDone(f => f === n ? n - 1 : Math.max(n, f))}
+                    />
+                  ))}
+                </div>
+                {useSeeds && <p>🌻 Add seeds before last fold.</p>}
+                <p>{coldFermentation ? "Cold ferment overnight" : "Let rise and bake at 230°C"}</p>
               </div>
             )}
           </>
+        )}
+
+        {showFavorites && (
+          <div className="mt-4 space-y-2">
+            <h2 className="font-semibold text-lg">⭐ Favorites</h2>
+            {favorites.length === 0 ? (
+              <p>No saved favorites</p>
+            ) : (
+              favorites.map((fav, idx) => (
+                <div key={idx} className="p-2 bg-gray-100 rounded-md text-sm">
+                  {fav.mode} – {fav.input_grams}g {fav.type}, hyd: {fav.hydration}%
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
     </div>
