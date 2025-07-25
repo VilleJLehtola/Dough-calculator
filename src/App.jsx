@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Header from './components/Header';
@@ -191,7 +190,7 @@ export default function App() {
               </div>
             )}
 
-            <ResultDisplay result={result} />
+            {result && <ResultDisplay result={result} />}
 
             {showRecipe && result && (
               <RecipeView
