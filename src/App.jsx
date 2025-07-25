@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Header from './components/Header';
@@ -10,22 +11,20 @@ import FavoritesList from './components/FavoritesList';
 export default function App() {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
   const [hydration, setHydration] = useState(75);
   const [saltPct, setSaltPct] = useState(2);
   const [mode, setMode] = useState('leipa');
+  const [showRecipe, setShowRecipe] = useState(false);
+  const [foldsDone, setFoldsDone] = useState(0);
   const [useOil, setUseOil] = useState(false);
   const [coldFermentation, setColdFermentation] = useState(false);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
-
-  const [showRecipe, setShowRecipe] = useState(false);
-  const [foldsDone, setFoldsDone] = useState(0);
   const [activeView, setActiveView] = useState('calculator');
-
   const [favoriteName, setFavoriteName] = useState('');
+  const [showFavoriteForm, setShowFavoriteForm] = useState(false);
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -60,7 +59,6 @@ export default function App() {
     setUseSeeds(false);
     setShowRecipe(false);
     setFoldsDone(0);
-    setFavoriteName('');
   };
 
   const calculate = () => {
@@ -118,11 +116,7 @@ export default function App() {
   const result = calculate();
 
   const saveFavorite = async () => {
-    if (!favoriteName) {
-      alert('Anna suosikille nimi.');
-      return;
-    }
-
+    if (!favoriteName || !user) return;
     const { error } = await supabase.from('favorites').insert({
       user_id: user.id,
       name: favoriteName,
@@ -137,12 +131,9 @@ export default function App() {
       use_seeds: useSeeds,
     });
 
-    if (error) {
-      console.error('Virhe tallennuksessa:', error.message);
-      alert('Tallennus epäonnistui.');
-    } else {
-      alert('Suosikki tallennettu!');
+    if (!error) {
       setFavoriteName('');
+      setShowFavoriteForm(false);
     }
   };
 
@@ -153,7 +144,6 @@ export default function App() {
 
         {!user && <AuthForm />}
         {user && activeView === 'favorites' && <FavoritesList user={user} setActiveView={setActiveView} />}
-
         {activeView === 'calculator' && (
           <>
             <CalculatorForm
@@ -180,25 +170,35 @@ export default function App() {
               resetAll={resetAll}
             />
 
-            <ResultDisplay result={result} />
-
             {user && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Suosikin nimi"
-                  value={favoriteName}
-                  onChange={(e) => setFavoriteName(e.target.value)}
-                  className="flex-1 border border-gray-300 rounded px-3 py-1"
-                />
+              <>
                 <button
-                  onClick={saveFavorite}
-                  className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 transition"
+                  className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition"
+                  onClick={() => setShowFavoriteForm(!showFavoriteForm)}
                 >
-                  Tallenna suosikiksi
+                  {showFavoriteForm ? 'Peruuta' : 'Tallenna suosikiksi'}
                 </button>
-              </div>
+                {showFavoriteForm && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="text"
+                      placeholder="Anna nimi suosikille"
+                      className="border border-gray-300 rounded px-2 py-1"
+                      value={favoriteName}
+                      onChange={(e) => setFavoriteName(e.target.value)}
+                    />
+                    <button
+                      className="bg-blue-600 text-white py-1 px-3 rounded hover:bg-blue-700 transition"
+                      onClick={saveFavorite}
+                    >
+                      Tallenna
+                    </button>
+                  </div>
+                )}
+              </>
             )}
+
+            {result && <ResultDisplay result={result} />}
 
             {showRecipe && (
               <RecipeView
