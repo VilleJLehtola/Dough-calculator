@@ -1,3 +1,4 @@
+// src/components/Header.jsx
 import React, { useState } from 'react';
 import { GiHamburgerMenu } from 'react-icons/gi';
 import { supabase } from '../supabaseClient';
@@ -12,39 +13,50 @@ export default function Header({ user, setUser, activeView, setActiveView }) {
   };
 
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h1 className="text-2xl font-bold text-blue-800">🥖 Taikinalaskin</h1>
+    <header className="flex items-center justify-between mb-4">
+      <h1 className="text-2xl font-bold text-blue-800">Taikinalaskin</h1>
+
       <div className="relative">
-        <button onClick={() => setMenuOpen(!menuOpen)}>
-          <GiHamburgerMenu className="text-2xl text-blue-800" />
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="text-blue-800 text-2xl"
+        >
+          <GiHamburgerMenu />
         </button>
+
         {menuOpen && (
-          <div className="absolute right-0 mt-2 bg-white border border-blue-200 rounded-lg shadow-md w-40 z-10">
+          <div className="absolute right-0 mt-2 w-40 bg-white border rounded shadow z-10">
             <button
-              onClick={() => setActiveView('calculator')}
-              className="block w-full px-4 py-2 text-left hover:bg-blue-100"
+              onClick={() => {
+                setActiveView('calculator');
+                setMenuOpen(false);
+              }}
+              className="block w-full text-left px-4 py-2 hover:bg-blue-100 text-sm"
             >
               Laskin
             </button>
             {user && (
-              <>
-                <button
-                  onClick={() => setActiveView('favorites')}
-                  className="block w-full px-4 py-2 text-left hover:bg-blue-100"
-                >
-                  Suosikit
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="block w-full px-4 py-2 text-left text-red-600 hover:bg-red-100"
-                >
-                  Kirjaudu ulos
-                </button>
-              </>
+              <button
+                onClick={() => {
+                  setActiveView('favorites');
+                  setMenuOpen(false);
+                }}
+                className="block w-full text-left px-4 py-2 hover:bg-blue-100 text-sm"
+              >
+                Suosikit
+              </button>
             )}
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="block w-full text-left px-4 py-2 hover:bg-blue-100 text-sm"
+              >
+                Kirjaudu ulos
+              </button>
+            ) : null}
           </div>
         )}
       </div>
-    </div>
+    </header>
   );
 }
