@@ -25,9 +25,7 @@ export default function App() {
 
   useEffect(() => {
     const fetchSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
     };
@@ -123,13 +121,40 @@ export default function App() {
 
   const result = calculate();
 
+  const handleSaveFavorite = async (name) => {
+    if (!user) return;
+    const { error } = await supabase.from('favorites').insert([
+      {
+        user_id: user.id,
+        name,
+        data: {
+          inputGrams,
+          inputType,
+          hydration,
+          saltPct,
+          mode,
+          useOil,
+          coldFermentation,
+          useRye,
+          useSeeds,
+        },
+      },
+    ]);
+    if (error) {
+      console.error('Virhe suosikin tallennuksessa:', error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
       <div className="bg-white shadow-2xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 transition-all duration-300 ease-in-out">
         <Header user={user} setUser={setUser} activeView={activeView} setActiveView={setActiveView} />
 
         {!user && <AuthForm />}
-        {user && activeView === 'favorites' && <FavoritesList user={user} setActiveView={setActiveView} />}
+        {user && activeView === 'favorites' && (
+          <FavoritesList user={user} setActiveView={setActiveView} />
+        )}
+
         {activeView === 'calculator' && (
           <>
             <CalculatorForm
@@ -154,6 +179,8 @@ export default function App() {
               showRecipe={showRecipe}
               setShowRecipe={setShowRecipe}
               resetAll={resetAll}
+              saveFavoriteVisible={!!user}
+              onSaveFavorite={handleSaveFavorite}
             />
 
             <ResultDisplay result={result} />
