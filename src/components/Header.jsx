@@ -28,15 +28,16 @@ export default function Header({ user, setUser, activeView, setActiveView }) {
         )}
         {user && (
           <button
-            onClick={async () => {
-              await supabase.auth.signOut();
-              setUser(null);
-              setActiveView('calculator'); // fallback view
-            }}
-            className="px-3 py-1 bg-gray-200 text-gray-700 rounded"
-          >
-            Kirjaudu ulos
-          </button>
+  onClick={async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setActiveView('calculator');
+  }}
+  className="text-sm text-blue-600 underline hover:text-blue-800"
+>
+  Kirjaudu ulos
+</button>
+
         )}
         <GiHamburgerMenu
           className="text-2xl text-blue-700 cursor-pointer"
