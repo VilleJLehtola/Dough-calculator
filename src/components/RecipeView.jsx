@@ -1,9 +1,7 @@
 // src/components/RecipeView.jsx
 import React from 'react';
 
-export default function RecipeView({ showRecipe, setShowRecipe, foldsDone, setFoldsDone, useSeeds, coldFermentation }) {
-  if (!showRecipe) return null;
-
+export default function RecipeView({ foldsDone, setFoldsDone, useSeeds, coldFermentation }) {
   const foldIntervals = [30, 30, 45, 60];
   const baseSteps = [
     'Sekoita jauhot ja vesi, anna levätä 30 minuuttia.',
@@ -43,13 +41,6 @@ export default function RecipeView({ showRecipe, setShowRecipe, foldsDone, setFo
           )}
         </div>
       ))}
-
-      <button
-        onClick={() => setShowRecipe(false)}
-        className="text-sm text-blue-600 underline hover:text-blue-800 mt-2"
-      >
-        Piilota resepti
-      </button>
     </div>
   );
 }
