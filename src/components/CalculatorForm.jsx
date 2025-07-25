@@ -25,89 +25,75 @@ export default function CalculatorForm({
 }) {
   return (
     <div className="space-y-4">
-      {/* Dough Type Toggle */}
-      <div className="flex justify-center space-x-4">
+      {/* Dough type switch */}
+      <div className="flex gap-2 justify-center">
         <button
           onClick={() => setMode('leipa')}
-          className={`px-4 py-2 rounded-full font-medium ${
+          className={`px-4 py-2 rounded-full border ${
             mode === 'leipa'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700'
+              ? 'bg-blue-500 text-white'
+              : 'bg-white text-blue-500 border-blue-500'
           }`}
         >
           Leipä
         </button>
         <button
           onClick={() => setMode('pizza')}
-          className={`px-4 py-2 rounded-full font-medium ${
+          className={`px-4 py-2 rounded-full border ${
             mode === 'pizza'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700'
+              ? 'bg-blue-500 text-white'
+              : 'bg-white text-blue-500 border-blue-500'
           }`}
         >
           Pizza
         </button>
       </div>
 
-      {/* Input Field */}
-      <input
-        type="number"
-        value={inputGrams}
-        onChange={e => setInputGrams(e.target.value)}
-        placeholder="Syötä määrä grammoina"
-        className="w-full p-3 border border-blue-300 rounded-lg"
-      />
-
-      {/* Input Type Toggle */}
-      <div className="flex justify-center space-x-4">
-        <button
-          onClick={() => setInputType('jauho')}
-          className={`px-4 py-2 rounded-full font-medium ${
-            inputType === 'jauho'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700'
-          }`}
+      {/* Input grams and type toggle */}
+      <div className="flex gap-2 items-center">
+        <input
+          type="number"
+          value={inputGrams}
+          onChange={e => setInputGrams(e.target.value)}
+          placeholder="Määrä grammoina"
+          className="flex-1 p-2 border border-blue-300 rounded"
+        />
+        <select
+          value={inputType}
+          onChange={e => setInputType(e.target.value)}
+          className="p-2 border border-blue-300 rounded"
         >
-          Jauho
-        </button>
-        <button
-          onClick={() => setInputType('vesi')}
-          className={`px-4 py-2 rounded-full font-medium ${
-            inputType === 'vesi'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700'
-          }`}
-        >
-          Vesi
-        </button>
+          <option value="jauho">Jauho</option>
+          <option value="vesi">Vesi</option>
+        </select>
       </div>
 
-      {/* Hydration and Salt Inputs */}
+      {/* Hydration and salt */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium">Hydraatio (%)</label>
+          <label className="text-sm font-medium text-gray-700">Hydraatio (%)</label>
           <input
             type="number"
-            min={55}
+            min="55"
             value={hydration}
             onChange={e => setHydration(e.target.value)}
-            className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
+            className="w-full p-2 border border-blue-300 rounded"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Suolan määrä (%)</label>
+          <label className="text-sm font-medium text-gray-700">Suola (%)</label>
           <input
             type="number"
             value={saltPct}
             onChange={e => setSaltPct(e.target.value)}
-            className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
+            className="w-full p-2 border border-blue-300 rounded"
           />
         </div>
       </div>
 
-      {/* Additional Options */}
+      {/* Optional options */}
       {mode === 'pizza' && (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={useOil}
@@ -116,9 +102,10 @@ export default function CalculatorForm({
           <label>Lisää öljyä (3%)</label>
         </div>
       )}
+
       {mode === 'leipa' && (
         <>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={useRye}
@@ -126,7 +113,7 @@ export default function CalculatorForm({
             />
             <label>Käytä ruisjauhoja (20%)</label>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={useSeeds}
@@ -136,7 +123,8 @@ export default function CalculatorForm({
           </div>
         </>
       )}
-      <div className="flex items-center space-x-2">
+
+      <div className="flex items-center gap-2">
         <input
           type="checkbox"
           checked={coldFermentation}
@@ -146,19 +134,18 @@ export default function CalculatorForm({
       </div>
 
       {/* Buttons */}
-      <div className="flex flex-col gap-2">
-       <button
-  onClick={() => setShowRecipe(prev => !prev)}
-  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
->
-  {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
-</button>
-
+      <div className="flex flex-col gap-2 mt-4">
+        <button
+          onClick={() => setShowRecipe(prev => !prev)}
+          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+        >
+          {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
+        </button>
         <button
           onClick={resetAll}
           className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
         >
-          Tyhjennä kaikki
+          Tyhjennä
         </button>
       </div>
     </div>
