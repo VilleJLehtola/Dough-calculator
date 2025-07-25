@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 export default function CalculatorForm({
   inputGrams,
@@ -21,151 +21,129 @@ export default function CalculatorForm({
   setUseSeeds,
   showRecipe,
   setShowRecipe,
-  resetAll
+  resetAll,
+  user,
+  handleSaveFavorite
 }) {
+  const [favoriteName, setFavoriteName] = useState('');
+
   return (
     <div className="space-y-4">
-      {/* Dough type switch */}
-      <div className="flex gap-2 justify-center">
+      <div className="flex justify-center gap-4">
         <button
           onClick={() => setMode('leipa')}
-          className={`px-4 py-2 rounded-full border ${
-            mode === 'leipa'
-              ? 'bg-blue-500 text-white'
-              : 'bg-white text-blue-500 border-blue-500'
-          }`}
+          className={`px-4 py-2 rounded-lg font-medium ${mode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'}`}
         >
           Leipä
         </button>
         <button
           onClick={() => setMode('pizza')}
-          className={`px-4 py-2 rounded-full border ${
-            mode === 'pizza'
-              ? 'bg-blue-500 text-white'
-              : 'bg-white text-blue-500 border-blue-500'
-          }`}
+          className={`px-4 py-2 rounded-lg font-medium ${mode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'}`}
         >
           Pizza
         </button>
       </div>
 
-      {/* Input grams and type toggle */}
-      <div className="flex gap-2 items-center">
-        <input
-          type="number"
-          value={inputGrams}
-          onChange={e => setInputGrams(e.target.value)}
-          placeholder="Määrä grammoina"
-          className="flex-1 p-2 border border-blue-300 rounded"
-        />
-        <select
-          value={inputType}
-          onChange={e => setInputType(e.target.value)}
-          className="p-2 border border-blue-300 rounded"
+      <div className="flex justify-center gap-4">
+        <button
+          onClick={() => setInputType('jauho')}
+          className={`px-4 py-2 rounded-lg font-medium ${inputType === 'jauho' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'}`}
         >
-          <option value="jauho">Jauho</option>
-          <option value="vesi">Vesi</option>
-        </select>
+          Jauhopohjainen
+        </button>
+        <button
+          onClick={() => setInputType('vesi')}
+          className={`px-4 py-2 rounded-lg font-medium ${inputType === 'vesi' ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-800'}`}
+        >
+          Vesipohjainen
+        </button>
       </div>
 
-      {/* Hydration and salt */}
+      <input
+        type="number"
+        value={inputGrams}
+        onChange={(e) => setInputGrams(e.target.value)}
+        placeholder="Syötä määrä grammoina"
+        className="w-full p-3 border border-blue-300 rounded-lg"
+      />
+
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="text-sm font-medium text-gray-700">Hydraatio (%)</label>
+          <label className="block text-sm font-medium">Hydraatio (%)</label>
           <input
             type="number"
-            min="55"
             value={hydration}
-            onChange={e => setHydration(e.target.value)}
-            className="w-full p-2 border border-blue-300 rounded"
+            onChange={(e) => setHydration(Math.max(55, Number(e.target.value)))}
+            className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
           />
         </div>
         <div>
-          <label className="text-sm font-medium text-gray-700">Suola (%)</label>
+          <label className="block text-sm font-medium">Suola (%)</label>
           <input
             type="number"
             value={saltPct}
-            onChange={e => setSaltPct(e.target.value)}
-            className="w-full p-2 border border-blue-300 rounded"
+            onChange={(e) => setSaltPct(Number(e.target.value))}
+            className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
           />
         </div>
       </div>
 
-      {/* Optional options */}
-      {mode === 'pizza' && (
-        <div className="flex items-center gap-2">
+      <div className="space-y-2">
+        {mode === 'pizza' && (
+          <label className="flex gap-2 items-center">
+            <input type="checkbox" checked={useOil} onChange={() => setUseOil(!useOil)} />
+            Käytä öljyä (3 %)
+          </label>
+        )}
+        <label className="flex gap-2 items-center">
+          <input type="checkbox" checked={coldFermentation} onChange={() => setColdFermentation(!coldFermentation)} />
+          Kylmäkohotus
+        </label>
+        {mode === 'leipa' && (
+          <>
+            <label className="flex gap-2 items-center">
+              <input type="checkbox" checked={useRye} onChange={() => setUseRye(!useRye)} />
+              Käytä ruisjauhoja (20 %)
+            </label>
+            <label className="flex gap-2 items-center">
+              <input type="checkbox" checked={useSeeds} onChange={() => setUseSeeds(!useSeeds)} />
+              Lisää siemeniä (15 %)
+            </label>
+          </>
+        )}
+      </div>
+
+      <button
+        onClick={() => setShowRecipe(!showRecipe)}
+        className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+      >
+        {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
+      </button>
+
+      {user && (
+        <div className="space-y-2 pt-2">
           <input
-            type="checkbox"
-            checked={useOil}
-            onChange={() => setUseOil(!useOil)}
+            type="text"
+            value={favoriteName}
+            onChange={(e) => setFavoriteName(e.target.value)}
+            placeholder="Suosikin nimi"
+            className="w-full p-2 border border-blue-300 rounded-lg"
           />
-          <label>Lisää öljyä (3%)</label>
+          <button
+            onClick={() => handleSaveFavorite(favoriteName)}
+            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600"
+          >
+            Tallenna suosikiksi
+          </button>
         </div>
       )}
 
-      {mode === 'leipa' && (
-        <>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={useRye}
-              onChange={() => setUseRye(!useRye)}
-            />
-            <label>Käytä ruisjauhoja (20%)</label>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={useSeeds}
-              onChange={() => setUseSeeds(!useSeeds)}
-            />
-            <label>Lisää siemeniä (15%)</label>
-          </div>
-        </>
-      )}
-
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          checked={coldFermentation}
-          onChange={() => setColdFermentation(!coldFermentation)}
-        />
-        <label>Kylmäkohotus</label>
-      </div>
-
-      {/* Buttons */}
-      <div className="flex flex-col gap-2 mt-4">
-        <button
-          onClick={() => setShowRecipe(prev => !prev)}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
-        </button>
-{user && (
-  <div className="mt-2">
-    <input
-      type="text"
-      placeholder="Suosikin nimi"
-      value={favoriteName}
-      onChange={(e) => setFavoriteName(e.target.value)}
-      className="w-full p-2 mb-2 border border-blue-300 rounded-lg"
-    />
-    <button
-      onClick={handleSaveFavorite}
-      className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
-    >
-      Tallenna suosikiksi
-    </button>
-  </div>
-)}
-
-        <button
-          onClick={resetAll}
-          className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
-        >
-          Tyhjennä
-        </button>
-      </div>
+      <button
+        onClick={resetAll}
+        className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+      >
+        Tyhjennä kaikki
+      </button>
     </div>
   );
 }
