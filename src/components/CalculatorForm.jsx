@@ -1,76 +1,88 @@
-// src/components/CalculatorForm.jsx
-import React from "react";
+import React from 'react';
 
 export default function CalculatorForm({
-  mode,
-  setMode,
-  inputType,
-  setInputType,
   inputGrams,
   setInputGrams,
+  inputType,
+  setInputType,
   hydration,
   setHydration,
   saltPct,
   setSaltPct,
-  oilPct,
-  setOilPct,
+  mode,
+  setMode,
+  useOil,
+  setUseOil,
+  coldFermentation,
+  setColdFermentation,
   useRye,
   setUseRye,
   useSeeds,
   setUseSeeds,
-  coldFermentation,
-  setColdFermentation,
-  toggleShowRecipe,
+  showRecipe,
+  setShowRecipe,
   resetAll
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex justify-center gap-4">
+      {/* Dough Type Toggle */}
+      <div className="flex justify-center space-x-4">
         <button
-          onClick={() => setMode("leipa")}
-          className={`px-4 py-2 rounded-full border ${
-            mode === "leipa" ? "bg-blue-500 text-white" : "bg-white text-blue-500"
+          onClick={() => setMode('leipa')}
+          className={`px-4 py-2 rounded-full font-medium ${
+            mode === 'leipa'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700'
           }`}
         >
           Leipä
         </button>
         <button
-          onClick={() => setMode("pizza")}
-          className={`px-4 py-2 rounded-full border ${
-            mode === "pizza" ? "bg-blue-500 text-white" : "bg-white text-blue-500"
+          onClick={() => setMode('pizza')}
+          className={`px-4 py-2 rounded-full font-medium ${
+            mode === 'pizza'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700'
           }`}
         >
           Pizza
         </button>
       </div>
 
-      <div className="flex justify-center gap-4">
-        <button
-          onClick={() => setInputType("jauho")}
-          className={`px-4 py-2 rounded-full border ${
-            inputType === "jauho" ? "bg-blue-100 text-blue-800" : "bg-white"
-          }`}
-        >
-          Määrä on jauhoja
-        </button>
-        <button
-          onClick={() => setInputType("vesi")}
-          className={`px-4 py-2 rounded-full border ${
-            inputType === "vesi" ? "bg-blue-100 text-blue-800" : "bg-white"
-          }`}
-        >
-          Määrä on vettä
-        </button>
-      </div>
-
+      {/* Input Field */}
       <input
         type="number"
         value={inputGrams}
-        onChange={(e) => setInputGrams(e.target.value)}
+        onChange={e => setInputGrams(e.target.value)}
         placeholder="Syötä määrä grammoina"
         className="w-full p-3 border border-blue-300 rounded-lg"
       />
 
+      {/* Input Type Toggle */}
+      <div className="flex justify-center space-x-4">
+        <button
+          onClick={() => setInputType('jauho')}
+          className={`px-4 py-2 rounded-full font-medium ${
+            inputType === 'jauho'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700'
+          }`}
+        >
+          Jauho
+        </button>
+        <button
+          onClick={() => setInputType('vesi')}
+          className={`px-4 py-2 rounded-full font-medium ${
+            inputType === 'vesi'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700'
+          }`}
+        >
+          Vesi
+        </button>
+      </div>
+
+      {/* Hydration and Salt Inputs */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium">Hydraatio (%)</label>
@@ -78,71 +90,69 @@ export default function CalculatorForm({
             type="number"
             min={55}
             value={hydration}
-            onChange={(e) => setHydration(Math.max(55, Number(e.target.value)))}
+            onChange={e => setHydration(e.target.value)}
             className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Suola (%)</label>
+          <label className="block text-sm font-medium">Suolan määrä (%)</label>
           <input
             type="number"
             value={saltPct}
-            onChange={(e) => setSaltPct(Number(e.target.value))}
+            onChange={e => setSaltPct(e.target.value)}
             className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
           />
         </div>
       </div>
 
-      {mode === "pizza" && (
-        <div>
-          <label className="block text-sm font-medium">Öljy (%)</label>
+      {/* Additional Options */}
+      {mode === 'pizza' && (
+        <div className="flex items-center space-x-2">
           <input
-            type="number"
-            value={oilPct}
-            onChange={(e) => setOilPct(Number(e.target.value))}
-            className="w-full p-2 mt-1 border border-blue-300 rounded-lg"
+            type="checkbox"
+            checked={useOil}
+            onChange={() => setUseOil(!useOil)}
           />
+          <label>Lisää öljyä (3%)</label>
         </div>
       )}
-
-      {mode === "leipa" && (
-        <div className="space-y-2">
-          <label className="flex items-center gap-2">
+      {mode === 'leipa' && (
+        <>
+          <div className="flex items-center space-x-2">
             <input
               type="checkbox"
               checked={useRye}
-              onChange={(e) => setUseRye(e.target.checked)}
+              onChange={() => setUseRye(!useRye)}
             />
-            Käytä ruisjauhoja (20%)
-          </label>
-          <label className="flex items-center gap-2">
+            <label>Käytä ruisjauhoja (20%)</label>
+          </div>
+          <div className="flex items-center space-x-2">
             <input
               type="checkbox"
               checked={useSeeds}
-              onChange={(e) => setUseSeeds(e.target.checked)}
+              onChange={() => setUseSeeds(!useSeeds)}
             />
-            Lisää siemeniä (15%)
-          </label>
-        </div>
+            <label>Lisää siemeniä (15%)</label>
+          </div>
+        </>
       )}
-
-      <label className="flex items-center gap-2">
+      <div className="flex items-center space-x-2">
         <input
           type="checkbox"
           checked={coldFermentation}
-          onChange={(e) => setColdFermentation(e.target.checked)}
+          onChange={() => setColdFermentation(!coldFermentation)}
         />
-        Kylmä fermentointi
-      </label>
+        <label>Kylmäkohotus</label>
+      </div>
 
+      {/* Buttons */}
       <div className="flex flex-col gap-2">
-      <button
-  onClick={() => setShowRecipe(prev => !prev)}
-  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
->
-  {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
-</button>
-
+        <button
+          onClick={() => setShowRecipe(prev => !prev)}
+          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+        >
+          {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
+        </button>
         <button
           onClick={resetAll}
           className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
