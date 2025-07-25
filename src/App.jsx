@@ -23,6 +23,7 @@ export default function App() {
   const [useSeeds, setUseSeeds] = useState(false);
   const [activeView, setActiveView] = useState('calculator');
   const [favoriteName, setFavoriteName] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     const fetchSession = async () => {
@@ -31,6 +32,10 @@ export default function App() {
       } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
+
+      if (session?.user) {
+        await insertUserIfNotExists(session.user);
+      }
     };
 
     fetchSession();
@@ -40,10 +45,28 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+
+      if (session?.user) {
+        insertUserIfNotExists(session.user);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const insertUserIfNotExists = async (user) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (!data && !error) {
+      await supabase.from('users').insert([
+        { id: user.id, email: user.email },
+      ]);
+    }
+  };
 
   const resetAll = () => {
     setInputGrams('');
@@ -61,9 +84,7 @@ export default function App() {
 
   const calculate = () => {
     const grams = parseFloat(inputGrams);
-    if (isNaN(grams) || grams <= 0) {
-      return null;
-    }
+    if (isNaN(grams) || grams <= 0) return null;
 
     const h = hydration / 100;
     const s = saltPct / 100;
@@ -115,35 +136,41 @@ export default function App() {
 
   const result = calculate();
 
-  const handleSaveFavorite = async () => {
-    if (!user || !favoriteName.trim()) {
-      alert('Kirjaudu sisään ja anna suosikille nimi.');
+  const saveFavorite = async () => {
+    if (!user || !favoriteName.trim()) return;
+
+    const existing = await supabase
+      .from('favorites')
+      .select('name')
+      .eq('user_id', user.id)
+      .eq('name', favoriteName)
+      .maybeSingle();
+
+    if (existing.data) {
+      setMessage('Nimi on jo käytössä.');
       return;
     }
 
     const { error } = await supabase.from('favorites').insert([
       {
         user_id: user.id,
-        name: favoriteName.trim(),
-        settings: {
-          inputGrams,
-          inputType,
-          hydration,
-          saltPct,
-          mode,
-          useOil,
-          coldFermentation,
-          useRye,
-          useSeeds,
-        },
+        name: favoriteName,
+        input_grams: inputGrams,
+        input_type: inputType,
+        hydration,
+        salt_pct: saltPct,
+        mode,
+        use_oil: useOil,
+        cold_fermentation: coldFermentation,
+        use_rye: useRye,
+        use_seeds: useSeeds,
       },
     ]);
 
     if (error) {
-      console.error('Supabase insert error:', error.message);
-      alert('Tallennus epäonnistui: ' + error.message);
+      setMessage('Tallennus epäonnistui.');
     } else {
-      alert('Suosikki tallennettu!');
+      setMessage('Tallennettu suosikiksi!');
       setFavoriteName('');
     }
   };
@@ -154,10 +181,7 @@ export default function App() {
         <Header user={user} setUser={setUser} activeView={activeView} setActiveView={setActiveView} />
 
         {!user && <AuthForm />}
-        {user && activeView === 'favorites' && (
-          <FavoritesList user={user} setActiveView={setActiveView} />
-        )}
-
+        {user && activeView === 'favorites' && <FavoritesList user={user} setActiveView={setActiveView} />}
         {activeView === 'calculator' && (
           <>
             <CalculatorForm
@@ -187,20 +211,21 @@ export default function App() {
             {result && <ResultDisplay result={result} />}
 
             {user && (
-              <div className="mt-4 space-y-2">
+              <div className="space-y-2">
                 <input
                   type="text"
-                  placeholder="Suosikin nimi"
                   value={favoriteName}
                   onChange={(e) => setFavoriteName(e.target.value)}
-                  className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring focus:border-blue-300"
+                  placeholder="Suosikin nimi"
+                  className="w-full border border-gray-300 rounded px-3 py-2"
                 />
                 <button
-                  onClick={handleSaveFavorite}
-                  className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
+                  onClick={saveFavorite}
+                  className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
                 >
                   Tallenna suosikiksi
                 </button>
+                {message && <p className="text-sm text-gray-600">{message}</p>}
               </div>
             )}
 
