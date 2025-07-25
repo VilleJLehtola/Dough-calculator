@@ -147,12 +147,13 @@ export default function CalculatorForm({
 
       {/* Buttons */}
       <div className="flex flex-col gap-2">
-        <button
-          onClick={() => setShowRecipe(prev => !prev)}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
-        </button>
+       <button
+  onClick={() => setShowRecipe(prev => !prev)}
+  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+>
+  {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
+</button>
+
         <button
           onClick={resetAll}
           className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
