@@ -1,60 +1,74 @@
-// src/components/AuthForm.jsx
+import React, { useState } from 'react';
+import { supabase } from '../supabaseClient';
 
-import React, { useState } from "react";
-
-export default function AuthForm({ onAuth, errorMessage }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export default function AuthForm({ setUser, setActiveView }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = e => {
-    e.preventDefault();
-    onAuth(email, password, isRegistering);
+  const handleAuth = async () => {
+    setError('');
+    if (!email || !password) {
+      setError('Sähköposti ja salasana vaaditaan.');
+      return;
+    }
+
+    const { data, error } = isRegistering
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setUser(data.user);
+      setActiveView('calculator');
+    }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md max-w-sm mx-auto border border-yellow-200 mt-6">
-      <h2 className="text-xl font-bold text-center text-yellow-800 mb-4">
-        {isRegistering ? "Rekisteröidy" : "Kirjaudu"}
+    <div className="bg-white p-4 rounded-lg shadow border border-blue-200 space-y-4">
+      <h2 className="text-xl font-semibold text-blue-800 text-center">
+        {isRegistering ? 'Rekisteröidy' : 'Kirjaudu sisään'}
       </h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="email"
-          placeholder="Sähköposti"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          className="w-full p-2 border border-yellow-300 rounded"
-        />
-        <input
-          type="password"
-          placeholder="Salasana"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-          className="w-full p-2 border border-yellow-300 rounded"
-        />
 
-        {errorMessage && (
-          <div className="text-red-500 text-sm text-center">{errorMessage}</div>
-        )}
+      {error && <p className="text-red-500 text-sm">{error}</p>}
 
-        <button
-          type="submit"
-          className="w-full bg-yellow-600 text-white py-2 rounded hover:bg-yellow-700"
-        >
-          {isRegistering ? "Rekisteröidy" : "Kirjaudu"}
-        </button>
-      </form>
-      <p className="text-sm text-center mt-4">
-        {isRegistering ? "Onko sinulla jo tili?" : "Ei vielä tiliä?"}{" "}
-        <button
-          onClick={() => setIsRegistering(!isRegistering)}
-          className="text-blue-600 hover:underline"
-        >
-          {isRegistering ? "Kirjaudu" : "Rekisteröidy"}
-        </button>
+      <input
+        type="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="Sähköposti"
+        className="w-full p-2 border border-gray-300 rounded"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        placeholder="Salasana"
+        className="w-full p-2 border border-gray-300 rounded"
+      />
+
+      <button
+        onClick={handleAuth}
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+      >
+        {isRegistering ? 'Rekisteröidy' : 'Kirjaudu'}
+      </button>
+
+      <p
+        className="text-sm text-center text-blue-600 cursor-pointer hover:underline"
+        onClick={() => setIsRegistering(prev => !prev)}
+      >
+        {isRegistering ? 'Onko sinulla jo tili? Kirjaudu' : 'Ei tiliä? Rekisteröidy'}
       </p>
+
+      <button
+        onClick={() => setActiveView('calculator')}
+        className="w-full text-sm text-gray-500 mt-2 hover:underline"
+      >
+        ← Palaa laskimeen ilman kirjautumista
+      </button>
     </div>
   );
 }
