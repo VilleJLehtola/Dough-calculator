@@ -10,22 +10,28 @@ import FavoritesList from './components/FavoritesList';
 export default function App() {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
+
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
   const [hydration, setHydration] = useState(75);
   const [saltPct, setSaltPct] = useState(2);
   const [mode, setMode] = useState('leipa');
-  const [showRecipe, setShowRecipe] = useState(false);
-  const [foldsDone, setFoldsDone] = useState(0);
   const [useOil, setUseOil] = useState(false);
   const [coldFermentation, setColdFermentation] = useState(false);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
+
+  const [showRecipe, setShowRecipe] = useState(false);
+  const [foldsDone, setFoldsDone] = useState(0);
   const [activeView, setActiveView] = useState('calculator');
+
+  const [favoriteName, setFavoriteName] = useState('');
 
   useEffect(() => {
     const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
     };
@@ -54,22 +60,12 @@ export default function App() {
     setUseSeeds(false);
     setShowRecipe(false);
     setFoldsDone(0);
+    setFavoriteName('');
   };
 
   const calculate = () => {
     const grams = parseFloat(inputGrams);
-    if (isNaN(grams) || grams <= 0) {
-      return {
-        jauho: 0,
-        vesi: 0,
-        suola: 0,
-        juuri: 0,
-        oljy: 0,
-        yhteensa: 0,
-        jauhotyypit: {},
-        seeds: 0,
-      };
-    }
+    if (isNaN(grams) || grams <= 0) return null;
 
     const h = hydration / 100;
     const s = saltPct / 100;
@@ -121,27 +117,32 @@ export default function App() {
 
   const result = calculate();
 
-  const handleSaveFavorite = async (name) => {
-    if (!user) return;
-    const { error } = await supabase.from('favorites').insert([
-      {
-        user_id: user.id,
-        name,
-        data: {
-          inputGrams,
-          inputType,
-          hydration,
-          saltPct,
-          mode,
-          useOil,
-          coldFermentation,
-          useRye,
-          useSeeds,
-        },
-      },
-    ]);
+  const saveFavorite = async () => {
+    if (!favoriteName) {
+      alert('Anna suosikille nimi.');
+      return;
+    }
+
+    const { error } = await supabase.from('favorites').insert({
+      user_id: user.id,
+      name: favoriteName,
+      input_grams: inputGrams,
+      input_type: inputType,
+      hydration,
+      salt_pct: saltPct,
+      mode,
+      use_oil: useOil,
+      cold_fermentation: coldFermentation,
+      use_rye: useRye,
+      use_seeds: useSeeds,
+    });
+
     if (error) {
-      console.error('Virhe suosikin tallennuksessa:', error.message);
+      console.error('Virhe tallennuksessa:', error.message);
+      alert('Tallennus epäonnistui.');
+    } else {
+      alert('Suosikki tallennettu!');
+      setFavoriteName('');
     }
   };
 
@@ -151,9 +152,7 @@ export default function App() {
         <Header user={user} setUser={setUser} activeView={activeView} setActiveView={setActiveView} />
 
         {!user && <AuthForm />}
-        {user && activeView === 'favorites' && (
-          <FavoritesList user={user} setActiveView={setActiveView} />
-        )}
+        {user && activeView === 'favorites' && <FavoritesList user={user} setActiveView={setActiveView} />}
 
         {activeView === 'calculator' && (
           <>
@@ -179,11 +178,27 @@ export default function App() {
               showRecipe={showRecipe}
               setShowRecipe={setShowRecipe}
               resetAll={resetAll}
-              saveFavoriteVisible={!!user}
-              onSaveFavorite={handleSaveFavorite}
             />
 
             <ResultDisplay result={result} />
+
+            {user && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Suosikin nimi"
+                  value={favoriteName}
+                  onChange={(e) => setFavoriteName(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded px-3 py-1"
+                />
+                <button
+                  onClick={saveFavorite}
+                  className="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 transition"
+                >
+                  Tallenna suosikiksi
+                </button>
+              </div>
+            )}
 
             {showRecipe && (
               <RecipeView
