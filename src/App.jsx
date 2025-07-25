@@ -128,9 +128,12 @@ export default function App() {
       <div className="bg-white shadow-2xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 transition-all duration-300 ease-in-out">
         <Header user={user} setUser={setUser} activeView={activeView} setActiveView={setActiveView} />
 
-        {!user && <AuthForm />}
+        {activeView === 'auth' && (
+  <AuthForm setUser={setUser} setActiveView={setActiveView} />
+)}
+
         {user && activeView === 'favorites' && <FavoritesList user={user} setActiveView={setActiveView} />}
-        {user && activeView === 'calculator' && (
+        {activeView === 'calculator' && (
           <>
             <CalculatorForm
               inputGrams={inputGrams}
