@@ -1,4 +1,6 @@
 import React from 'react';
+import { supabase } from '../supabaseClient';
+
 
 export default function Header({ user, setUser, activeView, setActiveView }) {
   const handleLogout = async () => {
