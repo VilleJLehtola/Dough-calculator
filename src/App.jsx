@@ -68,34 +68,26 @@ export default function App() {
   const logout = async () => {
   console.log('🔁 Logging out…');
 
-  try {
-    const { error } = await supabase.auth.signOut();
-    console.log('✅ signOut() completed');
+  // Sign out
+  const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      console.error('❌ Logout failed:', error.message);
-      return;
-    }
+  // Fully clear everything from all storage
+  localStorage.clear();
+  sessionStorage.clear();
+  indexedDB.deleteDatabase('supabase-auth-cache'); // Supabase uses this internally
 
-    // Remove all known auth session keys
-    localStorage.removeItem('supabase.auth.token');
-    localStorage.removeItem('supabase.auth.refresh-token');
-    localStorage.removeItem('supabase.auth.session');
-    sessionStorage.removeItem('supabase.auth.token');
-    sessionStorage.removeItem('supabase.auth.refresh-token');
-    sessionStorage.removeItem('supabase.auth.session');
+  // Manually unset user and view
+  setUser(null);
+  setActiveView('calculator');
 
-    setUser(null);
-    setActiveView('calculator');
+  // Confirm session
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log('🧪 Session after full nuke:', session);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log('🧪 Session after full clear:', session);
-
-    window.location.reload();
-  } catch (e) {
-    console.error('❌ signOut() threw:', e);
-  }
+  // Reload to reset Supabase client cache
+  window.location.reload();
 };
+
 
 
 
