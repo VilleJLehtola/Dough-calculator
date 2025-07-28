@@ -27,14 +27,28 @@ export default function App() {
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+      const loggedInUser = session?.user ?? null;
+      setUser(loggedInUser);
+
+      if (loggedInUser) {
+        await supabase.from('users').upsert([
+          { id: loggedInUser.id, email: loggedInUser.email }
+        ]);
+      }
     };
     getSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const loggedInUser = session?.user ?? null;
+      setUser(loggedInUser);
+
+      if (loggedInUser) {
+        await supabase.from('users').upsert([
+          { id: loggedInUser.id, email: loggedInUser.email }
+        ]);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -193,15 +207,14 @@ export default function App() {
             {result && <ResultDisplay result={result} />}
 
             {showRecipe && result && (
-  <RecipeView
-    doughType={mode}
-    useSeeds={useSeeds}
-    coldFermentation={coldFermentation}
-    foldsDone={foldsDone}
-    setFoldsDone={setFoldsDone}
-  />
-)}
-
+              <RecipeView
+                doughType={mode}
+                useSeeds={useSeeds}
+                coldFermentation={coldFermentation}
+                foldsDone={foldsDone}
+                setFoldsDone={setFoldsDone}
+              />
+            )}
           </>
         )}
       </div>
