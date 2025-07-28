@@ -24,6 +24,19 @@ export default function App() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
+const logout = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Logout failed:', error.message);
+  } else {
+    setUser(null);
+    setActiveView('calculator');
+    console.log('✅ Logged out via App.jsx');
+  }
+};
+
+
+  
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
