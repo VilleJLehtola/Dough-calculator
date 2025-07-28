@@ -130,4 +130,121 @@ export default function App() {
 
   const saveFavorite = async () => {
     if (!favName || !user) {
-      console.warn('Missing favo
+      console.warn('Missing favorite name or user.');
+      return;
+    }
+
+    const { data, error } = await supabase.from('favorites').insert([
+      {
+        user_id: user.id,
+        name: favName,
+        input_grams: inputGrams,
+        input_type: inputType,
+        hydration,
+        salt_pct: saltPct,
+        mode,
+        use_oil: useOil,
+        cold_fermentation: coldFermentation,
+        use_rye: useRye,
+        use_seeds: useSeeds,
+      },
+    ]);
+
+    if (error) {
+      console.error('Save failed:', error.message);
+      setMessage('Tallennus epäonnistui.');
+    } else {
+      setMessage('Suosikki tallennettu!');
+      setFavName('');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
+      <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
+        <Header
+          user={user}
+          activeView={activeView}
+          setActiveView={setActiveView}
+          logout={logout}
+        />
+
+        {!user && <AuthForm />}
+        {user && activeView === 'favorites' && (
+          <FavoritesList
+            user={user}
+            setActiveView={setActiveView}
+            setInputGrams={setInputGrams}
+            setInputType={setInputType}
+            setHydration={setHydration}
+            setSaltPct={setSaltPct}
+            setMode={setMode}
+            setUseOil={setUseOil}
+            setColdFermentation={setColdFermentation}
+            setUseRye={setUseRye}
+            setUseSeeds={setUseSeeds}
+          />
+        )}
+
+        {activeView === 'calculator' && (
+          <>
+            <CalculatorForm
+              inputGrams={inputGrams}
+              setInputGrams={setInputGrams}
+              inputType={inputType}
+              setInputType={setInputType}
+              hydration={hydration}
+              setHydration={setHydration}
+              saltPct={saltPct}
+              setSaltPct={setSaltPct}
+              mode={mode}
+              setMode={setMode}
+              useOil={useOil}
+              setUseOil={setUseOil}
+              coldFermentation={coldFermentation}
+              setColdFermentation={setColdFermentation}
+              useRye={useRye}
+              setUseRye={setUseRye}
+              useSeeds={useSeeds}
+              setUseSeeds={setUseSeeds}
+              showRecipe={showRecipe}
+              setShowRecipe={setShowRecipe}
+              resetAll={resetAll}
+            />
+
+            {user && (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Suosikin nimi"
+                  value={favName}
+                  onChange={(e) => setFavName(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={saveFavorite}
+                  className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+                >
+                  Tallenna suosikiksi
+                </button>
+                {message && <p className="text-sm text-blue-700">{message}</p>}
+              </div>
+            )}
+
+            {result && <ResultDisplay result={result} />}
+
+            {showRecipe && result && (
+              <RecipeView
+                doughType={mode}
+                useSeeds={useSeeds}
+                coldFermentation={coldFermentation}
+                foldsDone={foldsDone}
+                setFoldsDone={setFoldsDone}
+              />
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
