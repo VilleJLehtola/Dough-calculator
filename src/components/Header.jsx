@@ -9,8 +9,12 @@ export default function Header({ user, setUser, activeView, setActiveView }) {
     if (error) {
       console.error('Logout failed:', error.message);
     } else {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session after logout:', session); // Should be null
       setUser(null);
       setActiveView('calculator');
+      setMenuOpen(false);
+      console.log('User logged out');
     }
   };
 
