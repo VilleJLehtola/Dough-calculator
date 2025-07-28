@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
-
 
 export default function Header({ user, activeView, setActiveView, logout }) {
   const [menuOpen, setMenuOpen] = useState(false);
