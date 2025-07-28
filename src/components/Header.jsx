@@ -58,11 +58,15 @@ export default function Header({ user, setUser, activeView, setActiveView }) {
                 Suosikit
               </button>
               <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100"
-              >
-                Kirjaudu ulos
-              </button>
+  onClick={() => {
+    console.log('🚨 Logout button clicked');
+    handleLogout();
+  }}
+  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100"
+>
+  Kirjaudu ulos
+</button>
+
             </div>
           )}
         </div>
