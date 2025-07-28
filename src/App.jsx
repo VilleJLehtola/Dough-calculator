@@ -193,14 +193,15 @@ export default function App() {
             {result && <ResultDisplay result={result} />}
 
             {showRecipe && result && (
-              <RecipeView
-                mode={mode}
-                useSeeds={useSeeds}
-                coldFermentation={coldFermentation}
-                foldsDone={foldsDone}
-                setFoldsDone={setFoldsDone}
-              />
-            )}
+  <RecipeView
+    doughType={mode}
+    useSeeds={useSeeds}
+    coldFermentation={coldFermentation}
+    foldsDone={foldsDone}
+    setFoldsDone={setFoldsDone}
+  />
+)}
+
           </>
         )}
       </div>
