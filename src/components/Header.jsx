@@ -1,3 +1,5 @@
+console.log('✅ Header component loaded');
+
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
