@@ -1,24 +1,7 @@
-console.log('✅ Header component loaded');
-
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
 
-export default function Header({ user, setUser, activeView, setActiveView }) {
+export default function Header({ user, activeView, setActiveView, logout }) {
   const [menuOpen, setMenuOpen] = useState(false);
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Logout failed:', error.message);
-    } else {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session after logout:', session); // Should be null
-      setUser(null);
-      setActiveView('calculator');
-      setMenuOpen(false);
-      console.log('User logged out');
-    }
-  };
 
   return (
     <div className="flex justify-between items-center">
@@ -58,15 +41,14 @@ export default function Header({ user, setUser, activeView, setActiveView }) {
                 Suosikit
               </button>
               <button
-  onClick={() => {
-    console.log('🚨 Logout button clicked');
-    handleLogout();
-  }}
-  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100"
->
-  Kirjaudu ulos
-</button>
-
+                onClick={() => {
+                  logout();
+                  setMenuOpen(false);
+                }}
+                className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100"
+              >
+                Kirjaudu ulos
+              </button>
             </div>
           )}
         </div>
