@@ -24,19 +24,6 @@ export default function App() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
-const logout = async () => {
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    console.error('Logout failed:', error.message);
-  } else {
-    setUser(null);
-    setActiveView('calculator');
-    console.log('✅ Logged out via App.jsx');
-  }
-};
-
-
-  
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -66,6 +53,17 @@ const logout = async () => {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Logout failed:', error.message);
+    } else {
+      setUser(null);
+      setActiveView('calculator');
+      console.log('✅ Logged out via App.jsx');
+    }
+  };
 
   const resetAll = () => {
     setInputGrams('');
@@ -123,10 +121,6 @@ const logout = async () => {
   const result = calculate();
 
   const saveFavorite = async () => {
-    console.log('Save button clicked');
-    console.log('User:', user);
-    console.log('Favorite name:', favName);
-
     if (!favName || !user) {
       console.warn('Missing favorite name or user.');
       return;
@@ -152,7 +146,6 @@ const logout = async () => {
       console.error('Save failed:', error.message);
       setMessage('Tallennus epäonnistui.');
     } else {
-      console.log('Insert response:', data);
       setMessage('Suosikki tallennettu!');
       setFavName('');
     }
@@ -162,12 +155,11 @@ const logout = async () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
       <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
         <Header
-  user={user}
-  setUser={setUser}
-  activeView={activeView}
-  setActiveView={setActiveView}
-/>
-
+          user={user}
+          activeView={activeView}
+          setActiveView={setActiveView}
+          logout={logout}
+        />
 
         {!user && <AuthForm />}
         {user && activeView === 'favorites' && (
@@ -248,4 +240,3 @@ const logout = async () => {
     </div>
   );
 }
-
