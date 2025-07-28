@@ -43,20 +43,17 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        console.log('➡️ Supabase SIGNED_OUT event');
-        setUser(null);
-        setActiveView('calculator');
-      } else if (event === 'SIGNED_IN' || session?.user) {
-        console.log('➡️ Supabase SIGNED_IN event');
-        setUser(session.user);
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+  if (session) {
+    console.log('✅ session detected');
+    setUser(session.user);
+  } else {
+    console.log('❌ no session');
+    setUser(null);
+    setActiveView('calculator');
+  }
+});
 
-        await supabase.from('users').upsert([
-          { id: session.user.id, email: session.user.email }
-        ]);
-      }
-    });
 
     return () => subscription.unsubscribe();
   }, []);
