@@ -1,4 +1,3 @@
-// src/components/RecipeView.jsx
 import React from 'react';
 
 export default function RecipeView({
@@ -6,7 +5,7 @@ export default function RecipeView({
   setFoldsDone,
   useSeeds,
   coldFermentation,
-  doughType, // NEW
+  doughType,
 }) {
   const foldIntervals = [30, 30, 45, 60];
 
@@ -36,7 +35,8 @@ export default function RecipeView({
       <h2 className="text-lg font-bold text-blue-700">📋 Resepti</h2>
       {steps.map((step, index) => (
         <div key={index} className="text-gray-800 flex items-center gap-3">
-          {doughType === 'bread' && index === 2 ? (
+          {/* Fold checklist appears only on step 2 for bread (index === 2) */}
+          {doughType === 'leipa' && index === 2 ? (
             <>
               <span>{step}</span>
               <div className="flex gap-1">
@@ -54,12 +54,3 @@ export default function RecipeView({
                 ))}
               </div>
             </>
-          ) : (
-            <span>{step}</span>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
