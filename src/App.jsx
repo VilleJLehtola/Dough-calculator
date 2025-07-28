@@ -110,7 +110,14 @@ export default function App() {
   const result = calculate();
 
   const saveFavorite = async () => {
-    if (!favName || !user) return;
+    console.log('Save button clicked');
+    console.log('User:', user);
+    console.log('Favorite name:', favName);
+
+    if (!favName || !user) {
+      console.warn('Missing favorite name or user.');
+      return;
+    }
 
     const { error } = await supabase.from('favorites').insert([
       {
@@ -132,6 +139,7 @@ export default function App() {
       console.error('Save failed:', error.message);
       setMessage('Tallennus epäonnistui.');
     } else {
+      console.log('Favorite saved successfully!');
       setMessage('Suosikki tallennettu!');
       setFavName('');
     }
