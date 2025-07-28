@@ -25,8 +25,7 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    // Expose to browser console for testing
-    window.supabase = supabase;
+    window.supabase = supabase; // expose to console for testing
 
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -67,9 +66,25 @@ export default function App() {
   }, [user]);
 
   const logout = async () => {
+    console.log('🔁 Logging out…');
     const { error } = await supabase.auth.signOut();
+
+    // Clear any lingering auth data (some browsers cache this aggressively)
+    localStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('supabase.auth.refresh-token');
+    localStorage.removeItem('supabase.auth.session');
+
     if (error) {
       console.error('Logout failed:', error.message);
+    } else {
+      setUser(null);
+      setActiveView('calculator');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('🧪 Session after forced logout:', session);
+
+      // Optional: hard reload to reset in-memory state (dev only)
+      location.reload();
     }
   };
 
