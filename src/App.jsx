@@ -66,27 +66,31 @@ export default function App() {
   }, [user]);
 
   const logout = async () => {
-    console.log('🔁 Logging out…');
-    const { error } = await supabase.auth.signOut();
+  console.log('🔁 Logging out…');
 
-    // Clear any lingering auth data (some browsers cache this aggressively)
-    localStorage.removeItem('supabase.auth.token');
-    localStorage.removeItem('supabase.auth.refresh-token');
-    localStorage.removeItem('supabase.auth.session');
+  // Sign out using Supabase
+  const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      console.error('Logout failed:', error.message);
-    } else {
-      setUser(null);
-      setActiveView('calculator');
+  // Extra force clear from all storage locations
+  localStorage.removeItem('supabase.auth.token');
+  localStorage.removeItem('supabase.auth.refresh-token');
+  localStorage.removeItem('supabase.auth.session');
+  sessionStorage.removeItem('supabase.auth.token');
+  sessionStorage.removeItem('supabase.auth.refresh-token');
+  sessionStorage.removeItem('supabase.auth.session');
 
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('🧪 Session after forced logout:', session);
+  // Update state
+  setUser(null);
+  setActiveView('calculator');
 
-      // Optional: hard reload to reset in-memory state (dev only)
-      location.reload();
-    }
-  };
+  // Confirm it's gone
+  const { data: { session } } = await supabase.auth.getSession();
+  console.log('🧪 Session after full clear:', session);
+
+  // Hard reload to wipe in-memory state (dev only)
+  window.location.reload();
+};
+
 
   const resetAll = () => {
     setInputGrams('');
