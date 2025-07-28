@@ -25,7 +25,7 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    // Expose supabase to window for manual testing in DevTools
+    // Expose to browser console for testing
     window.supabase = supabase;
 
     const getSession = async () => {
@@ -39,17 +39,22 @@ export default function App() {
         ]);
       }
     };
+
     getSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const loggedInUser = session?.user ?? null;
-      setUser(loggedInUser);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        console.log('➡️ Supabase SIGNED_OUT event');
+        setUser(null);
+        setActiveView('calculator');
+      } else if (event === 'SIGNED_IN' || session?.user) {
+        console.log('➡️ Supabase SIGNED_IN event');
+        setUser(session.user);
 
-      if (loggedInUser) {
         await supabase.from('users').upsert([
-          { id: loggedInUser.id, email: loggedInUser.email }
+          { id: session.user.id, email: session.user.email }
         ]);
       }
     });
@@ -65,11 +70,6 @@ export default function App() {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('Logout failed:', error.message);
-    } else {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session after logout:', session); // should be null
-      setUser(null);
-      setActiveView('calculator');
     }
   };
 
