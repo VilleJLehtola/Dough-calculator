@@ -35,7 +35,6 @@ export default function RecipeView({
       <h2 className="text-lg font-bold text-blue-700">📋 Resepti</h2>
       {steps.map((step, index) => (
         <div key={index} className="text-gray-800 flex items-center gap-3">
-          {/* Fold checklist appears only on step 2 for bread (index === 2) */}
           {doughType === 'leipa' && index === 2 ? (
             <>
               <span>{step}</span>
@@ -54,3 +53,11 @@ export default function RecipeView({
                 ))}
               </div>
             </>
+          ) : (
+            <span>{step}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
