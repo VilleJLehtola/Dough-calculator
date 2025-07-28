@@ -149,11 +149,12 @@ export default function App() {
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
       <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
         <Header
-          user={user}
-          setUser={setUser}
-          activeView={activeView}
-          setActiveView={setActiveView}
-        />
+  user={user}
+  setUser={setUser}
+  activeView={activeView}
+  setActiveView={setActiveView}
+/>
+
 
         {!user && <AuthForm />}
         {user && activeView === 'favorites' && (
