@@ -1,7 +1,7 @@
 // ✅ App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/supabaseClient';
-import Header from './components/Header';
+import Header from './Header';
 import AuthForm from './components/AuthForm';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
 import ResetPassword from './components/ResetPassword';
