@@ -2,11 +2,12 @@ import React from 'react';
 
 export default function ResultDisplay({ result }) {
   return (
-    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-      <h2 className="text-lg font-semibold text-blue-700 mb-2">
+    <div className="bg-blue-50 dark:bg-gray-700 p-4 rounded-lg border border-blue-200 dark:border-gray-600 text-gray-900 dark:text-white">
+      <h2 className="text-lg font-semibold text-blue-700 dark:text-yellow-300 mb-2">
         🍞 Ainesosien määrät:
       </h2>
-      <ul className="text-gray-800 space-y-1">
+
+      <ul className="space-y-1">
         <li>
           <strong>Vesi:</strong> {result.vesi.toFixed(1)} g
         </li>
@@ -30,8 +31,9 @@ export default function ResultDisplay({ result }) {
           <strong>Yhteensä:</strong> {result.yhteensa.toFixed(1)} g
         </li>
       </ul>
-      <h3 className="mt-3 font-semibold">Jauhotyypit:</h3>
-      <ul>
+
+      <h3 className="mt-4 font-semibold text-gray-800 dark:text-gray-200">Jauhotyypit:</h3>
+      <ul className="text-sm text-gray-600 dark:text-gray-300">
         {Object.entries(result.jauhotyypit).map(([type, val]) => (
           <li key={type}>
             {type}: {val.toFixed(1)} g
