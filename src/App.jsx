@@ -11,7 +11,7 @@ import ResultDisplay from '@/components/ResultDisplay';
 import RecipeView from '@/components/RecipeView';
 import FavoritesList from '@/components/FavoritesList';
 import RecipesPage from '@/components/RecipesPage';
-import AdminRecipeEditor from '@/components/AdminRecipeEditor'; // ✅ added
+import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -29,6 +29,17 @@ export default function App() {
   const [activeView, setActiveView] = useState('calculator');
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
+
+  // 🌙 DARK MODE: Load theme from localStorage
+  useEffect(() => {
+    const storedTheme = localStorage.getItem('theme');
+    const root = document.documentElement;
+    if (storedTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, []);
 
   useEffect(() => {
     async function getSession() {
@@ -58,7 +69,7 @@ export default function App() {
           console.error('Failed to upsert user:', upsertError);
         }
       } else {
-        setActiveView('calculator'); // Reset to calculator when logged out
+        setActiveView('calculator');
       }
     });
 
@@ -164,8 +175,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex flex-col items-center py-10 px-4">
-      <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center py-10 px-4 text-gray-900 dark:text-gray-100">
+      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
         {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
@@ -225,7 +236,7 @@ export default function App() {
                 >
                   Tallenna suosikiksi
                 </button>
-                {message && <p className="text-sm text-blue-700">{message}</p>}
+                {message && <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>}
               </div>
             )}
 
