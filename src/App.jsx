@@ -28,6 +28,9 @@ export default function App() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
+  // Debug user state on each render
+  console.log('User:', user);
+
   useEffect(() => {
     if (window.location.pathname === '/reset-password') {
       setActiveView('reset-password');
