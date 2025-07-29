@@ -1,4 +1,5 @@
 // src/components/ResultDisplay.jsx
+import { useState } from 'react';
 
 export default function ResultDisplay({ result }) {
   return (
