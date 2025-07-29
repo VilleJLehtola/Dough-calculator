@@ -4,7 +4,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <div className="flex justify-between items-center">
+    <header className="flex justify-between items-center mb-6">
       <h1 className="text-2xl font-bold text-blue-800">Taikinalaskin</h1>
 
       {user && (
@@ -12,6 +12,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
           <button
             className="text-blue-800 px-3 py-2 rounded hover:bg-blue-100 transition"
             onClick={() => setMenuOpen((prev) => !prev)}
+            aria-label="Toggle menu"
           >
             ☰
           </button>
@@ -64,6 +65,6 @@ export default function Header({ user, activeView, setActiveView, logout }) {
           )}
         </div>
       )}
-    </div>
+    </header>
   );
 }
