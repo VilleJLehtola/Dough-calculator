@@ -7,6 +7,7 @@ export default function RecipesPage({ user, onLoadFavorite }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState('');
   const [message, setMessage] = useState('');
+  const [filterMode, setFilterMode] = useState('all');
 
   useEffect(() => {
     fetchRecipes();
@@ -48,10 +49,13 @@ export default function RecipesPage({ user, onLoadFavorite }) {
     }
   };
 
-  const filtered = recipes.filter((r) =>
-    r.title.toLowerCase().includes(search.toLowerCase()) ||
-    (r.tags || []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = recipes.filter((r) => {
+    const matchSearch =
+      r.title.toLowerCase().includes(search.toLowerCase()) ||
+      (r.tags || []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
+    const matchMode = filterMode === 'all' || r.mode === filterMode;
+    return matchSearch && matchMode;
+  });
 
   return (
     <div className="max-w-2xl mx-auto p-4">
@@ -66,6 +70,27 @@ export default function RecipesPage({ user, onLoadFavorite }) {
         placeholder="Etsi reseptejä tai tageja..."
         className="w-full px-3 py-2 mb-4 border rounded"
       />
+
+      <div className="flex justify-center gap-2 mb-4">
+        <button
+          onClick={() => setFilterMode('all')}
+          className={`px-3 py-1 rounded ${filterMode === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+        >
+          Kaikki
+        </button>
+        <button
+          onClick={() => setFilterMode('leipa')}
+          className={`px-3 py-1 rounded ${filterMode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+        >
+          Leipä
+        </button>
+        <button
+          onClick={() => setFilterMode('pizza')}
+          className={`px-3 py-1 rounded ${filterMode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+        >
+          Pizza
+        </button>
+      </div>
 
       {message && <p className="text-green-600 text-sm mb-2 text-center">{message}</p>}
 
