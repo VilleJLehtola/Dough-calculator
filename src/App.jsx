@@ -25,9 +25,10 @@ export default function App() {
   const [coldFermentation, setColdFermentation] = useState(false);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
-  const [activeView, setActiveView] = useState('calculator');
+  const [activeView, setActiveView] = useState('calculator'); // <--- Add this line
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
+
 
   useEffect(() => {
   async function getSession() {
