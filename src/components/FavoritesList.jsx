@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from '@/supabaseClient';
 import { FaBreadSlice, FaPizzaSlice, FaTrash, FaChevronDown, FaChevronUp } from "react-icons/fa";
 
-);
-
 export default function FavoritesList({ user, onLoadFavorite }) {
   const [favorites, setFavorites] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
