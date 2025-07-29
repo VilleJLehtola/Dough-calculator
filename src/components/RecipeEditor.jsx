@@ -1,5 +1,6 @@
 // RecipeEditor.jsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+
 import { supabase } from '../supabaseClient';
 
 export default function RecipeEditor({ user, onRecipeCreated }) {
