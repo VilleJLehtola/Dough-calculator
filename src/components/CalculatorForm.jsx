@@ -91,45 +91,53 @@ export default function CalculatorForm({
       {/* Options - checkboxes */}
 <div className="space-y-2">
   {mode === 'leipa' && (
-    <label className="flex items-center space-x-2">
+    <div className="flex items-center gap-2">
       <input
         type="checkbox"
+        id="rye"
         checked={useRye}
         onChange={() => setUseRye(!useRye)}
+        className="h-4 w-4"
       />
-      <span>Sisältää 20% ruisjauhoja</span>
-    </label>
+      <label htmlFor="rye" className="text-sm">Sisältää 20% ruisjauhoja</label>
+    </div>
   )}
 
   {mode === 'leipa' && (
-    <label className="flex items-center space-x-2">
+    <div className="flex items-center gap-2">
       <input
         type="checkbox"
+        id="seeds"
         checked={useSeeds}
         onChange={() => setUseSeeds(!useSeeds)}
+        className="h-4 w-4"
       />
-      <span>Lisää siemeniä (15%)</span>
-    </label>
+      <label htmlFor="seeds" className="text-sm">Lisää siemeniä (15%)</label>
+    </div>
   )}
 
-  <label className="flex items-center space-x-2">
+  <div className="flex items-center gap-2">
     <input
       type="checkbox"
+      id="cold"
       checked={coldFermentation}
       onChange={() => setColdFermentation(!coldFermentation)}
+      className="h-4 w-4"
     />
-    <span>Kylmäkohotus</span>
-  </label>
+    <label htmlFor="cold" className="text-sm">Kylmäkohotus</label>
+  </div>
 
   {mode === 'pizza' && (
-    <label className="flex items-center space-x-2">
+    <div className="flex items-center gap-2">
       <input
         type="checkbox"
+        id="oil"
         checked={useOil}
         onChange={() => setUseOil(!useOil)}
+        className="h-4 w-4"
       />
-      <span>Sisältää öljyä (3%)</span>
-    </label>
+      <label htmlFor="oil" className="text-sm">Sisältää öljyä (3%)</label>
+    </div>
   )}
 </div>
 
