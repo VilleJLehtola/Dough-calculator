@@ -6,7 +6,7 @@ export default function RecipeView({
   useSeeds,
   coldFermentation,
   doughType,
-  useOil, // ✅ Added this
+  useOil,
 }) {
   const foldIntervals = [30, 30, 45, 60];
 
@@ -38,7 +38,7 @@ export default function RecipeView({
       <h2 className="text-lg font-bold text-blue-700">📋 Resepti</h2>
       {steps.map((step, index) => (
         <div key={index} className="text-gray-800 flex items-center gap-3">
-          {doughType === 'leipa' && index === 2 ? (
+          {doughType === 'bread' && index === 2 ? (
             <>
               <span>{step}</span>
               <div className="flex gap-1">
