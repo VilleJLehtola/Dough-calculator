@@ -19,14 +19,17 @@ export default function RecipeView({
       : 'Muotoile, kohota ja paista uunissa 230 °C.',
   ];
 
-  const pizzaSteps = [
-    'Sekoita jauhot, vesi, suola ja hiiva tai juuri.',
-    coldFermentation
-      ? 'Anna taikinan levätä huoneenlämmössä 1–2 h, sitten kylmäkohota jääkaapissa yön yli.'
-      : 'Anna kohota huoneenlämmössä 6–8 h.',
-    'Muotoile pizzapohjat ja anna levätä vielä 30 min.',
-    'Lisää täytteet ja paista uunissa 250–300 °C kivellä tai pellillä.',
-  ];
+const pizzaSteps = [
+  'Sekoita jauhot, vesi, suola ja hiiva tai juuri.',
+  ...(useOil ? ['Lisää öljy ja sekoita taikinaan.'] : []),
+  `Taita taikinaa ${foldIntervals.length} kertaa: ${foldIntervals.join(' min, ')} min välein.`,
+  coldFermentation
+    ? 'Anna taikinan levätä huoneenlämmössä 1–2 h, sitten kylmäkohota jääkaapissa yön yli.'
+    : 'Anna kohota huoneenlämmössä 6–8 h.',
+  'Muotoile pizzapohjat ja anna levätä vielä 30 min.',
+  'Lisää täytteet ja paista uunissa 250–300 °C kivellä tai pellillä.',
+];
+
 
   const steps = doughType === 'pizza' ? pizzaSteps : breadSteps;
 
