@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/supabaseClient';
-import Header from './components/Header';
-import AuthForm from './components/AuthForm';
-import ForgotPasswordForm from './components/ForgotPasswordForm';
-import ResetPassword from './components/ResetPassword';
-import CalculatorForm from './components/CalculatorForm';
-import ResultDisplay from './components/ResultDisplay';
-import RecipeView from './components/RecipeView';
-import FavoritesList from './components/FavoritesList';
-import RecipesPage from './components/RecipesPage';
+import Header from '@/components/Header';
+import AuthForm from '@/components/AuthForm';
+import ForgotPasswordForm from '@/components/ForgotPasswordForm';
+import ResetPassword from '@/components/ResetPassword';
+import CalculatorForm from '@/components/CalculatorForm';
+import ResultDisplay from '@/components/ResultDisplay';
+import RecipeView from '@/components/RecipeView';
+import FavoritesList from '@/components/FavoritesList';
+import RecipesPage from '@/components/RecipesPage';
+
 
 export default function App() {
   const [user, setUser] = useState(null);
