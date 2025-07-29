@@ -1,6 +1,7 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/supabaseClient';
+
 import Header from '@/components/Header';
 import AuthForm from '@/components/AuthForm';
 import ForgotPasswordForm from '@/components/ForgotPasswordForm';
@@ -24,44 +25,44 @@ export default function App() {
   const [coldFermentation, setColdFermentation] = useState(false);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
-  const [activeView, setActiveView] = useState('calculator'); // <--- Add this line
+  const [activeView, setActiveView] = useState('calculator');
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
-
   useEffect(() => {
-  async function getSession() {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    console.log('Current session:', session);
-    console.log('Current user:', session?.user);
+    async function getSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
 
-    const loggedInUser = session?.user ?? null;
-    setUser(loggedInUser);
-
-    if (loggedInUser) {
-      // Upsert only if user is authenticated
-      const { error: upsertError } = await supabase
-        .from('users')
-        .upsert([{ id: loggedInUser.id, email: loggedInUser.email }]);
-      if (upsertError) {
-        console.error('Failed to upsert user:', upsertError);
+      if (session?.user) {
+        const { error: upsertError } = await supabase
+          .from('users')
+          .upsert([{ id: session.user.id, email: session.user.email }]);
+        if (upsertError) {
+          console.error('Failed to upsert user:', upsertError);
+        }
       }
     }
-  }
-  getSession();
 
-  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    if (session) {
-      setUser(session.user);
-    } else {
-      setUser(null);
-      setActiveView('calculator');
-    }
-  });
+    getSession();
 
-  return () => subscription.unsubscribe();
-}, []);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
 
+      if (session?.user) {
+        const { error: upsertError } = await supabase
+          .from('users')
+          .upsert([{ id: session.user.id, email: session.user.email }]);
+        if (upsertError) {
+          console.error('Failed to upsert user:', upsertError);
+        }
+      } else {
+        setActiveView('calculator'); // Reset to calculator when logged out
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const logout = async () => {
     await supabase.auth.signOut();
