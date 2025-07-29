@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
 export default function RecipeEditor({ user, onRecipeCreated }) {
-  const isAdmin = user?.email === 'vile.j.lehtola@gmail.com';
+  const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
   const [form, setForm] = useState({
     title: '',
     description: '',
