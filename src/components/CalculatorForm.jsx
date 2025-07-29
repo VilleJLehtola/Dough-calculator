@@ -1,5 +1,7 @@
 // src/components/CalculatorForm.jsx
 import React from 'react';
+import { useState } from 'react';
+
 
 export default function CalculatorForm({
   inputGrams,
