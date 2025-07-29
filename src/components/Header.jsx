@@ -7,16 +7,18 @@ export default function Header({ user, activeView, setActiveView, logout }) {
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
 
   // Load theme from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('theme') || 'light';
-    setTheme(saved);
-    const root = document.documentElement;
-    if (saved === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-  }, []);
+ useEffect(() => {
+  const saved = localStorage.getItem('theme') || 'light';
+  setTheme(saved);
+
+  const root = document.documentElement;
+  if (saved === 'dark') {
+    root.classList.add('dark');
+  } else {
+    root.classList.remove('dark'); // ← this is critical
+  }
+}, []);
+
 
   const handleViewChange = (view) => {
     setActiveView(view);
