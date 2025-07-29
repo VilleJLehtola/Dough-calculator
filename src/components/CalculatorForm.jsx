@@ -1,7 +1,4 @@
-// src/components/CalculatorForm.jsx
-import React, { useState, useEffect } from 'react';
-
-
+import React, { useState } from 'react';
 
 export default function CalculatorForm({
   inputGrams,
@@ -24,128 +21,125 @@ export default function CalculatorForm({
   setUseSeeds,
   showRecipe,
   setShowRecipe,
-  resetAll,
+  resetAll
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
+      <div className="flex gap-2">
+        <select
+          value={inputType}
+          onChange={e => setInputType(e.target.value)}
+          className="border rounded p-2"
+        >
+          <option value="jauho">Jauho</option>
+          <option value="vesi">Vesi</option>
+        </select>
+        <input
+          type="number"
+          value={inputGrams}
+          onChange={e => setInputGrams(e.target.value)}
+          placeholder="Grammat"
+          className="border rounded p-2 w-full"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <label className="flex-1">
+          Hydration (%)
+          <input
+            type="number"
+            min="55"
+            value={hydration}
+            onChange={e => setHydration(Number(e.target.value))}
+            className="border rounded p-2 w-full"
+          />
+        </label>
+        <label className="flex-1">
+          Suola (%)
+          <input
+            type="number"
+            value={saltPct}
+            onChange={e => setSaltPct(Number(e.target.value))}
+            className="border rounded p-2 w-full"
+          />
+        </label>
+      </div>
+
+      <div className="flex gap-2">
         <button
           onClick={() => setMode('leipa')}
-          className={`flex-1 py-2 rounded-lg text-sm ${
-            mode === 'leipa'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          className={`flex-1 p-2 rounded ${
+            mode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-gray-200'
           }`}
         >
           Leipä
         </button>
         <button
           onClick={() => setMode('pizza')}
-          className={`flex-1 py-2 rounded-lg text-sm ${
-            mode === 'pizza'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          className={`flex-1 p-2 rounded ${
+            mode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-gray-200'
           }`}
         >
           Pizza
         </button>
       </div>
 
-      <div className="flex gap-2">
-        <input
-          type="number"
-          value={inputGrams}
-          onChange={(e) => setInputGrams(e.target.value)}
-          placeholder={`Syötä ${inputType === 'jauho' ? 'jauhojen' : 'veden'} määrä grammoina`}
-          className="flex-1 border rounded px-3 py-2"
-        />
-        <select
-          value={inputType}
-          onChange={(e) => setInputType(e.target.value)}
-          className="border rounded px-2 py-2 text-sm"
-        >
-          <option value="jauho">Jauho</option>
-          <option value="vesi">Vesi</option>
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Hydraatio (%)</label>
-          <input
-            type="number"
-            value={hydration}
-            min={55}
-            max={100}
-            onChange={(e) => setHydration(Number(e.target.value))}
-            className="w-full border rounded px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Suola (%)</label>
-          <input
-            type="number"
-            value={saltPct}
-            onChange={(e) => setSaltPct(Number(e.target.value))}
-            className="w-full border rounded px-3 py-2"
-          />
-        </div>
-      </div>
-
       {mode === 'pizza' && (
-        <div className="flex items-center gap-2">
+        <label className="block">
           <input
             type="checkbox"
             checked={useOil}
-            onChange={() => setUseOil(!useOil)}
+            onChange={e => setUseOil(e.target.checked)}
+            className="mr-2"
           />
-          <label className="text-sm">Käytä öljyä (3%)</label>
-        </div>
+          Lisää öljyä taikinaan
+        </label>
       )}
 
-      <div className="flex flex-col gap-2">
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={coldFermentation}
-            onChange={() => setColdFermentation(!coldFermentation)}
-          />
-          Kylmäfermentointi (jääkaapissa yön yli)
-        </label>
+      {mode === 'leipa' && (
+        <>
+          <label className="block">
+            <input
+              type="checkbox"
+              checked={useRye}
+              onChange={e => setUseRye(e.target.checked)}
+              className="mr-2"
+            />
+            Sisältää 20% ruisjauhoja
+          </label>
 
-        {mode === 'leipa' && (
-          <>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={useRye}
-                onChange={() => setUseRye(!useRye)}
-              />
-              Käytä ruisjauhoja (20%)
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={useSeeds}
-                onChange={() => setUseSeeds(!useSeeds)}
-              />
-              Lisää siemeniä (15%)
-            </label>
-          </>
-        )}
-      </div>
+          <label className="block">
+            <input
+              type="checkbox"
+              checked={useSeeds}
+              onChange={e => setUseSeeds(e.target.checked)}
+              className="mr-2"
+            />
+            Lisää siemeniä (15%)
+          </label>
+        </>
+      )}
+
+      <label className="block">
+        <input
+          type="checkbox"
+          checked={coldFermentation}
+          onChange={e => setColdFermentation(e.target.checked)}
+          className="mr-2"
+        />
+        Kylmäkohotus
+      </label>
 
       <div className="flex gap-2">
         <button
-          onClick={() => setShowRecipe(!showRecipe)}
-          className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          onClick={() => setShowRecipe(prev => !prev)}
+          className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
         >
           {showRecipe ? 'Piilota resepti' : 'Näytä resepti'}
         </button>
         <button
           onClick={resetAll}
-          className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 transition"
+          className="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400 transition"
         >
           Tyhjennä
         </button>
