@@ -1,12 +1,9 @@
 // FavoritesList.jsx
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from '@/supabaseClient';
 import { FaBreadSlice, FaPizzaSlice, FaTrash, FaChevronDown, FaChevronUp } from "react-icons/fa";
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
 export default function FavoritesList({ user, onLoadFavorite }) {
