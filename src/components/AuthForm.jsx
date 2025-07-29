@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 
-
 export default function AuthForm({ setUser, setActiveView }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,15 +14,41 @@ export default function AuthForm({ setUser, setActiveView }) {
       return;
     }
 
-    const { data, error } = isRegistering
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
+    if (isRegistering) {
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
-    if (error) {
-      setError(error.message);
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      const user = data.user;
+      if (user) {
+        const { error: insertError } = await supabase.from('users').insert({
+          id: user.id,
+          email: user.email,
+          created_at: new Date().toISOString(),
+        });
+
+        if (insertError) {
+          console.error('Failed to insert user:', insertError.message);
+          setError('Rekisteröinti onnistui, mutta käyttäjää ei voitu tallentaa.');
+        } else {
+          setUser(user);
+          setActiveView('calculator');
+        }
+      } else {
+        setError('Rekisteröinti epäonnistui.');
+      }
     } else {
-      setUser(data.user);
-      setActiveView('calculator');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) {
+        setError(signInError.message);
+      } else {
+        setUser(data.user);
+        setActiveView('calculator');
+      }
     }
   };
 
