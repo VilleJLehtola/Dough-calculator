@@ -1,6 +1,4 @@
-// src/components/ResultDisplay.jsx
-import React, { useState, useEffect } from 'react';
-
+import React from 'react';
 
 export default function ResultDisplay({ result }) {
   return (
