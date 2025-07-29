@@ -70,7 +70,7 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2 font-medium">
-                      {fav.doughType === "pizza" ? (
+                      {fav.mode === "pizza" ? (
                         <FaPizzaSlice className="text-yellow-500" />
                       ) : (
                         <FaBreadSlice className="text-orange-700" />
@@ -110,11 +110,11 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                         className="overflow-hidden mt-4 text-sm text-gray-700 space-y-1"
                       >
                         <p>Hydraatio: {fav.hydration}%</p>
-                        <p>Suola: {fav.salt}%</p>
-                        {fav.oil && <p>Öljy: {fav.oil}%</p>}
-                        {fav.includeSeeds && <p>Siemenet: kyllä</p>}
-                        {fav.includeRye && <p>Ruisjauho: kyllä</p>}
-                        {fav.coldFermentation && <p>Kylmäkohotus: kyllä</p>}
+                        <p>Suola: {fav.salt_pct}%</p>
+                        {fav.use_oil && <p>Öljy: kyllä</p>}
+                        {fav.use_seeds && <p>Siemenet: kyllä</p>}
+                        {fav.use_rye && <p>Ruisjauho: kyllä</p>}
+                        {fav.cold_fermentation && <p>Kylmäkohotus: kyllä</p>}
                       </motion.div>
                     )}
                   </AnimatePresence>
