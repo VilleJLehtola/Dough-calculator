@@ -1,8 +1,10 @@
-// App.jsx
+// ✅ App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Header from './components/Header';
 import AuthForm from './components/AuthForm';
+import ForgotPasswordForm from './components/ForgotPasswordForm';
+import ResetPassword from './components/ResetPassword';
 import CalculatorForm from './components/CalculatorForm';
 import ResultDisplay from './components/ResultDisplay';
 import RecipeView from './components/RecipeView';
@@ -27,7 +29,10 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    window.supabase = supabase;
+    if (window.location.pathname === '/reset-password') {
+      setActiveView('reset-password');
+    }
+
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const loggedInUser = session?.user ?? null;
@@ -39,9 +44,8 @@ export default function App() {
       }
     };
     getSession();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setUser(session.user);
       } else {
@@ -49,6 +53,7 @@ export default function App() {
         setActiveView('calculator');
       }
     });
+
     return () => subscription.unsubscribe();
   }, []);
 
@@ -156,7 +161,9 @@ export default function App() {
       <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-        {!user && <AuthForm />}
+        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
 
         {user && activeView === 'favorites' && (
           <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
@@ -229,4 +236,3 @@ export default function App() {
     </div>
   );
 }
- 
