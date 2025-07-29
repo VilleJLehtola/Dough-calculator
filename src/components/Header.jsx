@@ -1,85 +1,70 @@
-import React, { useState } from 'react';
+// src/components/Header.jsx
+import React from 'react';
 
 export default function Header({ user, activeView, setActiveView, logout }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-
   return (
-    <div className="flex justify-between items-center">
-      <h1 className="text-2xl font-bold text-blue-800">Taikinalaskin</h1>
-
-      <div className="relative">
+    <div className="flex justify-between items-center mb-4">
+      <div className="flex gap-2">
         <button
-          className="text-blue-800 px-3 py-2 rounded hover:bg-blue-100 transition"
-          onClick={() => setMenuOpen((prev) => !prev)}
+          onClick={() => setActiveView('calculator')}
+          className={`px-3 py-1 rounded ${
+            activeView === 'calculator' ? 'bg-blue-500 text-white' : 'bg-gray-100'
+          }`}
         >
-          ☰
+          Laskuri
         </button>
 
-        {menuOpen && (
-          <div className="absolute right-0 mt-2 bg-white shadow-lg rounded border border-blue-200 w-40 z-10">
-            {/* Always visible */}
+        {user && (
+          <>
             <button
-              onClick={() => {
-                setActiveView('calculator');
-                setMenuOpen(false);
-              }}
-              className={`w-full text-left px-4 py-2 hover:bg-blue-100 ${
-                activeView === 'calculator' ? 'font-semibold text-blue-700' : ''
+              onClick={() => setActiveView('favorites')}
+              className={`px-3 py-1 rounded ${
+                activeView === 'favorites' ? 'bg-blue-500 text-white' : 'bg-gray-100'
               }`}
             >
-              Laskin
+              Suosikit
             </button>
+
             <button
-              onClick={() => {
-                setActiveView('recipes');
-                setMenuOpen(false);
-              }}
-              className={`w-full text-left px-4 py-2 hover:bg-blue-100 ${
-                activeView === 'recipes' ? 'font-semibold text-blue-700' : ''
+              onClick={() => setActiveView('recipes')}
+              className={`px-3 py-1 rounded ${
+                activeView === 'recipes' ? 'bg-blue-500 text-white' : 'bg-gray-100'
               }`}
             >
               Reseptit
             </button>
 
-            {/* Conditional items */}
-            {user ? (
-              <>
-                <button
-                  onClick={() => {
-                    setActiveView('favorites');
-                    setMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-2 hover:bg-blue-100 ${
-                    activeView === 'favorites' ? 'font-semibold text-blue-700' : ''
-                  }`}
-                >
-                  Suosikit
-                </button>
-                <button
-                  onClick={() => {
-                    logout();
-                    setMenuOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-100"
-                >
-                  Kirjaudu ulos
-                </button>
-              </>
-            ) : (
+            {user.email === 'ville.j.lehtola@gmail.com' && (
               <button
-                onClick={() => {
-                  setActiveView('auth');
-                  setMenuOpen(false);
-                }}
-                className="w-full text-left px-4 py-2 hover:bg-blue-100"
+                onClick={() => setActiveView('admin')}
+                className={`px-3 py-1 rounded ${
+                  activeView === 'admin' ? 'bg-blue-500 text-white' : 'bg-gray-100'
+                }`}
               >
-                Kirjaudu
+                Admin
               </button>
             )}
-          </div>
+          </>
+        )}
+      </div>
+
+      <div>
+        {user ? (
+          <button
+            onClick={logout}
+            className="text-sm text-red-600 hover:underline"
+          >
+            Kirjaudu ulos
+          </button>
+        ) : (
+          <button
+            onClick={() => setActiveView('auth')}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            Kirjaudu sisään
+          </button>
         )}
       </div>
     </div>
   );
 }
-
