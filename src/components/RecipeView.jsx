@@ -36,31 +36,34 @@ export default function RecipeView({
   return (
     <div className="bg-white border border-blue-200 rounded-lg p-4 mt-4 space-y-4 shadow-sm">
       <h2 className="text-lg font-bold text-blue-700">📋 Resepti</h2>
-      {steps.map((step, index) => (
-        <div key={index} className="text-gray-800 flex items-center gap-3">
-          {doughType === 'bread' && index === 2 ? (
-            <>
+      {steps.map((step, index) => {
+        const isFoldStep = step.includes('Taita taikinaa');
+        return (
+          <div key={index} className="text-gray-800 flex items-center gap-3">
+            {isFoldStep ? (
+              <>
+                <span>{step}</span>
+                <div className="flex gap-1">
+                  {foldIntervals.map((_, i) => (
+                    <input
+                      key={i}
+                      type="checkbox"
+                      checked={foldsDone >= i + 1}
+                      onChange={() =>
+                        setFoldsDone((prev) =>
+                          prev === i + 1 ? i : Math.max(i + 1, prev)
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              </>
+            ) : (
               <span>{step}</span>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4].map((n) => (
-                  <input
-                    key={n}
-                    type="checkbox"
-                    checked={foldsDone >= n}
-                    onChange={() =>
-                      setFoldsDone((prev) =>
-                        prev === n ? n - 1 : Math.max(n, prev)
-                      )
-                    }
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
-            <span>{step}</span>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
