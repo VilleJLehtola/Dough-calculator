@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/supabaseClient';
 
@@ -27,9 +28,6 @@ export default function App() {
   const [activeView, setActiveView] = useState('calculator');
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
-
-  // Debug user state on each render
-  console.log('User:', user);
 
   useEffect(() => {
     if (window.location.pathname === '/reset-password') {
