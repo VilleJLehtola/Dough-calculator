@@ -1,100 +1,238 @@
-import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+// ✅ App.jsx
+import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
+import Header from './components/Header';
+import AuthForm from './components/AuthForm';
+import ForgotPasswordForm from './components/ForgotPasswordForm';
+import ResetPassword from './components/ResetPassword';
+import CalculatorForm from './components/CalculatorForm';
+import ResultDisplay from './components/ResultDisplay';
+import RecipeView from './components/RecipeView';
+import FavoritesList from './components/FavoritesList';
+import RecipesPage from './components/RecipesPage';
 
-export default function AuthForm({ setUser, setActiveView }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false);
-  const [error, setError] = useState('');
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [inputGrams, setInputGrams] = useState('');
+  const [inputType, setInputType] = useState('jauho');
+  const [hydration, setHydration] = useState(75);
+  const [saltPct, setSaltPct] = useState(2);
+  const [mode, setMode] = useState('leipa');
+  const [showRecipe, setShowRecipe] = useState(false);
+  const [foldsDone, setFoldsDone] = useState(0);
+  const [useOil, setUseOil] = useState(false);
+  const [coldFermentation, setColdFermentation] = useState(false);
+  const [useRye, setUseRye] = useState(false);
+  const [useSeeds, setUseSeeds] = useState(false);
+  const [activeView, setActiveView] = useState('calculator');
+  const [favName, setFavName] = useState('');
+  const [message, setMessage] = useState('');
 
-  const handleAuth = async () => {
-    setError('');
-    if (!email || !password) {
-      setError('Sähköposti ja salasana vaaditaan.');
-      return;
+  useEffect(() => {
+    if (window.location.pathname === '/reset-password') {
+      setActiveView('reset-password');
     }
 
-    if (isRegistering) {
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-
-      if (signUpError) {
-        setError(signUpError.message);
-        return;
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const loggedInUser = session?.user ?? null;
+      setUser(loggedInUser);
+      if (loggedInUser) {
+        await supabase.from('users').upsert([
+          { id: loggedInUser.id, email: loggedInUser.email }
+        ]);
       }
+    };
+    getSession();
 
-      const user = data.user;
-      if (user) {
-        const { error: insertError } = await supabase.from('users').insert({
-          id: user.id,
-          email: user.email,
-          created_at: new Date().toISOString(),
-        });
-
-        if (insertError) {
-          console.error('Failed to insert user:', insertError.message);
-          setError('Rekisteröinti onnistui, mutta käyttäjää ei voitu tallentaa.');
-        } else {
-          setUser(user);
-          setActiveView('calculator');
-        }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser(session.user);
       } else {
-        setError('Rekisteröinti epäonnistui.');
-      }
-    } else {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-      if (signInError) {
-        setError(signInError.message);
-      } else {
-        setUser(data.user);
+        setUser(null);
         setActiveView('calculator');
       }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const logout = async () => {
+    supabase.auth.onAuthStateChange(() => {});
+    await supabase.auth.signOut();
+    localStorage.clear();
+    sessionStorage.clear();
+    indexedDB.deleteDatabase('supabase-auth-cache');
+    setUser(null);
+    setActiveView('calculator');
+    window.location.reload();
+  };
+
+  const resetAll = () => {
+    setInputGrams('');
+    setInputType('jauho');
+    setHydration(75);
+    setSaltPct(2);
+    setMode('leipa');
+    setUseOil(false);
+    setColdFermentation(false);
+    setUseRye(false);
+    setUseSeeds(false);
+    setShowRecipe(false);
+    setFoldsDone(0);
+    setFavName('');
+    setMessage('');
+  };
+
+  const calculate = () => {
+    const grams = parseFloat(inputGrams);
+    if (isNaN(grams) || grams <= 0) return null;
+    const h = hydration / 100;
+    const s = saltPct / 100;
+    let jauho, vesi;
+    if (inputType === 'jauho') {
+      jauho = grams;
+      vesi = h * jauho;
+    } else {
+      vesi = grams;
+      jauho = vesi / h;
+    }
+    const suola = jauho * s;
+    const juuri = jauho * 0.2;
+    const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
+    const seeds = useSeeds ? jauho * 0.15 : 0;
+    const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
+    let jauhotyypit = {};
+    if (mode === 'pizza') {
+      jauhotyypit = {
+        '00-jauho': jauho * (1000 / 1070),
+        puolikarkea: jauho * (70 / 1070),
+      };
+    } else {
+      jauhotyypit = useRye
+        ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
+        : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
+    }
+    return { jauho, vesi, suola, juuri, oljy, yhteensa, jauhotyypit, seeds };
+  };
+
+  const result = calculate();
+
+  const saveFavorite = async () => {
+    if (!favName || !user) return;
+    const { error } = await supabase.from('favorites').insert([
+      {
+        user_id: user.id,
+        name: favName,
+        input_grams: inputGrams,
+        input_type: inputType,
+        hydration,
+        salt_pct: saltPct,
+        mode,
+        use_oil: useOil,
+        cold_fermentation: coldFermentation,
+        use_rye: useRye,
+        use_seeds: useSeeds,
+      },
+    ]);
+    if (error) {
+      setMessage('Tallennus epäonnistui.');
+    } else {
+      setMessage('Suosikki tallennettu!');
+      setFavName('');
     }
   };
 
+  const handleLoadFavorite = (fav) => {
+    setInputGrams(fav.input_grams);
+    setInputType(fav.input_type);
+    setHydration(fav.hydration);
+    setSaltPct(fav.salt_pct);
+    setMode(fav.mode);
+    setUseOil(fav.use_oil);
+    setColdFermentation(fav.cold_fermentation);
+    setUseRye(fav.use_rye);
+    setUseSeeds(fav.use_seeds);
+    setActiveView('calculator');
+  };
+
   return (
-    <div className="bg-white p-4 rounded-lg shadow border border-blue-200 space-y-4">
-      <h2 className="text-xl font-semibold text-blue-800 text-center">
-        {isRegistering ? 'Rekisteröidy' : 'Kirjaudu sisään'}
-      </h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
+      <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
+        <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
 
-      <input
-        type="email"
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        placeholder="Sähköposti"
-        className="w-full p-2 border border-gray-300 rounded"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        placeholder="Salasana"
-        className="w-full p-2 border border-gray-300 rounded"
-      />
+        {user && activeView === 'favorites' && (
+          <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
+        )}
 
-      <button
-        onClick={handleAuth}
-        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-      >
-        {isRegistering ? 'Rekisteröidy' : 'Kirjaudu'}
-      </button>
+        {user && activeView === 'recipes' && (
+          <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
+        )}
 
-      <p
-        className="text-sm text-center text-blue-600 cursor-pointer hover:underline"
-        onClick={() => setIsRegistering(prev => !prev)}
-      >
-        {isRegistering ? 'Onko sinulla jo tili? Kirjaudu' : 'Ei tiliä? Rekisteröidy'}
-      </p>
+        {activeView === 'calculator' && (
+          <>
+            <CalculatorForm
+              inputGrams={inputGrams}
+              setInputGrams={setInputGrams}
+              inputType={inputType}
+              setInputType={setInputType}
+              hydration={hydration}
+              setHydration={setHydration}
+              saltPct={saltPct}
+              setSaltPct={setSaltPct}
+              mode={mode}
+              setMode={setMode}
+              useOil={useOil}
+              setUseOil={setUseOil}
+              coldFermentation={coldFermentation}
+              setColdFermentation={setColdFermentation}
+              useRye={useRye}
+              setUseRye={setUseRye}
+              useSeeds={useSeeds}
+              setUseSeeds={setUseSeeds}
+              showRecipe={showRecipe}
+              setShowRecipe={setShowRecipe}
+              resetAll={resetAll}
+            />
 
-      <button
-        onClick={() => setActiveView('calculator')}
-        className="w-full text-sm text-gray-500 mt-2 hover:underline"
-      >
-        ← Palaa laskimeen ilman kirjautumista
-      </button>
+            {user && (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Suosikin nimi"
+                  value={favName}
+                  onChange={(e) => setFavName(e.target.value)}
+                  className="w-full border rounded px-3 py-2 text-sm"
+                />
+                <button
+                  onClick={saveFavorite}
+                  className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+                >
+                  Tallenna suosikiksi
+                </button>
+                {message && <p className="text-sm text-blue-700">{message}</p>}
+              </div>
+            )}
+
+            {result && <ResultDisplay result={result} />}
+
+            {showRecipe && result && (
+              <RecipeView
+                doughType={mode}
+                useSeeds={useSeeds}
+                coldFermentation={coldFermentation}
+                foldsDone={foldsDone}
+                setFoldsDone={setFoldsDone}
+                useOil={useOil}
+              />
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
