@@ -1,6 +1,5 @@
-// ✅ App.jsx
 import React, { useState, useEffect } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from '@/supabaseClient';
 import Header from './components/Header';
 import AuthForm from './components/AuthForm';
 import ForgotPasswordForm from './components/ForgotPasswordForm';
@@ -29,6 +28,7 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
+    // Handle /reset-password route
     if (window.location.pathname === '/reset-password') {
       setActiveView('reset-password');
     }
@@ -58,7 +58,6 @@ export default function App() {
   }, []);
 
   const logout = async () => {
-    supabase.auth.onAuthStateChange(() => {});
     await supabase.auth.signOut();
     localStorage.clear();
     sessionStorage.clear();
