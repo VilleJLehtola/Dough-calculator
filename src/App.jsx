@@ -11,6 +11,7 @@ import ResultDisplay from '@/components/ResultDisplay';
 import RecipeView from '@/components/RecipeView';
 import FavoritesList from '@/components/FavoritesList';
 import RecipesPage from '@/components/RecipesPage';
+import AdminRecipeEditor from '@/components/AdminRecipeEditor'; // ✅ added
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -179,6 +180,10 @@ export default function App() {
           <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
         )}
 
+        {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+          <AdminRecipeEditor />
+        )}
+
         {activeView === 'calculator' && (
           <>
             <CalculatorForm
@@ -242,4 +247,3 @@ export default function App() {
     </div>
   );
 }
- 
