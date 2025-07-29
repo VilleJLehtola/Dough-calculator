@@ -6,6 +6,7 @@ import RecipeEditor from './RecipeEditor';
 export default function RecipesPage({ user, onLoadFavorite }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState('');
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchRecipes();
@@ -20,6 +21,33 @@ export default function RecipesPage({ user, onLoadFavorite }) {
     if (!error) setRecipes(data);
   };
 
+  const saveRecipeAsFavorite = async (recipe) => {
+    if (!user) return;
+
+    const { error } = await supabase.from('favorites').insert([
+      {
+        user_id: user.id,
+        name: recipe.title,
+        input_grams: '',
+        input_type: 'jauho',
+        hydration: recipe.hydration,
+        salt_pct: recipe.salt_pct,
+        mode: recipe.mode,
+        use_oil: recipe.use_oil,
+        cold_fermentation: recipe.cold_fermentation,
+        use_rye: recipe.use_rye,
+        use_seeds: recipe.use_seeds,
+      },
+    ]);
+
+    if (error) {
+      setMessage('Tallennus epäonnistui');
+    } else {
+      setMessage(`Resepti "${recipe.title}" tallennettu suosikiksi!`);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
   const filtered = recipes.filter((r) =>
     r.title.toLowerCase().includes(search.toLowerCase()) ||
     (r.tags || []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()))
@@ -29,7 +57,6 @@ export default function RecipesPage({ user, onLoadFavorite }) {
     <div className="max-w-2xl mx-auto p-4">
       <h2 className="text-2xl font-bold mb-4 text-center">Reseptikirjasto</h2>
 
-      {/* Admin-only editor */}
       <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />
 
       <input
@@ -39,6 +66,8 @@ export default function RecipesPage({ user, onLoadFavorite }) {
         placeholder="Etsi reseptejä tai tageja..."
         className="w-full px-3 py-2 mb-4 border rounded"
       />
+
+      {message && <p className="text-green-600 text-sm mb-2 text-center">{message}</p>}
 
       {filtered.length === 0 ? (
         <p className="text-center text-gray-500">Ei reseptejä</p>
@@ -64,6 +93,12 @@ export default function RecipesPage({ user, onLoadFavorite }) {
                   className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                 >
                   Lataa laskimeen
+                </button>
+                <button
+                  onClick={() => saveRecipeAsFavorite(recipe)}
+                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
+                >
+                  Tallenna suosikiksi
                 </button>
                 <details className="w-full mt-2">
                   <summary className="cursor-pointer text-sm text-blue-700 hover:underline">
