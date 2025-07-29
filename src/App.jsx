@@ -250,6 +250,7 @@ export default function App() {
                 coldFermentation={coldFermentation}
                 foldsDone={foldsDone}
                 setFoldsDone={setFoldsDone}
+                useOil={useOil}
               />
             )}
           </>
