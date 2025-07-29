@@ -10,6 +10,7 @@ import RecipesPage from '@/components/RecipesPage';
 
 
 export default function App() {
+  console.log('✅ App mounted'); // <-- Add this here
   const [user, setUser] = useState(null);
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
