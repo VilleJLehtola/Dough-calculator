@@ -11,7 +11,7 @@ export default function ForgotPasswordForm({ setActiveView }) {
     setMessage('');
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://your-app.vercel.app/reset-password', // Update this to your deployed URL
+      redirectTo: 'https://breadcalulator.online/reset-password', // Update this to your deployed URL
     });
 
     if (error) {
