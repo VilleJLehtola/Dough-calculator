@@ -42,6 +42,17 @@ export default function Header({ user, activeView, setActiveView, logout }) {
               </button>
               <button
                 onClick={() => {
+                  setActiveView('recipes');
+                  setMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 hover:bg-blue-100 ${
+                  activeView === 'recipes' ? 'font-semibold text-blue-700' : ''
+                }`}
+              >
+                Reseptit
+              </button>
+              <button
+                onClick={() => {
                   logout();
                   setMenuOpen(false);
                 }}
