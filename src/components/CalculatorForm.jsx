@@ -27,22 +27,23 @@ export default function CalculatorForm({
     <div className="space-y-4">
       {/* Type + Input */}
       <div className="flex space-x-2">
-        <select
-          value={inputType}
-          onChange={(e) => setInputType(e.target.value)}
-          className="border rounded px-3 py-2"
-        >
-          <option value="jauho">Jauho</option>
-          <option value="vesi">Vesi</option>
-        </select>
-        <input
-          type="number"
-          placeholder="Grammat"
-          value={inputGrams}
-          onChange={(e) => setInputGrams(e.target.value)}
-          className="flex-1 border rounded px-3 py-2"
-        />
-      </div>
+  <select
+    value={inputType}
+    onChange={(e) => setInputType(e.target.value)}
+    className="border rounded px-3 py-2 h-[42px]" // 🔧 match height manually
+  >
+    <option value="jauho">Jauho</option>
+    <option value="vesi">Vesi</option>
+  </select>
+  <input
+    type="number"
+    placeholder="Grammat"
+    value={inputGrams}
+    onChange={(e) => setInputGrams(e.target.value)}
+    className="flex-1 border rounded px-3 py-2 h-[42px]"
+  />
+</div>
+
 
       {/* Hydration + Salt */}
       <div className="flex space-x-2">
