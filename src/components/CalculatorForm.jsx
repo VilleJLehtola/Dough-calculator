@@ -89,49 +89,50 @@ export default function CalculatorForm({
       </div>
 
       {/* Options - checkboxes */}
-      <div className="space-y-2">
-        {mode === 'leipa' && (
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={useRye}
-              onChange={() => setUseRye(!useRye)}
-            />
-            <label>Sisältää 20% ruisjauhoja</label>
-          </div>
-        )}
+<div className="space-y-2">
+  {mode === 'leipa' && (
+    <label className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={useRye}
+        onChange={() => setUseRye(!useRye)}
+      />
+      <span>Sisältää 20% ruisjauhoja</span>
+    </label>
+  )}
 
-        {mode === 'leipa' && (
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={useSeeds}
-              onChange={() => setUseSeeds(!useSeeds)}
-            />
-            <label>Lisää siemeniä (15%)</label>
-          </div>
-        )}
+  {mode === 'leipa' && (
+    <label className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={useSeeds}
+        onChange={() => setUseSeeds(!useSeeds)}
+      />
+      <span>Lisää siemeniä (15%)</span>
+    </label>
+  )}
 
-        <div className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            checked={coldFermentation}
-            onChange={() => setColdFermentation(!coldFermentation)}
-          />
-          <label>Kylmäkohotus</label>
-        </div>
+  <label className="flex items-center space-x-2">
+    <input
+      type="checkbox"
+      checked={coldFermentation}
+      onChange={() => setColdFermentation(!coldFermentation)}
+    />
+    <span>Kylmäkohotus</span>
+  </label>
 
-        {mode === 'pizza' && (
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={useOil}
-              onChange={() => setUseOil(!useOil)}
-            />
-            <label>Sisältää öljyä (3%)</label>
-          </div>
-        )}
-      </div>
+  {mode === 'pizza' && (
+    <label className="flex items-center space-x-2">
+      <input
+        type="checkbox"
+        checked={useOil}
+        onChange={() => setUseOil(!useOil)}
+      />
+      <span>Sisältää öljyä (3%)</span>
+    </label>
+  )}
+</div>
+
 
       {/* Buttons */}
       <div className="flex space-x-2">
