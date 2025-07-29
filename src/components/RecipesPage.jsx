@@ -28,7 +28,7 @@ export default function RecipesPage({ user, onLoadFavorite }) {
       {
         user_id: user.id,
         name: recipe.title,
-        input_grams: '',
+        input_grams: recipe.flour_amount || '',
         input_type: 'jauho',
         hydration: recipe.hydration,
         salt_pct: recipe.salt_pct,
@@ -107,6 +107,14 @@ export default function RecipesPage({ user, onLoadFavorite }) {
                   <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
                     {recipe.instructions}
                   </p>
+                  <div className="text-xs text-gray-600 mt-2 space-y-1">
+                    {recipe.flour_amount && <p>Jauho: {recipe.flour_amount} g</p>}
+                    {recipe.water_amount && <p>Vesi: {recipe.water_amount} g</p>}
+                    {recipe.salt_amount && <p>Suola: {recipe.salt_amount} g</p>}
+                    {recipe.oil_amount && <p>Öljy: {recipe.oil_amount} g</p>}
+                    {recipe.juuri_amount && <p>Juuri: {recipe.juuri_amount} g</p>}
+                    {recipe.seeds_amount && <p>Siemenet: {recipe.seeds_amount} g</p>}
+                  </div>
                 </details>
               </div>
             </li>
