@@ -8,22 +8,18 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
   // Load theme from localStorage
  useEffect(() => {
-  const saved = localStorage.getItem('theme') || 'light';
+  const saved = localStorage.getItem('theme') || 'light'; // ✅ defaults to light
   setTheme(saved);
 
   const root = document.documentElement;
   if (saved === 'dark') {
     root.classList.add('dark');
   } else {
-    root.classList.remove('dark'); // ← this is critical
+    root.classList.remove('dark'); // ✅ ensures light mode is cleanly applied
   }
 }, []);
 
 
-  const handleViewChange = (view) => {
-    setActiveView(view);
-    setShowMenu(false);
-  };
 
   const toggleDarkMode = () => {
   const newTheme = theme === 'dark' ? 'light' : 'dark';
@@ -39,6 +35,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
   setShowMenu(false);
 };
+
 
 
   return (
