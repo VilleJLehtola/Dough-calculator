@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/supabaseClient';
+
 import Header from '@/components/Header';
 import AuthForm from '@/components/AuthForm';
 import ForgotPasswordForm from '@/components/ForgotPasswordForm';
@@ -10,9 +11,7 @@ import RecipeView from '@/components/RecipeView';
 import FavoritesList from '@/components/FavoritesList';
 import RecipesPage from '@/components/RecipesPage';
 
-
 export default function App() {
-  console.log('✅ App mounted'); // <-- Add this here
   const [user, setUser] = useState(null);
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
@@ -30,21 +29,18 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    // Handle /reset-password route
     if (window.location.pathname === '/reset-password') {
       setActiveView('reset-password');
     }
 
-    const getSession = async () => {
+    async function getSession() {
       const { data: { session } } = await supabase.auth.getSession();
       const loggedInUser = session?.user ?? null;
       setUser(loggedInUser);
       if (loggedInUser) {
-        await supabase.from('users').upsert([
-          { id: loggedInUser.id, email: loggedInUser.email }
-        ]);
+        await supabase.from('users').upsert([{ id: loggedInUser.id, email: loggedInUser.email }]);
       }
-    };
+    }
     getSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -158,8 +154,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
-      <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex flex-col items-center py-10 px-4">
+      <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 flex flex-col">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
         {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
