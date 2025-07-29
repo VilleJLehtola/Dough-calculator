@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
+import { useSession } from '@supabase/auth-helpers-react';
 
 export default function RecipeEditor({ onSave }) {
+  const session = useSession();
+  const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
+
+  // ❌ Hide form if not admin
+  if (!isAdmin) return null;
+
   const [title, setTitle] = useState('');
   const [ingredients, setIngredients] = useState('');
   const [steps, setSteps] = useState('');
