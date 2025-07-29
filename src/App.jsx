@@ -30,31 +30,38 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (window.location.pathname === '/reset-password') {
-      setActiveView('reset-password');
-    }
+  async function getSession() {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    console.log('Current session:', session);
+    console.log('Current user:', session?.user);
 
-    async function getSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      const loggedInUser = session?.user ?? null;
-      setUser(loggedInUser);
-      if (loggedInUser) {
-        await supabase.from('users').upsert([{ id: loggedInUser.id, email: loggedInUser.email }]);
+    const loggedInUser = session?.user ?? null;
+    setUser(loggedInUser);
+
+    if (loggedInUser) {
+      // Upsert only if user is authenticated
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert([{ id: loggedInUser.id, email: loggedInUser.email }]);
+      if (upsertError) {
+        console.error('Failed to upsert user:', upsertError);
       }
     }
-    getSession();
+  }
+  getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-        setActiveView('calculator');
-      }
-    });
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      setUser(session.user);
+    } else {
+      setUser(null);
+      setActiveView('calculator');
+    }
+  });
 
-    return () => subscription.unsubscribe();
-  }, []);
+  return () => subscription.unsubscribe();
+}, []);
+
 
   const logout = async () => {
     await supabase.auth.signOut();
