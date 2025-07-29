@@ -1,13 +1,14 @@
+// src/components/Header.jsx
 import React, { useState } from 'react';
 
 export default function Header({ user, activeView, setActiveView, logout }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="flex justify-between items-center mb-6">
+    <div className="flex justify-between items-center mb-6">
       <h1 className="text-2xl font-bold text-blue-800">Taikinalaskin</h1>
 
-      {user && (
+      {user ? (
         <div className="relative">
           <button
             className="text-blue-800 px-3 py-2 rounded hover:bg-blue-100 transition"
@@ -64,7 +65,14 @@ export default function Header({ user, activeView, setActiveView, logout }) {
             </div>
           )}
         </div>
+      ) : (
+        <button
+          className="text-blue-800 px-3 py-2 rounded hover:bg-blue-100 transition"
+          onClick={() => setActiveView('auth')}
+        >
+          Kirjaudu sisään
+        </button>
       )}
-    </header>
+    </div>
   );
 }
