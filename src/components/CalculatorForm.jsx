@@ -25,24 +25,35 @@ export default function CalculatorForm({
 }) {
   return (
     <div className="space-y-4">
-      {/* Type + Input */}
-      <div className="flex space-x-2">
+{/* Type + Input */}
+<div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
+  {/* Dropdown with tooltip */}
   <select
     value={inputType}
     onChange={(e) => setInputType(e.target.value)}
-    className="border rounded px-3 py-2 h-[42px]" // 🔧 match height manually
+    title="Valitse haluatko syöttää jauhojen vai veden määrän"
+    className="border rounded px-3 py-2 h-[42px] w-full sm:w-auto"
   >
     <option value="jauho">Jauho</option>
     <option value="vesi">Vesi</option>
   </select>
-  <input
-    type="number"
-    placeholder="Grammat"
-    value={inputGrams}
-    onChange={(e) => setInputGrams(e.target.value)}
-    className="flex-1 border rounded px-3 py-2 h-[42px]"
-  />
+
+  {/* Input with unit */}
+  <div className="relative flex-1">
+    <input
+      type="number"
+      placeholder="Grammat"
+      value={inputGrams}
+      onChange={(e) => setInputGrams(e.target.value)}
+      title="Syötä grammoina joko jauhot tai vesi"
+      className="w-full border rounded px-3 py-2 h-[42px] pr-10"
+    />
+    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+      {inputType === 'jauho' ? 'g' : 'ml'}
+    </span>
+  </div>
 </div>
+
 
 
       {/* Hydration + Salt */}
