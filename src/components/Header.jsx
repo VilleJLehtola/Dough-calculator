@@ -1,4 +1,3 @@
-// src/components/Header.jsx
 import React, { useState, useEffect } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
 
@@ -11,7 +10,12 @@ export default function Header({ user, activeView, setActiveView, logout }) {
   useEffect(() => {
     const saved = localStorage.getItem('theme') || 'light';
     setTheme(saved);
-    document.documentElement.classList.toggle('dark', saved === 'dark');
+    const root = document.documentElement;
+    if (saved === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
   }, []);
 
   const handleViewChange = (view) => {
@@ -23,7 +27,14 @@ export default function Header({ user, activeView, setActiveView, logout }) {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+
+    const root = document.documentElement;
+    if (newTheme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+
     setShowMenu(false);
   };
 
@@ -43,7 +54,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
       {/* Menu dropdown */}
       {showMenu && (
-        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow z-50 transition-all duration-300">
           <button
             onClick={() => handleViewChange('calculator')}
             className={`block w-full text-left px-4 py-2 rounded ${
@@ -92,16 +103,24 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 </button>
               )}
 
-              <button
-                onClick={toggleDarkMode}
-                className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white"
-              >
-                {theme === 'dark' ? 'Vaalea tila' : 'Tumma tila'}
-              </button>
+              {/* 🌗 Dark Mode Switch */}
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-sm dark:text-white">Tummat värit</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={theme === 'dark'}
+                    onChange={toggleDarkMode}
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-300 rounded-full peer dark:bg-gray-600 peer-checked:bg-blue-600 transition-all duration-300"></div>
+                  <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-all duration-300 peer-checked:translate-x-full" />
+                </label>
+              </div>
 
               <button
                 onClick={logout}
-                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-red-400"
+                className="block w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 Kirjaudu ulos
               </button>
