@@ -7,6 +7,7 @@ import CalculatorForm from './components/CalculatorForm';
 import ResultDisplay from './components/ResultDisplay';
 import RecipeView from './components/RecipeView';
 import FavoritesList from './components/FavoritesList';
+import RecipesPage from './components/RecipesPage';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -26,56 +27,39 @@ export default function App() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    window.supabase = supabase; // expose to console for testing
-
+    window.supabase = supabase;
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const loggedInUser = session?.user ?? null;
       setUser(loggedInUser);
-
       if (loggedInUser) {
         await supabase.from('users').upsert([
           { id: loggedInUser.id, email: loggedInUser.email }
         ]);
       }
     };
-
     getSession();
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        console.log('✅ session detected');
         setUser(session.user);
       } else {
-        console.log('❌ no session');
         setUser(null);
         setActiveView('calculator');
       }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    console.log('👤 User state updated:', user);
-  }, [user]);
-
   const logout = async () => {
-    console.log('🔁 Logging out…');
-
     supabase.auth.onAuthStateChange(() => {});
-
     await supabase.auth.signOut();
-
     localStorage.clear();
     sessionStorage.clear();
     indexedDB.deleteDatabase('supabase-auth-cache');
-
     setUser(null);
     setActiveView('calculator');
-
     window.location.reload();
   };
 
@@ -98,11 +82,9 @@ export default function App() {
   const calculate = () => {
     const grams = parseFloat(inputGrams);
     if (isNaN(grams) || grams <= 0) return null;
-
     const h = hydration / 100;
     const s = saltPct / 100;
     let jauho, vesi;
-
     if (inputType === 'jauho') {
       jauho = grams;
       vesi = h * jauho;
@@ -110,13 +92,11 @@ export default function App() {
       vesi = grams;
       jauho = vesi / h;
     }
-
     const suola = jauho * s;
     const juuri = jauho * 0.2;
     const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
     const seeds = useSeeds ? jauho * 0.15 : 0;
     const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
-
     let jauhotyypit = {};
     if (mode === 'pizza') {
       jauhotyypit = {
@@ -128,19 +108,14 @@ export default function App() {
         ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
         : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
     }
-
     return { jauho, vesi, suola, juuri, oljy, yhteensa, jauhotyypit, seeds };
   };
 
   const result = calculate();
 
   const saveFavorite = async () => {
-    if (!favName || !user) {
-      console.warn('Missing favorite name or user.');
-      return;
-    }
-
-    const { data, error } = await supabase.from('favorites').insert([
+    if (!favName || !user) return;
+    const { error } = await supabase.from('favorites').insert([
       {
         user_id: user.id,
         name: favName,
@@ -155,9 +130,7 @@ export default function App() {
         use_seeds: useSeeds,
       },
     ]);
-
     if (error) {
-      console.error('Save failed:', error.message);
       setMessage('Tallennus epäonnistui.');
     } else {
       setMessage('Suosikki tallennettu!');
@@ -181,29 +154,16 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
       <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
-        <Header
-          user={user}
-          activeView={activeView}
-          setActiveView={setActiveView}
-          logout={logout}
-        />
+        <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
         {!user && <AuthForm />}
+
         {user && activeView === 'favorites' && (
-          <FavoritesList
-            user={user}
-            onLoadFavorite={handleLoadFavorite}
-            setActiveView={setActiveView}
-            setInputGrams={setInputGrams}
-            setInputType={setInputType}
-            setHydration={setHydration}
-            setSaltPct={setSaltPct}
-            setMode={setMode}
-            setUseOil={setUseOil}
-            setColdFermentation={setColdFermentation}
-            setUseRye={setUseRye}
-            setUseSeeds={setUseSeeds}
-          />
+          <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
+        )}
+
+        {user && activeView === 'recipes' && (
+          <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
         )}
 
         {activeView === 'calculator' && (
