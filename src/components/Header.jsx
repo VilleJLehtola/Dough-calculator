@@ -11,14 +11,26 @@ export default function Header({ user, activeView, setActiveView, logout }) {
     setShowMenu(false);
   };
 
+  const toggleDarkMode = () => {
+    const root = document.documentElement;
+    if (root.classList.contains('dark')) {
+      root.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    } else {
+      root.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    }
+    setShowMenu(false);
+  };
+
   return (
     <div className="relative">
-      {/* Top row */}
+      {/* Top row with title + menu icon */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-semibold">Taikinalaskin</h1>
+        <h1 className="text-xl font-semibold dark:text-white">Taikinalaskin</h1>
         <button
           onClick={() => setShowMenu(!showMenu)}
-          className="text-2xl focus:outline-none"
+          className="text-2xl focus:outline-none text-gray-700 dark:text-gray-100"
           aria-label="Menu"
         >
           {showMenu ? <FiX /> : <FiMenu />}
@@ -27,11 +39,11 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
       {/* Dropdown Menu */}
       {showMenu && (
-        <div className="absolute right-0 mt-2 w-48 bg-white border rounded shadow z-50">
+        <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow z-50">
           <button
             onClick={() => handleViewChange('calculator')}
             className={`block w-full text-left px-4 py-2 rounded ${
-              activeView === 'calculator' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+              activeView === 'calculator' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
             }`}
           >
             Laskuri
@@ -42,7 +54,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
               <button
                 onClick={() => handleViewChange('favorites')}
                 className={`block w-full text-left px-4 py-2 rounded ${
-                  activeView === 'favorites' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+                  activeView === 'favorites' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                 }`}
               >
                 Suosikit
@@ -51,7 +63,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
               <button
                 onClick={() => handleViewChange('recipes')}
                 className={`block w-full text-left px-4 py-2 rounded ${
-                  activeView === 'recipes' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+                  activeView === 'recipes' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                 }`}
               >
                 Reseptit
@@ -61,7 +73,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 <button
                   onClick={() => handleViewChange('admin')}
                   className={`block w-full text-left px-4 py-2 rounded ${
-                    activeView === 'admin' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100'
+                    activeView === 'admin' ? 'bg-blue-500 text-white' : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                   }`}
                 >
                   Admin
@@ -69,8 +81,15 @@ export default function Header({ user, activeView, setActiveView, logout }) {
               )}
 
               <button
+                onClick={toggleDarkMode}
+                className="block w-full text-left px-4 py-2 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                Tumma / vaalea tila
+              </button>
+
+              <button
                 onClick={logout}
-                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-red-400"
               >
                 Kirjaudu ulos
               </button>
@@ -80,7 +99,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
           {!user && (
             <button
               onClick={() => handleViewChange('auth')}
-              className="block w-full text-left px-4 py-2 text-blue-600 hover:bg-gray-100"
+              className="block w-full text-left px-4 py-2 text-blue-600 dark:text-blue-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               Kirjaudu sisään
             </button>
