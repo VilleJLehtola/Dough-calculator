@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import Header from './components/Header';
@@ -44,16 +45,15 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) {
-    console.log('✅ session detected');
-    setUser(session.user);
-  } else {
-    console.log('❌ no session');
-    setUser(null);
-    setActiveView('calculator');
-  }
-});
-
+      if (session) {
+        console.log('✅ session detected');
+        setUser(session.user);
+      } else {
+        console.log('❌ no session');
+        setUser(null);
+        setActiveView('calculator');
+      }
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -63,25 +63,21 @@ export default function App() {
   }, [user]);
 
   const logout = async () => {
-  console.log('🔁 Logging out…');
+    console.log('🔁 Logging out…');
 
-  // Disable state listener to prevent replay
-  supabase.auth.onAuthStateChange(() => {});
+    supabase.auth.onAuthStateChange(() => {});
 
-  await supabase.auth.signOut();
+    await supabase.auth.signOut();
 
-  localStorage.clear();
-  sessionStorage.clear();
-  indexedDB.deleteDatabase('supabase-auth-cache');
+    localStorage.clear();
+    sessionStorage.clear();
+    indexedDB.deleteDatabase('supabase-auth-cache');
 
-  setUser(null);
-  setActiveView('calculator');
+    setUser(null);
+    setActiveView('calculator');
 
-  window.location.reload();
-};
-
-
-
+    window.location.reload();
+  };
 
   const resetAll = () => {
     setInputGrams('');
@@ -169,6 +165,19 @@ export default function App() {
     }
   };
 
+  const handleLoadFavorite = (fav) => {
+    setInputGrams(fav.input_grams);
+    setInputType(fav.input_type);
+    setHydration(fav.hydration);
+    setSaltPct(fav.salt_pct);
+    setMode(fav.mode);
+    setUseOil(fav.use_oil);
+    setColdFermentation(fav.cold_fermentation);
+    setUseRye(fav.use_rye);
+    setUseSeeds(fav.use_seeds);
+    setActiveView('calculator');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 flex items-start justify-center py-10 px-4">
       <div className="bg-white shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200">
@@ -183,6 +192,7 @@ export default function App() {
         {user && activeView === 'favorites' && (
           <FavoritesList
             user={user}
+            onLoadFavorite={handleLoadFavorite}
             setActiveView={setActiveView}
             setInputGrams={setInputGrams}
             setInputType={setInputType}
