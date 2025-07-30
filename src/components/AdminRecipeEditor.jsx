@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../supabaseClient';
 
-export default function AdminRecipeEditor({ user }) {
-  const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
+export default function AdminRecipeEditor() {
+  const session = useSession();
+  const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
   if (!isAdmin) return null;
 
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
@@ -51,7 +53,7 @@ export default function AdminRecipeEditor({ user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { data, error } = await supabase.from('recipes').insert([{
-      created_by: user.email,
+      created_by: session.user.email,
       flours,
       water: Number(water),
       salt_percent: Number(saltPercent),
@@ -79,7 +81,7 @@ export default function AdminRecipeEditor({ user }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-white">
+    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
       <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
 
       <div>
@@ -91,7 +93,7 @@ export default function AdminRecipeEditor({ user }) {
               placeholder="Tyyppi (esim. All purpose)"
               value={f.type}
               onChange={e => handleFlourChange(idx, 'type', e.target.value)}
-              className="flex-1 border p-1 rounded"
+              className="flex-1 border p-1 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
               required
             />
             <input
@@ -99,25 +101,25 @@ export default function AdminRecipeEditor({ user }) {
               placeholder="Grammat"
               value={f.grams}
               onChange={e => handleFlourChange(idx, 'grams', e.target.value)}
-              className="w-24 border p-1 rounded"
+              className="w-24 border p-1 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
               required
             />
           </div>
         ))}
-        <button type="button" onClick={addFlourRow} className="text-blue-600 underline text-sm">Lisää jauho</button>
+        <button type="button" onClick={addFlourRow} className="text-blue-600 dark:text-blue-300 underline text-sm">Lisää jauho</button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded" required />
-        <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded" required />
+        <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
+        <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
         {doughType === 'pizza' && (
-          <input type="number" placeholder="Öljy (%)" value={oilPercent} onChange={e => setOilPercent(e.target.value)} className="border p-2 rounded col-span-2" />
+          <input type="number" placeholder="Öljy (%)" value={oilPercent} onChange={e => setOilPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
         )}
       </div>
 
       <p className="text-sm">Hydraatio: <strong>{hydration}%</strong></p>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex items-center space-x-4">
         <label className="flex items-center space-x-2">
           <input type="radio" checked={doughType === 'bread'} onChange={() => setDoughType('bread')} />
           <span>Leipä</span>
@@ -145,11 +147,11 @@ export default function AdminRecipeEditor({ user }) {
         </div>
       )}
 
-      <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded" />
+      <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
 
       <div className="grid grid-cols-2 gap-4">
-        <input type="text" placeholder="Kokonaisaika" value={totalTime} onChange={e => setTotalTime(e.target.value)} className="border p-2 rounded" />
-        <input type="text" placeholder="Aktiivinen aika" value={activeTime} onChange={e => setActiveTime(e.target.value)} className="border p-2 rounded" />
+        <input type="text" placeholder="Kokonaisaika" value={totalTime} onChange={e => setTotalTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
+        <input type="text" placeholder="Aktiivinen aika" value={activeTime} onChange={e => setActiveTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
       </div>
 
       <div>
@@ -162,7 +164,7 @@ export default function AdminRecipeEditor({ user }) {
             placeholder={`Taitto ${i + 1} (min)`}
             value={foldTimings[i]}
             onChange={e => handleFoldTimingChange(i, e.target.value)}
-            className="w-full border p-2 rounded my-1"
+            className="w-full border p-2 rounded my-1 dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
           />
         ))}
       </div>
@@ -173,7 +175,7 @@ export default function AdminRecipeEditor({ user }) {
           id="instructions"
           value={instructions}
           onChange={e => setInstructions(e.target.value)}
-          className="w-full border p-2 rounded h-40"
+          className="w-full border p-2 rounded h-40 dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
         />
         <div className="flex flex-wrap gap-2 mt-2">
           {[...Array(foldCount)].map((_, i) => (
@@ -181,7 +183,7 @@ export default function AdminRecipeEditor({ user }) {
               key={i}
               type="button"
               onClick={() => insertFoldMarker(i + 1)}
-              className="text-blue-600 underline text-sm"
+              className="text-blue-600 dark:text-blue-300 underline text-sm"
             >
               Lisää [FOLD {i + 1}]
             </button>
@@ -191,7 +193,7 @@ export default function AdminRecipeEditor({ user }) {
 
       <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Tallenna resepti</button>
 
-      {message && <p className="text-sm text-green-700 mt-2">{message}</p>}
+      {message && <p className="text-sm text-green-700 dark:text-green-400 mt-2">{message}</p>}
     </form>
   );
 }
