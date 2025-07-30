@@ -156,29 +156,22 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-        {/* Auth Views */}
-        {!user && activeView === 'auth' && (
-          <AuthForm setUser={setUser} setActiveView={setActiveView} />
-        )}
-        {!user && activeView === 'forgot-password' && (
-          <ForgotPasswordForm setActiveView={setActiveView} />
-        )}
-        {!user && activeView === 'reset-password' && (
-          <ResetPassword setActiveView={setActiveView} />
-        )}
+        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
 
-        {/* Protected Views */}
         {user?.id && activeView === 'favorites' && (
-  <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
-)}
+          <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
+        )}
 
-{user?.id && activeView === 'recipes' && ( ... )}
+        {user?.id && activeView === 'recipes' && (
+          <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
+        )}
 
-{user?.id && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && ( ... )}
+        {user?.id && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+          <AdminRecipeEditor />
+        )}
 
-
-
-        {/* Calculator View */}
         {activeView === 'calculator' && (
           <>
             <CalculatorForm
