@@ -1,11 +1,8 @@
-// src/components/AdminRecipeEditor.jsx
 import React, { useState } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../supabaseClient';
 
-export default function AdminRecipeEditor() {
-  const session = useSession();
-  const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
+export default function AdminRecipeEditor({ user }) {
+  const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
   if (!isAdmin) return null;
 
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
@@ -54,7 +51,7 @@ export default function AdminRecipeEditor() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { error } = await supabase.from('recipes').insert([{
-      created_by: session.user.email,
+      created_by: user.email,
       flours,
       water: Number(water),
       salt_percent: Number(saltPercent),
@@ -85,6 +82,7 @@ export default function AdminRecipeEditor() {
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
       <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
 
+      {/* Flours */}
       <div>
         <label className="block font-medium mb-1">Jauhot</label>
         {flours.map((f, idx) => (
@@ -110,6 +108,7 @@ export default function AdminRecipeEditor() {
         <button type="button" onClick={addFlourRow} className="text-blue-600 dark:text-blue-300 underline text-sm">Lisää jauho</button>
       </div>
 
+      {/* Water & Salt */}
       <div className="grid grid-cols-2 gap-4">
         <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
         <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
@@ -120,6 +119,7 @@ export default function AdminRecipeEditor() {
 
       <p className="text-sm">Hydraatio: <strong>{hydration}%</strong></p>
 
+      {/* Dough Type + Cold */}
       <div className="flex items-center space-x-4">
         <label className="flex items-center space-x-2">
           <input type="radio" checked={doughType === 'bread'} onChange={() => setDoughType('bread')} />
@@ -135,6 +135,7 @@ export default function AdminRecipeEditor() {
         </label>
       </div>
 
+      {/* Rye & Seeds */}
       {doughType === 'bread' && (
         <div className="flex items-center space-x-4">
           <label className="flex items-center space-x-2">
@@ -148,13 +149,16 @@ export default function AdminRecipeEditor() {
         </div>
       )}
 
+      {/* Extras */}
       <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
 
+      {/* Time Inputs */}
       <div className="grid grid-cols-2 gap-4">
         <input type="text" placeholder="Kokonaisaika" value={totalTime} onChange={e => setTotalTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
         <input type="text" placeholder="Aktiivinen aika" value={activeTime} onChange={e => setActiveTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
       </div>
 
+      {/* Fold Timings */}
       <div>
         <label className="block font-medium">Taitteluiden määrä: {foldCount}</label>
         <input type="range" min={1} max={6} value={foldCount} onChange={e => setFoldCount(Number(e.target.value))} />
@@ -170,6 +174,7 @@ export default function AdminRecipeEditor() {
         ))}
       </div>
 
+      {/* Instructions */}
       <div>
         <label className="block font-medium mb-1">Valmistusohjeet</label>
         <textarea
@@ -192,7 +197,10 @@ export default function AdminRecipeEditor() {
         </div>
       </div>
 
-      <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Tallenna resepti</button>
+      {/* Submit */}
+      <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+        Tallenna resepti
+      </button>
 
       {message && <p className="text-sm text-green-700 dark:text-green-400 mt-2">{message}</p>}
     </form>
