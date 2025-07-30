@@ -168,15 +168,18 @@ export default function App() {
         )}
 
         {/* Protected Views */}
-        {user && activeView === 'favorites' && (
-          <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
-        )}
-        {user && activeView === 'recipes' && (
-          <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
-        )}
-        {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
-          <AdminRecipeEditor />
-        )}
+        {user?.id && activeView === 'favorites' && (
+  <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
+)}
+
+{user?.id && activeView === 'recipes' && (
+  <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
+)}
+
+        {user?.id && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+  <AdminRecipeEditor />
+)}
+
 
         {/* Calculator View */}
         {activeView === 'calculator' && (
