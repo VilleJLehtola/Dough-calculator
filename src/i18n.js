@@ -5,26 +5,29 @@ const resources = {
   en: {
     translation: {
       "Calculator": "Calculator",
-      "Flour": "Flour",
-      "Water": "Water",
-      "Salt": "Salt",
-      "Pizza": "Pizza",
-      "Bread": "Bread",
-      "Show Recipe": "Show Recipe",
+      "Favorites": "Favorites",
+      "Recipes": "Recipes",
+      "Admin": "Admin",
+      "Login": "Login",
+      "Logout": "Logout",
+      "Language": "Language",
+      "Dark Mode": "Dark Mode"
     }
   },
   fi: {
     translation: {
-      "Calculator": "Laskin",
-      "Flour": "Jauhot",
-      "Water": "Vesi",
-      "Salt": "Suola",
-      "Pizza": "Pizza",
-      "Bread": "Leipä",
-      "Show Recipe": "Näytä resepti",
+      "Calculator": "Laskuri",
+      "Favorites": "Suosikit",
+      "Recipes": "Reseptit",
+      "Admin": "Admin",
+      "Login": "Kirjaudu sisään",
+      "Logout": "Kirjaudu ulos",
+      "Language": "Kieli",
+      "Dark Mode": "Tummat värit"
     }
   }
 };
+
 
 i18n
   .use(initReactI18next)
