@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from '@/supabaseClient';
-import { FaBreadSlice, FaPizzaSlice, FaTrash, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { supabase } from "@/supabaseClient";
+import {
+  FaBreadSlice,
+  FaPizzaSlice,
+  FaTrash,
+  FaChevronDown,
+  FaChevronUp,
+} from "react-icons/fa";
 
 export default function FavoritesList({ user, onLoadFavorite }) {
   const [favorites, setFavorites] = useState([]);
@@ -9,11 +15,10 @@ export default function FavoritesList({ user, onLoadFavorite }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  if (user?.id) {
-    fetchFavorites();
-  }
-}, [user]);
-
+    if (user?.id) {
+      fetchFavorites();
+    }
+  }, [user]);
 
   const fetchFavorites = async () => {
     setLoading(true);
@@ -23,7 +28,9 @@ export default function FavoritesList({ user, onLoadFavorite }) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (!error) {
+    if (error) {
+      console.error("Virhe suosikkien haussa:", error.message);
+    } else {
       setFavorites(data);
     }
     setLoading(false);
@@ -33,6 +40,8 @@ export default function FavoritesList({ user, onLoadFavorite }) {
     const { error } = await supabase.from("favorites").delete().eq("id", id);
     if (!error) {
       setFavorites((prev) => prev.filter((fav) => fav.id !== id));
+    } else {
+      console.error("Virhe poistettaessa suosikkia:", error.message);
     }
   };
 
@@ -42,12 +51,18 @@ export default function FavoritesList({ user, onLoadFavorite }) {
 
   return (
     <div className="max-w-xl mx-auto p-4">
-      <h2 className="text-2xl font-semibold mb-4 text-center dark:text-white">Suosikit</h2>
+      <h2 className="text-2xl font-semibold mb-4 text-center dark:text-white">
+        Suosikit
+      </h2>
 
       {loading ? (
-        <p className="text-center text-gray-500 dark:text-gray-400">Ladataan...</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">
+          Ladataan...
+        </p>
       ) : favorites.length === 0 ? (
-        <p className="text-center text-gray-500 dark:text-gray-400">Ei tallennettuja suosikkeja.</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">
+          Ei tallennettuja suosikkeja.
+        </p>
       ) : (
         <ul className="space-y-4">
           <AnimatePresence>
@@ -91,6 +106,7 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                         className="text-gray-600 dark:text-gray-300"
                         onClick={() => toggleExpand(fav.id)}
                         title="Näytä lisätiedot"
+                        aria-expanded={isExpanded}
                       >
                         {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                       </button>
@@ -124,4 +140,3 @@ export default function FavoritesList({ user, onLoadFavorite }) {
     </div>
   );
 }
-
