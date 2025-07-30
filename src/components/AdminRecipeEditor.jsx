@@ -49,34 +49,36 @@ export default function AdminRecipeEditor({ user }) {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const { error } = await supabase.from('recipes').insert([{
-      created_by: user.email,
-      flours,
-      water: Number(water),
-      salt_percent: Number(saltPercent),
-      oil_percent: Number(oilPercent),
-      dough_type: doughType,
-      cold_ferment: coldFerment,
-      rye,
-      seeds,
-      extra_ingredients: extraIngredients,
-      hydration: Number(hydration),
-      total_time: totalTime,
-      active_time: activeTime,
-      fold_count: foldCount,
-      fold_timings: foldTimings.slice(0, foldCount),
-      instructions
-    }]);
+  e.preventDefault();
 
-    if (error) {
-      setMessage('Virhe tallennuksessa');
-      console.error(error);
-    } else {
-      setMessage('Resepti tallennettu!');
-      setInstructions('');
-    }
-  };
+  const { error } = await supabase.from('recipes').insert([{
+    created_by: session.user.email,
+    flours,
+    water: Number(water),
+    salt_percent: Number(saltPercent),
+    oil_percent: Number(oilPercent) || 0, // ← default to 0 if empty
+    dough_type: doughType,
+    cold_ferment: coldFerment,
+    rye,
+    seeds,
+    extra_ingredients: extraIngredients,
+    hydration: Number(hydration),
+    total_time: totalTime,
+    active_time: activeTime,
+    fold_count: foldCount,
+    fold_timings: foldTimings.slice(0, foldCount),
+    instructions
+  }]);
+
+  if (error) {
+    setMessage('Virhe tallennuksessa');
+    console.error(error);
+  } else {
+    setMessage('Resepti tallennettu!');
+    setInstructions('');
+  }
+};
+
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
