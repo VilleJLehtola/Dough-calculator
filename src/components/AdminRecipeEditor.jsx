@@ -61,7 +61,7 @@ export default function AdminRecipeEditor() {
       dough_type: doughType,
       cold_ferment: coldFerment,
       rye,
-      seeds_grams: seedsGrams ? Number(seedsGrams) : null,
+      seeds_grams: Number(seedsGrams),
       extra_ingredients: extraIngredients,
       hydration: Number(hydration),
       total_time: totalTime,
@@ -135,24 +135,19 @@ export default function AdminRecipeEditor() {
       </div>
 
       {doughType === 'bread' && (
-        <>
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
-              <span>Ruis (20%)</span>
-            </label>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mt-2">Siemenet (grammoina)</label>
-            <input
-              type="number"
-              placeholder="Esim. 75"
-              value={seedsGrams}
-              onChange={e => setSeedsGrams(e.target.value)}
-              className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-            />
-          </div>
-        </>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="flex items-center space-x-2">
+            <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
+            <span>Ruis (20%)</span>
+          </label>
+          <input
+            type="number"
+            placeholder="Siemenet (g)"
+            value={seedsGrams}
+            onChange={e => setSeedsGrams(e.target.value)}
+            className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+          />
+        </div>
       )}
 
       <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
@@ -200,7 +195,6 @@ export default function AdminRecipeEditor() {
       </div>
 
       <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Tallenna resepti</button>
-
       {message && <p className="text-sm text-green-700 dark:text-green-400 mt-2">{message}</p>}
     </form>
   );
