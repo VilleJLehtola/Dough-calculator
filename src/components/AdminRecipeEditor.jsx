@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../supabaseClient';
 
-export default function AdminRecipeEditor() {
-  const session = useSession();
-  const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
+export default function AdminRecipeEditor({ user }) {
+  const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
   if (!isAdmin) return null;
 
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
@@ -52,26 +50,24 @@ export default function AdminRecipeEditor() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { data, error } = await supabase.from('recipes').insert([
-      {
-        created_by: session.user.email,
-        flours,
-        water: Number(water),
-        salt_percent: Number(saltPercent),
-        oil_percent: Number(oilPercent),
-        dough_type: doughType,
-        cold_ferment: coldFerment,
-        rye,
-        seeds,
-        extra_ingredients: extraIngredients,
-        hydration: Number(hydration),
-        total_time: totalTime,
-        active_time: activeTime,
-        fold_count: foldCount,
-        fold_timings: foldTimings.slice(0, foldCount),
-        instructions
-      }
-    ]);
+    const { data, error } = await supabase.from('recipes').insert([{
+      created_by: user.email,
+      flours,
+      water: Number(water),
+      salt_percent: Number(saltPercent),
+      oil_percent: Number(oilPercent),
+      dough_type: doughType,
+      cold_ferment: coldFerment,
+      rye,
+      seeds,
+      extra_ingredients: extraIngredients,
+      hydration: Number(hydration),
+      total_time: totalTime,
+      active_time: activeTime,
+      fold_count: foldCount,
+      fold_timings: foldTimings.slice(0, foldCount),
+      instructions
+    }]);
 
     if (error) {
       setMessage('Virhe tallennuksessa');
@@ -83,7 +79,7 @@ export default function AdminRecipeEditor() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white shadow">
+    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-white">
       <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
 
       <div>
@@ -115,13 +111,13 @@ export default function AdminRecipeEditor() {
         <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded" required />
         <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded" required />
         {doughType === 'pizza' && (
-          <input type="number" placeholder="Öljy (%)" value={oilPercent} onChange={e => setOilPercent(e.target.value)} className="border p-2 rounded" />
+          <input type="number" placeholder="Öljy (%)" value={oilPercent} onChange={e => setOilPercent(e.target.value)} className="border p-2 rounded col-span-2" />
         )}
       </div>
 
       <p className="text-sm">Hydraatio: <strong>{hydration}%</strong></p>
 
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-wrap gap-4">
         <label className="flex items-center space-x-2">
           <input type="radio" checked={doughType === 'bread'} onChange={() => setDoughType('bread')} />
           <span>Leipä</span>
