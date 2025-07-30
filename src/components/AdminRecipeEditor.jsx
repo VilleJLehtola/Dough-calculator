@@ -52,6 +52,7 @@ export default function AdminRecipeEditor() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const { error } = await supabase.from('recipes').insert([{
       created_by: session.user.email,
       flours,
@@ -61,19 +62,19 @@ export default function AdminRecipeEditor() {
       dough_type: doughType,
       cold_ferment: coldFerment,
       rye,
-      seeds_grams: Number(seedsGrams),
+      seeds_grams: seedsGrams ? Number(seedsGrams) : null,
       extra_ingredients: extraIngredients,
       hydration: Number(hydration),
       total_time: totalTime,
       active_time: activeTime,
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
-      instructions
+      instructions,
     }]);
 
     if (error) {
-      setMessage('Virhe tallennuksessa');
       console.error(error);
+      setMessage('Virhe tallennuksessa');
     } else {
       setMessage('Resepti tallennettu!');
       setInstructions('');
@@ -135,7 +136,7 @@ export default function AdminRecipeEditor() {
       </div>
 
       {doughType === 'bread' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="flex items-center space-x-4">
           <label className="flex items-center space-x-2">
             <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
             <span>Ruis (20%)</span>
@@ -144,7 +145,7 @@ export default function AdminRecipeEditor() {
             type="number"
             placeholder="Siemenet (g)"
             value={seedsGrams}
-            onChange={e => setSeedsGrams(e.target.value)}
+            onChange={(e) => setSeedsGrams(e.target.value)}
             className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
           />
         </div>
