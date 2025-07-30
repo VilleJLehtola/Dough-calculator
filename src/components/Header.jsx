@@ -1,28 +1,30 @@
+// src/components/Header.jsx
 import React, { useState, useEffect } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
 
 export default function Header({ user, activeView, setActiveView, logout }) {
   const [showMenu, setShowMenu] = useState(false);
   const [theme, setTheme] = useState('light');
+
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
 
+  // On mount, load theme from localStorage and apply
   useEffect(() => {
     const saved = localStorage.getItem('theme') || 'light';
     setTheme(saved);
-    const root = document.documentElement;
-    if (saved === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', saved === 'dark');
   }, []);
 
   const toggleDarkMode = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-    const root = document.documentElement;
-    root.classList.toggle('dark', newTheme === 'dark');
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    setShowMenu(false);
+  };
+
+  const handleViewChange = (view) => {
+    setActiveView(view);
     setShowMenu(false);
   };
 
@@ -44,7 +46,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
       {showMenu && (
         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow z-50 transition-all duration-300">
           <button
-            onClick={() => setActiveView('calculator')}
+            onClick={() => handleViewChange('calculator')}
             className={`block w-full text-left px-4 py-2 rounded ${
               activeView === 'calculator'
                 ? 'bg-blue-500 text-white'
@@ -57,7 +59,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
           {user && (
             <>
               <button
-                onClick={() => setActiveView('favorites')}
+                onClick={() => handleViewChange('favorites')}
                 className={`block w-full text-left px-4 py-2 rounded ${
                   activeView === 'favorites'
                     ? 'bg-blue-500 text-white'
@@ -68,7 +70,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
               </button>
 
               <button
-                onClick={() => setActiveView('recipes')}
+                onClick={() => handleViewChange('recipes')}
                 className={`block w-full text-left px-4 py-2 rounded ${
                   activeView === 'recipes'
                     ? 'bg-blue-500 text-white'
@@ -80,7 +82,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
               {isAdmin && (
                 <button
-                  onClick={() => setActiveView('admin')}
+                  onClick={() => handleViewChange('admin')}
                   className={`block w-full text-left px-4 py-2 rounded ${
                     activeView === 'admin'
                       ? 'bg-blue-500 text-white'
@@ -102,14 +104,14 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
           {!user && (
             <button
-              onClick={() => setActiveView('auth')}
+              onClick={() => handleViewChange('auth')}
               className="block w-full text-left px-4 py-2 text-blue-600 dark:text-blue-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
               Kirjaudu sisään
             </button>
           )}
 
-          {/* 🌗 Dark mode toggle — always visible */}
+          {/* Dark mode toggle — always visible */}
           <div className="flex items-center justify-between px-4 py-2">
             <span className="text-sm dark:text-white">Tummat värit</span>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -119,7 +121,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 checked={theme === 'dark'}
                 onChange={toggleDarkMode}
               />
-              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600 transition-all duration-300"></div>
+              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-300 rounded-full peer dark:bg-gray-600 peer-checked:bg-blue-600 transition-all duration-300"></div>
               <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-all duration-300 peer-checked:translate-x-full" />
             </label>
           </div>
