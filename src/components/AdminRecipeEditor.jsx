@@ -1,23 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { useSessionContext } from '@supabase/auth-helpers-react';
+// src/components/AdminRecipeEditor.jsx
+import React, { useState } from 'react';
+import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminRecipeEditor() {
-  const { session, isLoading } = useSessionContext();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const session = useSession();
+  const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
+  if (!isAdmin) return null;
 
-  // Check if user is admin
-  useEffect(() => {
-    if (session?.user?.email === 'ville.j.lehtola@gmail.com') {
-      setIsAdmin(true);
-    }
-  }, [session]);
-
-  if (isLoading) return <p className="text-center dark:text-white">Ladataan...</p>;
-  if (!session) return <p className="text-center dark:text-white">Et ole kirjautunut sisään.</p>;
-  if (!isAdmin) return <p className="text-center dark:text-white">Pääsy evätty</p>;
-
-  // FORM STATE
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
   const [water, setWater] = useState('');
   const [saltPercent, setSaltPercent] = useState('');
@@ -25,7 +15,7 @@ export default function AdminRecipeEditor() {
   const [doughType, setDoughType] = useState('bread');
   const [coldFerment, setColdFerment] = useState(false);
   const [rye, setRye] = useState(false);
-  const [seedsGrams, setSeedsGrams] = useState('');
+  const [seeds, setSeeds] = useState(false);
   const [extraIngredients, setExtraIngredients] = useState('');
   const [totalTime, setTotalTime] = useState('');
   const [activeTime, setActiveTime] = useState('');
@@ -72,7 +62,7 @@ export default function AdminRecipeEditor() {
       dough_type: doughType,
       cold_ferment: coldFerment,
       rye,
-      seeds_grams: Number(seedsGrams) || 0,
+      seeds,
       extra_ingredients: extraIngredients,
       hydration: Number(hydration),
       total_time: totalTime,
@@ -146,24 +136,16 @@ export default function AdminRecipeEditor() {
       </div>
 
       {doughType === 'bread' && (
-        <>
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
-              <span>Ruis (20%)</span>
-            </label>
-          </div>
-          <div>
-            <label className="block text-sm mt-2">Siemenet (grammaa)</label>
-            <input
-              type="number"
-              placeholder="Esim. 50"
-              value={seedsGrams}
-              onChange={(e) => setSeedsGrams(e.target.value)}
-              className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-            />
-          </div>
-        </>
+        <div className="flex items-center space-x-4">
+          <label className="flex items-center space-x-2">
+            <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
+            <span>Ruis (20%)</span>
+          </label>
+          <label className="flex items-center space-x-2">
+            <input type="checkbox" checked={seeds} onChange={e => setSeeds(e.target.checked)} />
+            <span>Siemenet (15%)</span>
+          </label>
+        </div>
       )}
 
       <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
