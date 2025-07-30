@@ -47,7 +47,12 @@ const resources = {
       "Add toppings and bake at 250–300°C on stone or tray.": "Add toppings and bake at 250–300°C on stone or tray.",
       "Cold fermentation": "Cold fermentation",
       "Yes": "Yes",
-      "No": "No"
+      "No": "No",
+      "Calculator": "Calculator",
+      "Show Recipe": "Show Recipe",
+      "Clear": "Clear",
+      "00-jauho": "00 flour",
+      "puolikarkea": "coarse wheat flour",
     }
   },
   fi: {
@@ -95,7 +100,10 @@ const resources = {
       "Add toppings and bake at 250–300°C on stone or tray.": "Lisää täytteet ja paista uunissa 250–300 °C kivellä tai pellillä.",
       "Cold fermentation": "Kylmäkohotus",
       "Yes": "Kyllä",
-      "No": "Ei"
+      "No": "Ei",
+      "00-jauho": "00-jauho (valkoinen hieno vehnäjauho)",
+      "puolikarkea": "puolikarkea vehnäjauho"
+
     }
   }
 };
