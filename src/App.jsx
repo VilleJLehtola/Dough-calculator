@@ -15,6 +15,7 @@ import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [activeView, setActiveView] = useState('calculator');
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
   const [hydration, setHydration] = useState(75);
@@ -26,19 +27,14 @@ export default function App() {
   const [coldFermentation, setColdFermentation] = useState(false);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
-  const [activeView, setActiveView] = useState('calculator');
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
-  // 🌙 DARK MODE: Load theme from localStorage
   useEffect(() => {
     const storedTheme = localStorage.getItem('theme');
     const root = document.documentElement;
-    if (storedTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    if (storedTheme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
   }, []);
 
   useEffect(() => {
@@ -47,30 +43,17 @@ export default function App() {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        const { error: upsertError } = await supabase
-          .from('users')
-          .upsert([{ id: session.user.id, email: session.user.email }]);
-        if (upsertError) {
-          console.error('Failed to upsert user:', upsertError);
-        }
+        await supabase.from('users').upsert([
+          { id: session.user.id, email: session.user.email }
+        ]);
       }
     }
 
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const { error: upsertError } = await supabase
-          .from('users')
-          .upsert([{ id: session.user.id, email: session.user.email }]);
-        if (upsertError) {
-          console.error('Failed to upsert user:', upsertError);
-        }
-      } else {
-        setActiveView('calculator');
-      }
+      if (!session?.user) setActiveView('calculator');
     });
 
     return () => subscription.unsubscribe();
@@ -120,45 +103,39 @@ export default function App() {
     const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
     const seeds = useSeeds ? jauho * 0.15 : 0;
     const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
-    let jauhotyypit = {};
-    if (mode === 'pizza') {
-      jauhotyypit = {
-        '00-jauho': jauho * (1000 / 1070),
-        puolikarkea: jauho * (70 / 1070),
-      };
-    } else {
-      jauhotyypit = useRye
+
+    const jauhotyypit = mode === 'pizza'
+      ? {
+          '00-jauho': jauho * (1000 / 1070),
+          puolikarkea: jauho * (70 / 1070),
+        }
+      : useRye
         ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
         : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
-    }
-    return { jauho, vesi, suola, juuri, oljy, yhteensa, jauhotyypit, seeds };
+
+    return { jauho, vesi, suola, juuri, öljy: oljy, yhteensa, jauhotyypit, siemenet: seeds };
   };
 
   const result = calculate();
 
   const saveFavorite = async () => {
     if (!favName || !user) return;
-    const { error } = await supabase.from('favorites').insert([
-      {
-        user_id: user.id,
-        name: favName,
-        input_grams: inputGrams,
-        input_type: inputType,
-        hydration,
-        salt_pct: saltPct,
-        mode,
-        use_oil: useOil,
-        cold_fermentation: coldFermentation,
-        use_rye: useRye,
-        use_seeds: useSeeds,
-      },
-    ]);
-    if (error) {
-      setMessage('Tallennus epäonnistui.');
-    } else {
-      setMessage('Suosikki tallennettu!');
-      setFavName('');
-    }
+    const { error } = await supabase.from('favorites').insert([{
+      user_id: user.id,
+      name: favName,
+      input_grams: inputGrams,
+      input_type: inputType,
+      hydration,
+      salt_pct: saltPct,
+      mode,
+      use_oil: useOil,
+      cold_fermentation: coldFermentation,
+      use_rye: useRye,
+      use_seeds: useSeeds,
+    }]);
+
+    setMessage(error ? 'Tallennus epäonnistui.' : 'Suosikki tallennettu!');
+    if (!error) setFavName('');
   };
 
   const handleLoadFavorite = (fav) => {
@@ -179,22 +156,29 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
+        {/* Auth Views */}
+        {!user && activeView === 'auth' && (
+          <AuthForm setUser={setUser} setActiveView={setActiveView} />
+        )}
+        {!user && activeView === 'forgot-password' && (
+          <ForgotPasswordForm setActiveView={setActiveView} />
+        )}
+        {!user && activeView === 'reset-password' && (
+          <ResetPassword setActiveView={setActiveView} />
+        )}
 
+        {/* Protected Views */}
         {user && activeView === 'favorites' && (
           <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
         )}
-
         {user && activeView === 'recipes' && (
           <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
         )}
-
         {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
           <AdminRecipeEditor />
         )}
 
+        {/* Calculator View */}
         {activeView === 'calculator' && (
           <>
             <CalculatorForm
@@ -236,7 +220,9 @@ export default function App() {
                 >
                   Tallenna suosikiksi
                 </button>
-                {message && <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>}
+                {message && (
+                  <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>
+                )}
               </div>
             )}
 
