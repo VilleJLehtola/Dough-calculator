@@ -16,26 +16,33 @@ export default function FavoritesList({ user, onLoadFavorite }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.id) {
-      fetchFavorites();
-    }
-  }, [user?.id]);
+  if (user?.id) {
+    console.log('Fetching favorites for user:', user.id); // ✅ DEBUG
+    fetchFavorites();
+  } else {
+    console.warn('No valid user.id provided');
+  }
+}, [user]);
 
-  const fetchFavorites = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("favorites")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+const fetchFavorites = async () => {
+  setLoading(true);
+  const { data, error } = await supabase
+    .from("favorites")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching favorites:", error.message);
-    } else {
-      setFavorites(data);
-    }
-    setLoading(false);
-  };
+  if (error) {
+    console.error('Error fetching favorites:', error); // ✅ DEBUG
+    setFavorites([]);
+  } else {
+    console.log('Favorites loaded:', data); // ✅ DEBUG
+    setFavorites(data);
+  }
+
+  setLoading(false);
+};
+
 
   const handleDelete = async (id) => {
     const { error } = await supabase.from("favorites").delete().eq("id", id);
