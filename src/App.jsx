@@ -30,6 +30,7 @@ export default function App() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
+  // Dark mode initialization
   useEffect(() => {
     const storedTheme = localStorage.getItem('theme');
     const root = document.documentElement;
@@ -37,6 +38,7 @@ export default function App() {
     else root.classList.remove('dark');
   }, []);
 
+  // Supabase auth listener
   useEffect(() => {
     async function getSession() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -120,6 +122,8 @@ export default function App() {
 
   const saveFavorite = async () => {
     if (!favName || !user) return;
+    console.log('Saving favorite...', { user, favName });
+
     const { error } = await supabase.from('favorites').insert([{
       user_id: user.id,
       name: favName,
@@ -134,8 +138,13 @@ export default function App() {
       use_seeds: useSeeds,
     }]);
 
-    setMessage(error ? 'Tallennus epäonnistui.' : 'Suosikki tallennettu!');
-    if (!error) setFavName('');
+    if (error) {
+      console.error('Error saving favorite:', error);
+      setMessage('Tallennus epäonnistui.');
+    } else {
+      setMessage('Suosikki tallennettu!');
+      setFavName('');
+    }
   };
 
   const handleLoadFavorite = (fav) => {
@@ -156,19 +165,25 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
+        {!user && activeView === 'auth' && (
+          <AuthForm setUser={setUser} setActiveView={setActiveView} />
+        )}
+        {!user && activeView === 'forgot-password' && (
+          <ForgotPasswordForm setActiveView={setActiveView} />
+        )}
+        {!user && activeView === 'reset-password' && (
+          <ResetPassword setActiveView={setActiveView} />
+        )}
 
-        {user?.id && activeView === 'favorites' && (
+        {user && activeView === 'favorites' && (
           <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
         )}
 
-        {user?.id && activeView === 'recipes' && (
+        {user && activeView === 'recipes' && (
           <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
         )}
 
-        {user?.id && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+        {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
           <AdminRecipeEditor />
         )}
 
