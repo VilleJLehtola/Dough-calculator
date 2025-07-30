@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminRecipeEditor() {
   const session = useSession();
-  const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
-  if (!isAdmin) return null;
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      setIsAdmin(session?.user?.email === 'ville.j.lehtola@gmail.com');
+      setLoading(false);
+    }
+  }, [session]);
+
+  if (loading) return <p className="text-center dark:text-white">Ladataan...</p>;
+  if (!isAdmin) return <p className="text-center dark:text-white">Pääsy evätty</p>;
+
 
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
   const [water, setWater] = useState('');
