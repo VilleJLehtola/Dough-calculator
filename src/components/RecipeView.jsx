@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function RecipeView({
   foldsDone,
@@ -8,44 +9,42 @@ export default function RecipeView({
   doughType,
   useOil,
 }) {
+  const { t } = useTranslation();
   const foldIntervals = [30, 30, 45, 60];
 
-  // Generate fold labels with optional seed note on last fold
   const foldLabels = foldIntervals.map((minutes, index) => {
-    const seedNote = useSeeds && index === foldIntervals.length - 1 ? ' (lisää siemenet)' : '';
-    return `${index + 1}. taitto ${minutes} min${seedNote}`;
+    const seedNote = useSeeds && index === foldIntervals.length - 1 ? ` (${t("Add seeds")})` : '';
+    return `${index + 1}. ${t("fold")} ${minutes} min${seedNote}`;
   });
 
   const breadSteps = [
-    'Sekoita jauhot ja vesi, anna levätä 30 minuuttia.',
-    'Lisää juuri ja sekoita tasaiseksi taikinaksi.',
-    // The fold checkboxes will be rendered below, so just include a placeholder here
-    'Taita taikinaa:',
+    t("Mix flour and water. Let rest for 30 minutes."),
+    t("Add the starter and mix into a smooth dough."),
+    "Taita taikinaa:", // This one is used as a placeholder
     coldFermentation
-      ? 'Muotoile, peitä ja laita jääkaappiin yön yli. Paista uunissa 230 °C.'
-      : 'Muotoile, kohota ja paista uunissa 230 °C.',
+      ? t("Shape, cover, and refrigerate overnight. Bake at 230°C.")
+      : t("Shape, proof, and bake at 230°C."),
   ];
 
   const pizzaSteps = [
-    'Sekoita jauhot, vesi, suola ja hiiva tai juuri.',
-    ...(useOil ? ['Lisää öljy ja sekoita taikinaan.'] : []),
-    'Taita taikinaa:',
+    t("Mix flour, water, salt, and yeast or starter."),
+    ...(useOil ? [t("Add oil and mix into the dough.")] : []),
+    "Taita taikinaa:",
     coldFermentation
-      ? 'Anna taikinan levätä huoneenlämmössä 1–2 h, sitten kylmäkohota jääkaapissa yön yli.'
-      : 'Anna kohota huoneenlämmössä 6–8 h.',
-    'Muotoile pizzapohjat ja anna levätä vielä 30 min.',
-    'Lisää täytteet ja paista uunissa 250–300 °C kivellä tai pellillä.',
+      ? t("Let the dough rest 1–2h at room temperature, then cold ferment overnight.")
+      : t("Let rise for 6–8 hours at room temperature."),
+    t("Shape the pizza bases and let rest 30 min."),
+    t("Add toppings and bake at 250–300°C on stone or tray."),
   ];
 
   const steps = doughType === 'pizza' ? pizzaSteps : breadSteps;
 
   return (
     <div className="bg-white border border-blue-200 rounded-lg p-4 mt-4 space-y-4 shadow-sm">
-      <h2 className="text-lg font-bold text-blue-700">📋 Resepti</h2>
+      <h2 className="text-lg font-bold text-blue-700">📋 {t("Recipe")}</h2>
 
       {steps.map((step, index) => {
-        if (step === 'Taita taikinaa:') {
-          // Render fold checkboxes here instead of plain text
+        if (step === "Taita taikinaa:") {
           return (
             <div key={index} className="flex flex-col gap-1 text-gray-800">
               {foldLabels.map((label, i) => (
@@ -53,9 +52,7 @@ export default function RecipeView({
                   <input
                     type="checkbox"
                     checked={foldsDone > i}
-                    onChange={() =>
-                      setFoldsDone(foldsDone > i ? i : i + 1)
-                    }
+                    onChange={() => setFoldsDone(foldsDone > i ? i : i + 1)}
                     className="w-4 h-4 cursor-pointer"
                   />
                   <span>{label}</span>
@@ -65,7 +62,6 @@ export default function RecipeView({
           );
         }
 
-        // Render normal step text
         return (
           <p key={index} className="text-gray-800">
             {step}
@@ -74,7 +70,7 @@ export default function RecipeView({
       })}
 
       <div>
-        <strong>Kylmäkohotus:</strong> {coldFermentation ? 'Kyllä' : 'Ei'}
+        <strong>{t("Cold fermentation")}:</strong> {coldFermentation ? t("Yes") : t("No")}
       </div>
     </div>
   );
