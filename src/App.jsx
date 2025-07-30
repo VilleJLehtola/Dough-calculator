@@ -177,8 +177,9 @@ if (user?.email === 'ville.j.lehtola@gmail.com') {
         )}
 
         {user && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
-          <AdminRecipeEditor />
-        )}
+  <div className="text-white">Admin panel näkyy!</div>
+)}
+
 
         {activeView === 'calculator' && (
           <>
