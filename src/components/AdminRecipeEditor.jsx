@@ -5,6 +5,7 @@ export default function AdminRecipeEditor({ user }) {
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
   if (!isAdmin) return null;
 
+  const [title, setTitle] = useState('');
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
   const [water, setWater] = useState('');
   const [saltPercent, setSaltPercent] = useState('');
@@ -49,40 +50,53 @@ export default function AdminRecipeEditor({ user }) {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  const { error } = await supabase.from('recipes').insert([{
-  created_by: user.id, // ✅ CORRECT
-    flours,
-    water: Number(water),
-    salt_percent: Number(saltPercent),
-    oil_percent: Number(oilPercent) || 0, // ← default to 0 if empty
-    dough_type: doughType,
-    cold_ferment: coldFerment,
-    rye,
-    seeds,
-    extra_ingredients: extraIngredients,
-    hydration: Number(hydration),
-    total_time: totalTime,
-    active_time: activeTime,
-    fold_count: foldCount,
-    fold_timings: foldTimings.slice(0, foldCount),
-    instructions
-  }]);
+    const { error } = await supabase.from('recipes').insert([{
+      created_by: user.id,
+      title, // ✅ required field
+      flours,
+      water: Number(water),
+      salt_percent: Number(saltPercent),
+      oil_percent: Number(oilPercent) || 0,
+      dough_type: doughType,
+      cold_ferment: coldFerment,
+      rye,
+      seeds,
+      extra_ingredients: extraIngredients,
+      hydration: Number(hydration),
+      total_time: totalTime,
+      active_time: activeTime,
+      fold_count: foldCount,
+      fold_timings: foldTimings.slice(0, foldCount),
+      instructions
+    }]);
 
-  if (error) {
-    setMessage('Virhe tallennuksessa');
-    console.error(error);
-  } else {
-    setMessage('Resepti tallennettu!');
-    setInstructions('');
-  }
-};
-
+    if (error) {
+      setMessage('Virhe tallennuksessa');
+      console.error(error);
+    } else {
+      setMessage('Resepti tallennettu!');
+      setInstructions('');
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
       <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
+
+      {/* Title input */}
+      <div>
+        <label className="block font-medium mb-1">Reseptin nimi</label>
+        <input
+          type="text"
+          placeholder="Esim. Vaalea hapanleipä"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+          required
+        />
+      </div>
 
       {/* Flours */}
       <div>
@@ -110,7 +124,7 @@ export default function AdminRecipeEditor({ user }) {
         <button type="button" onClick={addFlourRow} className="text-blue-600 dark:text-blue-300 underline text-sm">Lisää jauho</button>
       </div>
 
-      {/* Water & Salt */}
+      {/* Water, Salt, Oil */}
       <div className="grid grid-cols-2 gap-4">
         <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
         <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
@@ -121,7 +135,7 @@ export default function AdminRecipeEditor({ user }) {
 
       <p className="text-sm">Hydraatio: <strong>{hydration}%</strong></p>
 
-      {/* Dough Type + Cold */}
+      {/* Dough Type */}
       <div className="flex items-center space-x-4">
         <label className="flex items-center space-x-2">
           <input type="radio" checked={doughType === 'bread'} onChange={() => setDoughType('bread')} />
@@ -137,7 +151,6 @@ export default function AdminRecipeEditor({ user }) {
         </label>
       </div>
 
-      {/* Rye & Seeds */}
       {doughType === 'bread' && (
         <div className="flex items-center space-x-4">
           <label className="flex items-center space-x-2">
@@ -154,13 +167,13 @@ export default function AdminRecipeEditor({ user }) {
       {/* Extras */}
       <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
 
-      {/* Time Inputs */}
+      {/* Time */}
       <div className="grid grid-cols-2 gap-4">
         <input type="text" placeholder="Kokonaisaika" value={totalTime} onChange={e => setTotalTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
         <input type="text" placeholder="Aktiivinen aika" value={activeTime} onChange={e => setActiveTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
       </div>
 
-      {/* Fold Timings */}
+      {/* Folds */}
       <div>
         <label className="block font-medium">Taitteluiden määrä: {foldCount}</label>
         <input type="range" min={1} max={6} value={foldCount} onChange={e => setFoldCount(Number(e.target.value))} />
@@ -199,7 +212,6 @@ export default function AdminRecipeEditor({ user }) {
         </div>
       </div>
 
-      {/* Submit */}
       <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
         Tallenna resepti
       </button>
