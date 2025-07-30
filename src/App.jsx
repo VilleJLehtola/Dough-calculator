@@ -119,6 +119,12 @@ export default function App() {
   };
 
   const result = calculate();
+// ✅ MOVE HERE instead:
+console.log("user:", user);
+console.log("activeView:", activeView);
+if (user?.email === 'ville.j.lehtola@gmail.com') {
+  console.log('Rendering admin for verified email');
+}
 
   const saveFavorite = async () => {
     if (!favName || !user?.id) return;
