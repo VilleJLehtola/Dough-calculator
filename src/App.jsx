@@ -172,13 +172,10 @@ export default function App() {
   <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
 )}
 
-{user?.id && activeView === 'recipes' && (
-  <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
-)}
+{user?.id && activeView === 'recipes' && ( ... )}
 
-        {user?.id && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
-  <AdminRecipeEditor />
-)}
+{user?.id && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && ( ... )}
+
 
 
         {/* Calculator View */}
