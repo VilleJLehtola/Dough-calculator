@@ -1,14 +1,19 @@
-// src/components/Header.jsx
 import React, { useState, useEffect } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
+import { useTranslation } from 'react-i18next';
 
 export default function Header({ user, activeView, setActiveView, logout }) {
   const [showMenu, setShowMenu] = useState(false);
   const [theme, setTheme] = useState('light');
+  const { t, i18n } = useTranslation();
 
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
 
-  // Load and apply stored theme
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'fi' ? 'en' : 'fi';
+    i18n.changeLanguage(newLang);
+  };
+
   useEffect(() => {
     const saved = localStorage.getItem('theme') || 'light';
     setTheme(saved);
@@ -32,7 +37,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
     <div className="relative">
       {/* Top Bar */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-semibold dark:text-white">Taikinalaskin</h1>
+        <h1 className="text-xl font-semibold dark:text-white">{t("Calculator")}</h1>
         <button
           onClick={() => setShowMenu(!showMenu)}
           className="text-2xl focus:outline-none text-gray-700 dark:text-gray-100"
@@ -53,7 +58,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
             }`}
           >
-            Laskuri
+            {t("Calculator")}
           </button>
 
           {user && (
@@ -66,7 +71,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                     : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                 }`}
               >
-                Suosikit
+                {t("Favorites")}
               </button>
 
               <button
@@ -77,7 +82,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                     : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                 }`}
               >
-                Reseptit
+                {t("Recipes")}
               </button>
 
               {isAdmin && (
@@ -89,7 +94,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                       : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
                   }`}
                 >
-                  Admin
+                  {t("Admin")}
                 </button>
               )}
 
@@ -97,7 +102,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 onClick={logout}
                 className="block w-full text-left px-4 py-2 text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
               >
-                Kirjaudu ulos
+                {t("Logout")}
               </button>
             </>
           )}
@@ -107,13 +112,24 @@ export default function Header({ user, activeView, setActiveView, logout }) {
               onClick={() => handleViewChange('auth')}
               className="block w-full text-left px-4 py-2 text-blue-600 dark:text-blue-300 hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              Kirjaudu sisään
+              {t("Login")}
             </button>
           )}
 
+          {/* 🌐 Language Toggle */}
+          <div className="flex items-center justify-between px-4 py-2 border-t dark:border-gray-700">
+            <span className="text-sm dark:text-white">{t("Language")}</span>
+            <button
+              onClick={toggleLanguage}
+              className="text-sm text-blue-600 dark:text-blue-300 hover:underline"
+            >
+              {i18n.language === 'fi' ? 'English' : 'Suomi'}
+            </button>
+          </div>
+
           {/* 🌙 Dark Mode Toggle */}
           <div className="flex items-center justify-between px-4 py-2">
-            <span className="text-sm dark:text-white">Tummat värit</span>
+            <span className="text-sm dark:text-white">{t("Dark Mode")}</span>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
