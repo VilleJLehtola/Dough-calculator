@@ -124,6 +124,4 @@ export default function FavoritesList({ user, onLoadFavorite }) {
     </div>
   );
 }
-if (!user?.id) {
-  return <p className="text-center text-gray-500">Kirjaudu nähdäksesi suosikit</p>;
-}
+
