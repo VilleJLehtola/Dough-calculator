@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 import { supabase } from '../supabaseClient';
 
 export default function AdminRecipeEditor() {
-  const session = useSession();
-  const [loading, setLoading] = useState(true);
+  const { session, isLoading } = useSessionContext();
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Check if user is admin
   useEffect(() => {
-    if (session) {
-      setIsAdmin(session?.user?.email === 'ville.j.lehtola@gmail.com');
-      setLoading(false);
+    if (session?.user?.email === 'ville.j.lehtola@gmail.com') {
+      setIsAdmin(true);
     }
   }, [session]);
 
-  if (loading) return <p className="text-center dark:text-white">Ladataan...</p>;
+  if (isLoading) return <p className="text-center dark:text-white">Ladataan...</p>;
+  if (!session) return <p className="text-center dark:text-white">Et ole kirjautunut sisään.</p>;
   if (!isAdmin) return <p className="text-center dark:text-white">Pääsy evätty</p>;
 
-
+  // FORM STATE
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
   const [water, setWater] = useState('');
   const [saltPercent, setSaltPercent] = useState('');
@@ -63,7 +63,6 @@ export default function AdminRecipeEditor() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const { error } = await supabase.from('recipes').insert([{
       created_by: session.user.email,
       flours,
@@ -73,19 +72,19 @@ export default function AdminRecipeEditor() {
       dough_type: doughType,
       cold_ferment: coldFerment,
       rye,
-      seeds_grams: seedsGrams ? Number(seedsGrams) : null,
+      seeds_grams: Number(seedsGrams) || 0,
       extra_ingredients: extraIngredients,
       hydration: Number(hydration),
       total_time: totalTime,
       active_time: activeTime,
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
-      instructions,
+      instructions
     }]);
 
     if (error) {
-      console.error(error);
       setMessage('Virhe tallennuksessa');
+      console.error(error);
     } else {
       setMessage('Resepti tallennettu!');
       setInstructions('');
@@ -147,19 +146,24 @@ export default function AdminRecipeEditor() {
       </div>
 
       {doughType === 'bread' && (
-        <div className="flex items-center space-x-4">
-          <label className="flex items-center space-x-2">
-            <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
-            <span>Ruis (20%)</span>
-          </label>
-          <input
-            type="number"
-            placeholder="Siemenet (g)"
-            value={seedsGrams}
-            onChange={(e) => setSeedsGrams(e.target.value)}
-            className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-          />
-        </div>
+        <>
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2">
+              <input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} />
+              <span>Ruis (20%)</span>
+            </label>
+          </div>
+          <div>
+            <label className="block text-sm mt-2">Siemenet (grammaa)</label>
+            <input
+              type="number"
+              placeholder="Esim. 50"
+              value={seedsGrams}
+              onChange={(e) => setSeedsGrams(e.target.value)}
+              className="w-full border rounded p-2 dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+            />
+          </div>
+        </>
       )}
 
       <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
@@ -207,6 +211,7 @@ export default function AdminRecipeEditor() {
       </div>
 
       <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Tallenna resepti</button>
+
       {message && <p className="text-sm text-green-700 dark:text-green-400 mt-2">{message}</p>}
     </form>
   );
