@@ -11,6 +11,7 @@ export default function AdminRecipeEditor({ user }) {
   const [saltPercent, setSaltPercent] = useState('');
   const [oilPercent, setOilPercent] = useState('');
   const [doughType, setDoughType] = useState('bread');
+  const [mode, setMode] = useState('manual');
   const [coldFerment, setColdFerment] = useState(false);
   const [rye, setRye] = useState(false);
   const [seeds, setSeeds] = useState(false);
@@ -54,7 +55,7 @@ export default function AdminRecipeEditor({ user }) {
 
     const { error } = await supabase.from('recipes').insert([{
       created_by: user.id,
-      title, // ✅ required field
+      title,
       flours,
       water: Number(water),
       salt_percent: Number(saltPercent),
@@ -69,7 +70,8 @@ export default function AdminRecipeEditor({ user }) {
       active_time: activeTime,
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
-      instructions
+      instructions,
+      mode
     }]);
 
     if (error) {
@@ -77,6 +79,7 @@ export default function AdminRecipeEditor({ user }) {
       console.error(error);
     } else {
       setMessage('Resepti tallennettu!');
+      setTitle('');
       setInstructions('');
     }
   };
@@ -85,18 +88,14 @@ export default function AdminRecipeEditor({ user }) {
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
       <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
 
-      {/* Title input */}
-      <div>
-        <label className="block font-medium mb-1">Reseptin nimi</label>
-        <input
-          type="text"
-          placeholder="Esim. Vaalea hapanleipä"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-          required
-        />
-      </div>
+      <input
+        type="text"
+        placeholder="Reseptin nimi"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+        required
+      />
 
       {/* Flours */}
       <div>
@@ -124,7 +123,7 @@ export default function AdminRecipeEditor({ user }) {
         <button type="button" onClick={addFlourRow} className="text-blue-600 dark:text-blue-300 underline text-sm">Lisää jauho</button>
       </div>
 
-      {/* Water, Salt, Oil */}
+      {/* Water & Salt */}
       <div className="grid grid-cols-2 gap-4">
         <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
         <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
@@ -135,7 +134,7 @@ export default function AdminRecipeEditor({ user }) {
 
       <p className="text-sm">Hydraatio: <strong>{hydration}%</strong></p>
 
-      {/* Dough Type */}
+      {/* Dough Type + Cold */}
       <div className="flex items-center space-x-4">
         <label className="flex items-center space-x-2">
           <input type="radio" checked={doughType === 'bread'} onChange={() => setDoughType('bread')} />
@@ -151,6 +150,7 @@ export default function AdminRecipeEditor({ user }) {
         </label>
       </div>
 
+      {/* Rye & Seeds */}
       {doughType === 'bread' && (
         <div className="flex items-center space-x-4">
           <label className="flex items-center space-x-2">
@@ -164,7 +164,7 @@ export default function AdminRecipeEditor({ user }) {
         </div>
       )}
 
-      {/* Extras */}
+      {/* Extra Ingredients */}
       <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
 
       {/* Time */}
