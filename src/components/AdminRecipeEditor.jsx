@@ -52,7 +52,7 @@ export default function AdminRecipeEditor({ user }) {
   e.preventDefault();
 
   const { error } = await supabase.from('recipes').insert([{
-  created_by: user.email, // ✅ CORRECT
+  created_by: user.id, // ✅ CORRECT
     flours,
     water: Number(water),
     salt_percent: Number(saltPercent),
