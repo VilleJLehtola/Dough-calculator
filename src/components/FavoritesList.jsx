@@ -1,6 +1,7 @@
+// src/components/FavoritesList.jsx
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/supabaseClient";
+import { supabase } from '@/supabaseClient';
 import {
   FaBreadSlice,
   FaPizzaSlice,
@@ -18,7 +19,7 @@ export default function FavoritesList({ user, onLoadFavorite }) {
     if (user?.id) {
       fetchFavorites();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchFavorites = async () => {
     setLoading(true);
@@ -29,7 +30,7 @@ export default function FavoritesList({ user, onLoadFavorite }) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Virhe suosikkien haussa:", error.message);
+      console.error("Error fetching favorites:", error.message);
     } else {
       setFavorites(data);
     }
@@ -40,8 +41,6 @@ export default function FavoritesList({ user, onLoadFavorite }) {
     const { error } = await supabase.from("favorites").delete().eq("id", id);
     if (!error) {
       setFavorites((prev) => prev.filter((fav) => fav.id !== id));
-    } else {
-      console.error("Virhe poistettaessa suosikkia:", error.message);
     }
   };
 
@@ -54,6 +53,11 @@ export default function FavoritesList({ user, onLoadFavorite }) {
       <h2 className="text-2xl font-semibold mb-4 text-center dark:text-white">
         Suosikit
       </h2>
+
+      {/* 🐛 Debug user ID (remove later) */}
+      <pre className="text-xs text-gray-400 break-all whitespace-pre-wrap">
+        user.id: {user?.id || "undefined"}
+      </pre>
 
       {loading ? (
         <p className="text-center text-gray-500 dark:text-gray-400">
@@ -106,7 +110,6 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                         className="text-gray-600 dark:text-gray-300"
                         onClick={() => toggleExpand(fav.id)}
                         title="Näytä lisätiedot"
-                        aria-expanded={isExpanded}
                       >
                         {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                       </button>
