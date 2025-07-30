@@ -30,32 +30,35 @@ export default function App() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
-  // Dark mode initialization
+  // 🌙 Dark mode
   useEffect(() => {
-    const storedTheme = localStorage.getItem('theme');
+    const stored = localStorage.getItem('theme');
     const root = document.documentElement;
-    if (storedTheme === 'dark') root.classList.add('dark');
+    if (stored === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
   }, []);
 
-  // Supabase auth listener
+  // 🔐 Supabase auth listener
   useEffect(() => {
-    async function getSession() {
+    async function loadSession() {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-
       if (session?.user) {
-        await supabase.from('users').upsert([
-          { id: session.user.id, email: session.user.email }
-        ]);
+        setUser(session.user);
+        await supabase.from('users').upsert([{ id: session.user.id, email: session.user.email }]);
+      } else {
+        setUser(null);
       }
     }
 
-    getSession();
+    loadSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) setActiveView('calculator');
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+        setActiveView('calculator');
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -107,10 +110,7 @@ export default function App() {
     const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
 
     const jauhotyypit = mode === 'pizza'
-      ? {
-          '00-jauho': jauho * (1000 / 1070),
-          puolikarkea: jauho * (70 / 1070),
-        }
+      ? { '00-jauho': jauho * (1000 / 1070), puolikarkea: jauho * (70 / 1070) }
       : useRye
         ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
         : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
@@ -121,9 +121,7 @@ export default function App() {
   const result = calculate();
 
   const saveFavorite = async () => {
-    if (!favName || !user) return;
-    console.log('Saving favorite...', { user, favName });
-
+    if (!favName || !user?.id) return;
     const { error } = await supabase.from('favorites').insert([{
       user_id: user.id,
       name: favName,
@@ -138,13 +136,8 @@ export default function App() {
       use_seeds: useSeeds,
     }]);
 
-    if (error) {
-      console.error('Error saving favorite:', error);
-      setMessage('Tallennus epäonnistui.');
-    } else {
-      setMessage('Suosikki tallennettu!');
-      setFavName('');
-    }
+    setMessage(error ? 'Tallennus epäonnistui.' : 'Suosikki tallennettu!');
+    if (!error) setFavName('');
   };
 
   const handleLoadFavorite = (fav) => {
@@ -165,15 +158,9 @@ export default function App() {
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
         <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-        {!user && activeView === 'auth' && (
-          <AuthForm setUser={setUser} setActiveView={setActiveView} />
-        )}
-        {!user && activeView === 'forgot-password' && (
-          <ForgotPasswordForm setActiveView={setActiveView} />
-        )}
-        {!user && activeView === 'reset-password' && (
-          <ResetPassword setActiveView={setActiveView} />
-        )}
+        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
 
         {user && activeView === 'favorites' && (
           <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
@@ -183,7 +170,7 @@ export default function App() {
           <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
         )}
 
-        {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+        {user && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
           <AdminRecipeEditor />
         )}
 
@@ -228,9 +215,7 @@ export default function App() {
                 >
                   Tallenna suosikiksi
                 </button>
-                {message && (
-                  <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>
-                )}
+                {message && <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>}
               </div>
             )}
 
