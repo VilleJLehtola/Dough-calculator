@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export default function CalculatorForm({
   inputGrams,
@@ -23,6 +24,8 @@ export default function CalculatorForm({
   setShowRecipe,
   resetAll
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-4">
       {/* Type + Input */}
@@ -32,11 +35,11 @@ export default function CalculatorForm({
           <select
             value={inputType}
             onChange={(e) => setInputType(e.target.value)}
-            title="Valitse haluatko syöttää jauhojen vai veden määrän"
+            title={t("Input type tooltip")}
             className="border rounded w-full sm:w-auto px-3 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
           >
-            <option value="jauho">Jauho</option>
-            <option value="vesi">Vesi</option>
+            <option value="jauho">{t("Flour")}</option>
+            <option value="vesi">{t("Water")}</option>
           </select>
         </div>
 
@@ -44,10 +47,10 @@ export default function CalculatorForm({
         <div className="relative flex-1">
           <input
             type="number"
-            placeholder="Grammat"
+            placeholder={t("Grams")}
             value={inputGrams}
             onChange={(e) => setInputGrams(e.target.value)}
-            title="Syötä grammoina joko jauhot tai vesi"
+            title={t("Input amount tooltip")}
             className="w-full border rounded px-3 h-[44px] pr-10 text-sm dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
           />
           <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
@@ -59,23 +62,23 @@ export default function CalculatorForm({
       {/* Hydration + Salt */}
       <div className="flex space-x-2">
         <div className="flex-1">
-          <label className="block text-sm dark:text-gray-200">Hydration (%)</label>
+          <label className="block text-sm dark:text-gray-200">{t("Hydration")} (%)</label>
           <input
             type="number"
             value={hydration}
             onChange={(e) => setHydration(e.target.value)}
             className="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
-            title="Veden osuus jauhojen painosta prosentteina"
+            title={t("Hydration tooltip")}
           />
         </div>
         <div className="flex-1">
-          <label className="block text-sm dark:text-gray-200">Suola (%)</label>
+          <label className="block text-sm dark:text-gray-200">{t("Salt")} (%)</label>
           <input
             type="number"
             value={saltPct}
             onChange={(e) => setSaltPct(e.target.value)}
             className="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
-            title="Suolan osuus jauhojen painosta prosentteina"
+            title={t("Salt tooltip")}
           />
         </div>
       </div>
@@ -91,7 +94,7 @@ export default function CalculatorForm({
               : 'bg-gray-200 dark:bg-gray-600 dark:text-white'
           }`}
         >
-          Leipä
+          {t("Bread")}
         </button>
         <button
           type="button"
@@ -102,7 +105,7 @@ export default function CalculatorForm({
               : 'bg-gray-200 dark:bg-gray-600 dark:text-white'
           }`}
         >
-          Pizza
+          {t("Pizza")}
         </button>
       </div>
 
@@ -117,7 +120,9 @@ export default function CalculatorForm({
               onChange={() => setUseRye(!useRye)}
               className="h-4 w-4"
             />
-            <label htmlFor="rye" className="text-sm dark:text-gray-200">Sisältää 20% ruisjauhoja</label>
+            <label htmlFor="rye" className="text-sm dark:text-gray-200">
+              {t("Include Rye Flour")}
+            </label>
           </div>
         )}
 
@@ -130,7 +135,9 @@ export default function CalculatorForm({
               onChange={() => setUseSeeds(!useSeeds)}
               className="h-4 w-4"
             />
-            <label htmlFor="seeds" className="text-sm dark:text-gray-200">Lisää siemeniä (15%)</label>
+            <label htmlFor="seeds" className="text-sm dark:text-gray-200">
+              {t("Include Seeds")}
+            </label>
           </div>
         )}
 
@@ -142,7 +149,9 @@ export default function CalculatorForm({
             onChange={() => setColdFermentation(!coldFermentation)}
             className="h-4 w-4"
           />
-          <label htmlFor="cold" className="text-sm dark:text-gray-200">Kylmäkohotus</label>
+          <label htmlFor="cold" className="text-sm dark:text-gray-200">
+            {t("Cold Fermentation")}
+          </label>
         </div>
 
         {mode === 'pizza' && (
@@ -154,7 +163,9 @@ export default function CalculatorForm({
               onChange={() => setUseOil(!useOil)}
               className="h-4 w-4"
             />
-            <label htmlFor="oil" className="text-sm dark:text-gray-200">Sisältää öljyä (3%)</label>
+            <label htmlFor="oil" className="text-sm dark:text-gray-200">
+              {t("Include Oil")}
+            </label>
           </div>
         )}
       </div>
@@ -166,14 +177,14 @@ export default function CalculatorForm({
           onClick={() => setShowRecipe(true)}
           className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
         >
-          Näytä resepti
+          {t("Show Recipe")}
         </button>
         <button
           type="button"
           onClick={resetAll}
           className="flex-1 bg-gray-300 text-black dark:bg-gray-500 dark:text-white py-2 rounded hover:bg-gray-400"
         >
-          Tyhjennä
+          {t("Clear")}
         </button>
       </div>
     </div>
