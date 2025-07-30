@@ -176,9 +176,10 @@ if (user?.email === 'ville.j.lehtola@gmail.com') {
           <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
         )}
 
-        {user && user.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
-  <div className="text-white">Admin panel näkyy!</div>
+        {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+  <AdminRecipeEditor user={user} />
 )}
+
 
 
         {activeView === 'calculator' && (
