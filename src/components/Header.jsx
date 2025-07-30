@@ -6,7 +6,6 @@ export default function Header({ user, activeView, setActiveView, logout }) {
   const [theme, setTheme] = useState('light');
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
 
-  // Load theme from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('theme') || 'light';
     setTheme(saved);
@@ -22,14 +21,8 @@ export default function Header({ user, activeView, setActiveView, logout }) {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
-
     const root = document.documentElement;
-    if (newTheme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-
+    root.classList.toggle('dark', newTheme === 'dark');
     setShowMenu(false);
   };
 
@@ -47,7 +40,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
         </button>
       </div>
 
-      {/* Menu dropdown */}
+      {/* Dropdown menu */}
       {showMenu && (
         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow z-50 transition-all duration-300">
           <button
@@ -116,7 +109,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
             </button>
           )}
 
-          {/* 🌗 Dark Mode Switch — always visible */}
+          {/* 🌗 Dark mode toggle — always visible */}
           <div className="flex items-center justify-between px-4 py-2">
             <span className="text-sm dark:text-white">Tummat värit</span>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -126,7 +119,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 checked={theme === 'dark'}
                 onChange={toggleDarkMode}
               />
-              <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-300 rounded-full peer dark:bg-gray-600 peer-checked:bg-blue-600 transition-all duration-300"></div>
+              <div className="w-11 h-6 bg-gray-300 dark:bg-gray-600 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500 dark:peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600 transition-all duration-300"></div>
               <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transform transition-all duration-300 peer-checked:translate-x-full" />
             </label>
           </div>
