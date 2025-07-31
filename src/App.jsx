@@ -64,6 +64,29 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // 🌍 Load public favorite from URL
+  useEffect(() => {
+    const loadSharedFavorite = async () => {
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      if (pathParts.length === 2) {
+        const [username, favSlug] = pathParts;
+
+        const { data, error } = await supabase
+          .from('favorites')
+          .select('*')
+          .ilike('share_path', `${username}/${favSlug}`)
+          .eq('is_public', true)
+          .single();
+
+        if (data && !error) {
+          handleLoadFavorite(data);
+        }
+      }
+    };
+
+    loadSharedFavorite();
+  }, []);
+
   const logout = async () => {
     await supabase.auth.signOut();
     localStorage.clear();
@@ -119,15 +142,13 @@ export default function App() {
   };
 
   const result = calculate();
-// ✅ MOVE HERE instead:
-console.log("user:", user);
-console.log("activeView:", activeView);
-if (user?.email === 'ville.j.lehtola@gmail.com') {
-  console.log('Rendering admin for verified email');
-}
 
   const saveFavorite = async () => {
     if (!favName || !user?.id) return;
+
+    const username = user.email.split('@')[0];
+    const sanitizedFavName = favName.toLowerCase().replace(/\s+/g, '-');
+
     const { error } = await supabase.from('favorites').insert([{
       user_id: user.id,
       name: favName,
@@ -140,10 +161,17 @@ if (user?.email === 'ville.j.lehtola@gmail.com') {
       cold_fermentation: coldFermentation,
       use_rye: useRye,
       use_seeds: useSeeds,
+      is_public: true,
+      share_path: `${username}/${sanitizedFavName}`
     }]);
 
-    setMessage(error ? 'Tallennus epäonnistui.' : 'Suosikki tallennettu!');
-    if (!error) setFavName('');
+    if (!error) {
+      const link = `https://www.breadcalculator.online/${username}/${sanitizedFavName}`;
+      setMessage(`Suosikki tallennettu! Jaa linkki: ${link}`);
+      setFavName('');
+    } else {
+      setMessage('Tallennus epäonnistui.');
+    }
   };
 
   const handleLoadFavorite = (fav) => {
@@ -177,10 +205,8 @@ if (user?.email === 'ville.j.lehtola@gmail.com') {
         )}
 
         {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
-  <AdminRecipeEditor user={user} />
-)}
-
-
+          <AdminRecipeEditor user={user} />
+        )}
 
         {activeView === 'calculator' && (
           <>
@@ -223,7 +249,7 @@ if (user?.email === 'ville.j.lehtola@gmail.com') {
                 >
                   Tallenna suosikiksi
                 </button>
-                {message && <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>}
+                {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
               </div>
             )}
 
