@@ -1,13 +1,13 @@
-// RecipesPage.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import RecipeEditor from './RecipeEditor';
+import { useTranslation } from 'react-i18next';
 
-export default function RecipesPage({ user, onLoadFavorite }) {
+export default function RecipesPage({ user }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState('');
-  const [message, setMessage] = useState('');
   const [filterMode, setFilterMode] = useState('all');
+  const { t } = useTranslation();
 
   useEffect(() => {
     fetchRecipes();
@@ -41,11 +41,8 @@ export default function RecipesPage({ user, onLoadFavorite }) {
       },
     ]);
 
-    if (error) {
-      setMessage('Tallennus epäonnistui');
-    } else {
-      setMessage(`Resepti "${recipe.title}" tallennettu suosikiksi!`);
-      setTimeout(() => setMessage(''), 3000);
+    if (!error) {
+      // optionally show a message
     }
   };
 
@@ -57,9 +54,21 @@ export default function RecipesPage({ user, onLoadFavorite }) {
     return matchSearch && matchMode;
   });
 
+  const formatInstructions = (text) => {
+    const lines = text.split('\n').filter(Boolean);
+    return lines.map((line, idx) => (
+      <p key={idx}>
+        <span className="mr-2">{line.includes('FOLD') ? '📌' : '✅'}</span>
+        {line}
+      </p>
+    ));
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-4 text-center">Reseptikirjasto</h2>
+      <h2 className="text-2xl font-bold mb-4 text-center">
+        {t('Recipe Library') || 'Reseptikirjasto'}
+      </h2>
 
       <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />
 
@@ -67,41 +76,39 @@ export default function RecipesPage({ user, onLoadFavorite }) {
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Etsi reseptejä tai tageja..."
+        placeholder={t('Search recipes or tags...') || 'Etsi reseptejä tai tageja...'}
         className="w-full px-3 py-2 mb-4 border rounded"
       />
 
       <div className="flex justify-center gap-2 mb-4">
-        <button
-          onClick={() => setFilterMode('all')}
-          className={`px-3 py-1 rounded ${filterMode === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-        >
-          Kaikki
-        </button>
-        <button
-          onClick={() => setFilterMode('leipa')}
-          className={`px-3 py-1 rounded ${filterMode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-        >
-          Leipä
-        </button>
-        <button
-          onClick={() => setFilterMode('pizza')}
-          className={`px-3 py-1 rounded ${filterMode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-        >
-          Pizza
-        </button>
+        {['all', 'leipa', 'pizza'].map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setFilterMode(mode)}
+            className={`px-3 py-1 rounded ${
+              filterMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200'
+            }`}
+          >
+            {mode === 'all' ? t('All') || 'Kaikki' : mode === 'leipa' ? t('Bread') : t('Pizza')}
+          </button>
+        ))}
       </div>
 
-      {message && <p className="text-green-600 text-sm mb-2 text-center">{message}</p>}
-
       {filtered.length === 0 ? (
-        <p className="text-center text-gray-500">Ei reseptejä</p>
+        <p className="text-center text-gray-500">{t('No recipes found') || 'Ei reseptejä'}</p>
       ) : (
         <ul className="space-y-4">
           {filtered.map((recipe) => (
-            <li key={recipe.id} className="bg-white border rounded-lg shadow p-4">
-              <h3 className="text-lg font-semibold mb-1">{recipe.title}</h3>
-              <p className="text-sm text-gray-600 mb-2">{recipe.description}</p>
+            <li
+              key={recipe.id}
+              className="bg-white border rounded-lg shadow p-4 dark:bg-gray-800 dark:border-gray-700"
+            >
+              <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-white">
+                {recipe.title}
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                {recipe.description}
+              </p>
               <div className="flex flex-wrap gap-2 mb-2">
                 {(recipe.tags || []).map((tag) => (
                   <span
@@ -112,36 +119,39 @@ export default function RecipesPage({ user, onLoadFavorite }) {
                   </span>
                 ))}
               </div>
+
               <div className="flex gap-2 flex-wrap">
-                <button
+                {/* HIDE "Lataa laskimeen" */}
+                {/* <button
                   onClick={() => onLoadFavorite(recipe)}
                   className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
                 >
-                  Lataa laskimeen
-                </button>
+                  {t("Load to calculator")}
+                </button> */}
                 <button
                   onClick={() => saveRecipeAsFavorite(recipe)}
                   className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                 >
-                  Tallenna suosikiksi
+                  {t("Save as favorite") || "Tallenna suosikiksi"}
                 </button>
-                <details className="w-full mt-2">
-                  <summary className="cursor-pointer text-sm text-blue-700 hover:underline">
-                    Näytä ohjeet
-                  </summary>
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
-                    {recipe.instructions}
-                  </p>
-                  <div className="text-xs text-gray-600 mt-2 space-y-1">
-                    {recipe.flour_amount && <p>Jauho: {recipe.flour_amount} g</p>}
-                    {recipe.water_amount && <p>Vesi: {recipe.water_amount} g</p>}
-                    {recipe.salt_amount && <p>Suola: {recipe.salt_amount} g</p>}
-                    {recipe.oil_amount && <p>Öljy: {recipe.oil_amount} g</p>}
-                    {recipe.juuri_amount && <p>Juuri: {recipe.juuri_amount} g</p>}
-                    {recipe.seeds_amount && <p>Siemenet: {recipe.seeds_amount} g</p>}
-                  </div>
-                </details>
               </div>
+
+              <details className="w-full mt-2">
+                <summary className="cursor-pointer text-sm text-blue-700 hover:underline">
+                  {t('Show instructions') || 'Näytä ohjeet'}
+                </summary>
+                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-sm text-gray-800 dark:text-gray-100 space-y-2">
+                  {formatInstructions(recipe.instructions)}
+                </div>
+                <div className="text-xs text-gray-600 dark:text-gray-400 mt-3 space-y-1">
+                  {recipe.flour_amount && <p>{t("Flour")}: {recipe.flour_amount} g</p>}
+                  {recipe.water_amount && <p>{t("Water")}: {recipe.water_amount} g</p>}
+                  {recipe.salt_amount && <p>{t("Salt")}: {recipe.salt_amount} g</p>}
+                  {recipe.oil_amount && <p>{t("Oil")}: {recipe.oil_amount} g</p>}
+                  {recipe.juuri_amount && <p>{t("Starter")}: {recipe.juuri_amount} g</p>}
+                  {recipe.seeds_amount && <p>{t("Seeds")}: {recipe.seeds_amount} g</p>}
+                </div>
+              </details>
             </li>
           ))}
         </ul>
