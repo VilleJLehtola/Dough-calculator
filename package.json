@@ -14,7 +14,8 @@
     "framer-motion": "^11.0.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "i18next": "^23.6.5",
-    "react-i18next": "^13.2.2"
+    "react-i18next": "^13.2.2",
+    "react-select": "^5.7.3"
   },
   "devDependencies": {
     "vite": "^4.5.0",
