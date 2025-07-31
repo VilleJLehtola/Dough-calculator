@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
+import Select from 'react-select';
 
 export default function AdminRecipeEditor({ user }) {
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
@@ -7,7 +8,13 @@ export default function AdminRecipeEditor({ user }) {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
+  const [tagOptions, setTagOptions] = useState([
+    { label: 'leipä', value: 'leipä' },
+    { label: 'pizza', value: 'pizza' },
+    { label: 'juuri', value: 'juuri' },
+    { label: 'hapanjuuri', value: 'hapanjuuri' }
+  ]);
+  const [selectedTags, setSelectedTags] = useState([]);
   const [flours, setFlours] = useState([{ type: '', grams: '' }]);
   const [water, setWater] = useState('');
   const [saltPercent, setSaltPercent] = useState('');
@@ -52,13 +59,14 @@ export default function AdminRecipeEditor({ user }) {
     setInstructions(before + marker + after);
   };
 
+  const handleTagChange = (selected) => {
+    setSelectedTags(selected || []);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const tags = tagsInput
-      .split(',')
-      .map((tag) => tag.trim())
-      .filter((tag) => tag.length > 0);
+    const tags = selectedTags.map(tag => tag.value);
 
     const { error } = await supabase.from('recipes').insert([{
       created_by: user.id,
@@ -90,7 +98,7 @@ export default function AdminRecipeEditor({ user }) {
       setMessage('Resepti tallennettu!');
       setTitle('');
       setDescription('');
-      setTagsInput('');
+      setSelectedTags([]);
       setInstructions('');
     }
   };
@@ -116,12 +124,26 @@ export default function AdminRecipeEditor({ user }) {
         className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
       />
 
-      <input
-        type="text"
-        placeholder="Tagit (pilkulla eroteltuna, esim. leipä, hapanjuuri)"
-        value={tagsInput}
-        onChange={(e) => setTagsInput(e.target.value)}
-        className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-      />
+      <div>
+        <label className="block mb-1">Tagit</label>
+        <Select
+          isMulti
+          options={tagOptions}
+          value={selectedTags}
+          onChange={handleTagChange}
+          className="text-black dark:text-white"
+          classNamePrefix="react-select"
+          placeholder="Valitse tai kirjoita tagit..."
+        />
+      </div>
 
-      {/* rest of form remains unchanged... */}
+      {/* ...rest of the form goes here... */}
+
+      <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+        Tallenna resepti
+      </button>
+
+      {message && <p className="text-sm text-green-700 dark:text-green-400 mt-2">{message}</p>}
+    </form>
+  );
+}
