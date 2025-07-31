@@ -16,33 +16,28 @@ export default function FavoritesList({ user, onLoadFavorite }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  if (user?.id) {
-    console.log('Fetching favorites for user:', user.id); // ✅ DEBUG
-    fetchFavorites();
-  } else {
-    console.warn('No valid user.id provided');
-  }
-}, [user]);
+    if (user?.id) {
+      fetchFavorites();
+    }
+  }, [user]);
 
-const fetchFavorites = async () => {
-  setLoading(true);
-  const { data, error } = await supabase
-    .from("favorites")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const fetchFavorites = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("favorites")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error('Error fetching favorites:', error); // ✅ DEBUG
-    setFavorites([]);
-  } else {
-    console.log('Favorites loaded:', data); // ✅ DEBUG
-    setFavorites(data);
-  }
+    if (error) {
+      console.error('Error fetching favorites:', error);
+      setFavorites([]);
+    } else {
+      setFavorites(data);
+    }
 
-  setLoading(false);
-};
-
+    setLoading(false);
+  };
 
   const handleDelete = async (id) => {
     const { error } = await supabase.from("favorites").delete().eq("id", id);
@@ -55,16 +50,23 @@ const fetchFavorites = async () => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const copyLink = (fav) => {
+    if (!fav.share_path) {
+      alert("Tällä suosikilla ei ole jaettavaa linkkiä.");
+      return;
+    }
+
+    const link = `https://www.breadcalculator.online/${fav.share_path}`;
+    navigator.clipboard.writeText(link)
+      .then(() => alert(`Linkki kopioitu:\n${link}`))
+      .catch(() => alert('Linkin kopiointi epäonnistui.'));
+  };
+
   return (
     <div className="max-w-xl mx-auto p-4">
       <h2 className="text-2xl font-semibold mb-4 text-center dark:text-white">
         Suosikit
       </h2>
-
-      {/* 🐛 Debug user ID (remove later) */}
-      <pre className="text-xs text-gray-400 break-all whitespace-pre-wrap">
-        user.id: {user?.id || "undefined"}
-      </pre>
 
       {loading ? (
         <p className="text-center text-gray-500 dark:text-gray-400">
@@ -106,6 +108,16 @@ const fetchFavorites = async () => {
                       >
                         Lataa
                       </button>
+
+                      {fav.share_path && (
+                        <button
+                          className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                          onClick={() => copyLink(fav)}
+                        >
+                          Jaa linkki
+                        </button>
+                      )}
+
                       <button
                         className="text-red-500 hover:text-red-700"
                         onClick={() => handleDelete(fav.id)}
