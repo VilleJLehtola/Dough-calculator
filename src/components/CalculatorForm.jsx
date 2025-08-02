@@ -29,20 +29,17 @@ export default function CalculatorForm({
   return (
     <div className="space-y-4">
       {/* Type + Input */}
-      {/* Type + Input */}
-<div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
+<div className="flex flex-col sm:flex-row gap-2">
   {/* Dropdown */}
-  <div className="w-full sm:w-[120px]">
-    <select
-      value={inputType}
-      onChange={(e) => setInputType(e.target.value)}
-      title={t("Input type tooltip")}
-      className="w-full border rounded px-3 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
-    >
-      <option value="jauho">{t("Flour")}</option>
-      <option value="vesi">{t("Water")}</option>
-    </select>
-  </div>
+  <select
+    value={inputType}
+    onChange={(e) => setInputType(e.target.value)}
+    title={t("Input type tooltip")}
+    className="w-full sm:w-28 border rounded px-3 py-2 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
+  >
+    <option value="jauho">{t("Flour")}</option>
+    <option value="vesi">{t("Water")}</option>
+  </select>
 
   {/* Input with unit */}
   <div className="relative flex-1">
@@ -59,6 +56,7 @@ export default function CalculatorForm({
     </span>
   </div>
 </div>
+
 
 
       {/* Hydration + Salt */}
