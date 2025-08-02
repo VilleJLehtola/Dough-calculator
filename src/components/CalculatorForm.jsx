@@ -29,23 +29,25 @@ export default function CalculatorForm({
   return (
     <div className="space-y-4">
       {/* Type + Input */}
-<div className="flex flex-col sm:flex-row gap-2">
+<div className="flex flex-col sm:flex-row sm:items-center gap-2">
   {/* Dropdown */}
-  <select
-    value={inputType}
-    onChange={(e) => setInputType(e.target.value)}
-    title={t("Input type tooltip")}
-    className="w-full sm:w-28 border rounded px-3 py-2 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
-  >
-    <option value="jauho">{t("Flour")}</option>
-    <option value="vesi">{t("Water")}</option>
-  </select>
+  <div className="sm:w-32 w-full">
+    <select
+      value={inputType}
+      onChange={(e) => setInputType(e.target.value)}
+      title={t("Input type tooltip")}
+      className="w-full border rounded px-3 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
+    >
+      <option value="jauho">{t("Flour")}</option>
+      <option value="vesi">{t("Water")}</option>
+    </select>
+  </div>
 
   {/* Input with unit */}
-  <div className="relative flex-1">
+  <div className="flex-1 relative">
     <input
       type="number"
-      placeholder={t("Grams")}
+      placeholder={t(" ")}
       value={inputGrams}
       onChange={(e) => setInputGrams(e.target.value)}
       title={t("Input amount tooltip")}
@@ -56,6 +58,7 @@ export default function CalculatorForm({
     </span>
   </div>
 </div>
+
 
 
 
