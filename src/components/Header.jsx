@@ -118,14 +118,16 @@ export default function Header({ user, activeView, setActiveView, logout }) {
 
           {/* 🌐 Language Toggle */}
           <div className="flex items-center justify-between px-4 py-2 border-t dark:border-gray-700">
-            <span className="text-sm dark:text-white">{t("Language")}</span>
-            <button
-              onClick={toggleLanguage}
-              className="text-sm text-blue-600 dark:text-blue-300 hover:underline"
-            >
-              {i18n.language === 'fi' ? 'English' : 'Suomi'}
-            </button>
-          </div>
+  <span className="text-sm dark:text-white">{t("Language")}</span>
+  <button
+    onClick={toggleLanguage}
+    className="text-lg hover:scale-105 transition-transform"
+    title={i18n.language === 'fi' ? 'Switch to English' : 'Vaihda suomeksi'}
+  >
+    {i18n.language === 'fi' ? '🇬🇧' : '🇫🇮'}
+  </button>
+</div>
+
 
           {/* 🌙 Dark Mode Toggle */}
           <div className="flex items-center justify-between px-4 py-2">
