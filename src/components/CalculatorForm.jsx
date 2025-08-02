@@ -29,7 +29,7 @@ export default function CalculatorForm({
   return (
     <div className="space-y-4">
       {/* Type + Input */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
+      <div className="grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-2 items-center">
         {/* Dropdown */}
         <div className="relative w-full sm:w-auto">
           <select
