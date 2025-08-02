@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import CreatableSelect from 'react-select/creatable';
+import { TitleAndTags } from './AdminRecipeEditor/TitleAndTags';
+import { FlourInputs } from './AdminRecipeEditor/FlourInputs';
+import { HydrationSettings } from './AdminRecipeEditor/HydrationSettings';
+import { DoughOptions } from './AdminRecipeEditor/DoughOptions';
+import { TimeInputs } from './AdminRecipeEditor/TimeInputs';
+import { FoldScheduler } from './AdminRecipeEditor/FoldScheduler';
+import { InstructionsEditor } from './AdminRecipeEditor/InstructionsEditor';
 
 export default function AdminRecipeEditor({ user }) {
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
@@ -59,10 +65,6 @@ export default function AdminRecipeEditor({ user }) {
     setInstructions(before + marker + after);
   };
 
-  const handleTagChange = (selected) => {
-    setSelectedTags(selected || []);
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -107,89 +109,71 @@ export default function AdminRecipeEditor({ user }) {
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
       <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
 
-      <input type="text" placeholder="Reseptin nimi" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" required />
-      <input type="text" placeholder="Kuvaus" value={description} onChange={(e) => setDescription(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" />
+      <TitleAndTags
+        title={title}
+        setTitle={setTitle}
+        description={description}
+        setDescription={setDescription}
+        selectedTags={selectedTags}
+        setSelectedTags={setSelectedTags}
+        tagOptions={tagOptions}
+      />
 
-      <div>
-        <label className="block mb-1">Tagit</label>
-        <CreatableSelect
-          isMulti
-          options={tagOptions}
-          value={selectedTags}
-          onChange={handleTagChange}
-          className="text-black dark:text-white"
-          classNamePrefix="react-select"
-          placeholder="Valitse tai kirjoita tagit..."
-        />
-        <div className="flex flex-wrap gap-2 mt-2">
-          {selectedTags.map((tag) => (
-            <span key={tag.value} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm dark:bg-blue-900 dark:text-white">
-              {tag.label}
-            </span>
-          ))}
-        </div>
-      </div>
+      <FlourInputs
+        flours={flours}
+        handleFlourChange={handleFlourChange}
+        addFlourRow={addFlourRow}
+      />
 
-      <div>
-        <label className="block font-medium mb-1">Jauhot</label>
-        {flours.map((f, idx) => (
-          <div key={idx} className="flex space-x-2 mb-2">
-            <input type="text" placeholder="Tyyppi" value={f.type} onChange={e => handleFlourChange(idx, 'type', e.target.value)} className="flex-1 border p-1 rounded dark:bg-gray-700 dark:text-white" required />
-            <input type="number" placeholder="Grammat" value={f.grams} onChange={e => handleFlourChange(idx, 'grams', e.target.value)} className="w-24 border p-1 rounded dark:bg-gray-700 dark:text-white" required />
-          </div>
-        ))}
-        <button type="button" onClick={addFlourRow} className="text-blue-600 dark:text-blue-300 underline text-sm">Lisää jauho</button>
-      </div>
+      <HydrationSettings
+        water={water}
+        setWater={setWater}
+        saltPercent={saltPercent}
+        setSaltPercent={setSaltPercent}
+        oilPercent={oilPercent}
+        setOilPercent={setOilPercent}
+        doughType={doughType}
+        hydration={hydration}
+      />
 
-      <div className="grid grid-cols-2 gap-4">
-        <input type="number" placeholder="Vesi (g)" value={water} onChange={e => setWater(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white" required />
-        <input type="number" placeholder="Suola (%)" value={saltPercent} onChange={e => setSaltPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white" required />
-        {doughType === 'pizza' && (
-          <input type="number" placeholder="Öljy (%)" value={oilPercent} onChange={e => setOilPercent(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white" />
-        )}
-      </div>
+      <DoughOptions
+        doughType={doughType}
+        setDoughType={setDoughType}
+        coldFerment={coldFerment}
+        setColdFerment={setColdFerment}
+        rye={rye}
+        setRye={setRye}
+        seeds={seeds}
+        setSeeds={setSeeds}
+      />
 
-      <p className="text-sm">Hydraatio: <strong>{hydration}%</strong></p>
+      <textarea
+        placeholder="Extra ainekset"
+        value={extraIngredients}
+        onChange={e => setExtraIngredients(e.target.value)}
+        className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
+      />
 
-      <div className="flex items-center space-x-4">
-        <label className="flex items-center space-x-2"><input type="radio" checked={doughType === 'bread'} onChange={() => setDoughType('bread')} /> <span>Leipä</span></label>
-        <label className="flex items-center space-x-2"><input type="radio" checked={doughType === 'pizza'} onChange={() => setDoughType('pizza')} /> <span>Pizza</span></label>
-        <label className="flex items-center space-x-2"><input type="checkbox" checked={coldFerment} onChange={e => setColdFerment(e.target.checked)} /> <span>Kylmäkohotus</span></label>
-      </div>
+      <TimeInputs
+        totalTime={totalTime}
+        setTotalTime={setTotalTime}
+        activeTime={activeTime}
+        setActiveTime={setActiveTime}
+      />
 
-      {doughType === 'bread' && (
-        <div className="flex items-center space-x-4">
-          <label className="flex items-center space-x-2"><input type="checkbox" checked={rye} onChange={e => setRye(e.target.checked)} /> <span>Ruis (20%)</span></label>
-          <label className="flex items-center space-x-2"><input type="checkbox" checked={seeds} onChange={e => setSeeds(e.target.checked)} /> <span>Siemenet (15%)</span></label>
-        </div>
-      )}
+      <FoldScheduler
+        foldCount={foldCount}
+        setFoldCount={setFoldCount}
+        foldTimings={foldTimings}
+        handleFoldTimingChange={handleFoldTimingChange}
+      />
 
-      <textarea placeholder="Extra ainekset" value={extraIngredients} onChange={e => setExtraIngredients(e.target.value)} className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white" />
-
-      <div className="grid grid-cols-2 gap-4">
-        <input type="text" placeholder="Kokonaisaika" value={totalTime} onChange={e => setTotalTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white" />
-        <input type="text" placeholder="Aktiivinen aika" value={activeTime} onChange={e => setActiveTime(e.target.value)} className="border p-2 rounded dark:bg-gray-700 dark:text-white" />
-      </div>
-
-      <div>
-        <label className="block font-medium">Taitteluiden määrä: {foldCount}</label>
-        <input type="range" min={1} max={6} value={foldCount} onChange={e => setFoldCount(Number(e.target.value))} />
-        {[...Array(foldCount)].map((_, i) => (
-          <input key={i} type="number" placeholder={`Taitto ${i + 1} (min)`} value={foldTimings[i]} onChange={e => handleFoldTimingChange(i, e.target.value)} className="w-full border p-2 rounded my-1 dark:bg-gray-700 dark:text-white" />
-        ))}
-      </div>
-
-      <div>
-        <label className="block font-medium mb-1">Valmistusohjeet</label>
-        <textarea id="instructions" value={instructions} onChange={e => setInstructions(e.target.value)} className="w-full border p-2 rounded h-40 dark:bg-gray-700 dark:text-white" />
-        <div className="flex flex-wrap gap-2 mt-2">
-          {[...Array(foldCount)].map((_, i) => (
-            <button key={i} type="button" onClick={() => insertFoldMarker(i + 1)} className="text-blue-600 dark:text-blue-300 underline text-sm">
-              Lisää [FOLD {i + 1}]
-            </button>
-          ))}
-        </div>
-      </div>
+      <InstructionsEditor
+        instructions={instructions}
+        setInstructions={setInstructions}
+        foldCount={foldCount}
+        insertFoldMarker={insertFoldMarker}
+      />
 
       <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
         Tallenna resepti
