@@ -11,6 +11,8 @@ export function TitleAndTags({
   setSelectedTags,
   tagOptions
 }) {
+  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+
   return (
     <div className="space-y-2">
       <input
@@ -40,39 +42,39 @@ export function TitleAndTags({
         styles={{
           control: (base, state) => ({
             ...base,
-            backgroundColor: '#374151', // Tailwind gray-700
-            borderColor: '#4B5563',     // Tailwind gray-600
-            color: '#fff'
+            backgroundColor: isDarkMode ? '#374151' : '#ffffff',
+            borderColor: isDarkMode ? '#4B5563' : '#d1d5db',
+            color: isDarkMode ? '#ffffff' : '#000000'
           }),
           menu: (base) => ({
             ...base,
-            backgroundColor: '#1f2937', // Tailwind gray-800
-            color: '#fff'
+            backgroundColor: isDarkMode ? '#1f2937' : '#ffffff',
+            color: isDarkMode ? '#ffffff' : '#000000'
           }),
           multiValue: (base) => ({
             ...base,
-            backgroundColor: '#2563eb', // Tailwind blue-600
-            color: '#fff'
+            backgroundColor: isDarkMode ? '#2563eb' : '#dbeafe',
+            color: isDarkMode ? '#ffffff' : '#1e3a8a'
           }),
           multiValueLabel: (base) => ({
             ...base,
-            color: '#fff'
+            color: isDarkMode ? '#ffffff' : '#1e3a8a'
           }),
           multiValueRemove: (base) => ({
             ...base,
-            color: '#fff',
+            color: isDarkMode ? '#ffffff' : '#1e3a8a',
             ':hover': {
-              backgroundColor: '#1d4ed8', // Tailwind blue-700
-              color: '#fff'
+              backgroundColor: isDarkMode ? '#1d4ed8' : '#93c5fd',
+              color: '#ffffff'
             }
           }),
           placeholder: (base) => ({
             ...base,
-            color: '#9CA3AF' // Tailwind gray-400
+            color: isDarkMode ? '#9CA3AF' : '#6B7280'
           }),
           input: (base) => ({
             ...base,
-            color: '#fff'
+            color: isDarkMode ? '#ffffff' : '#000000'
           })
         }}
       />
