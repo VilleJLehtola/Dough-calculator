@@ -29,33 +29,37 @@ export default function CalculatorForm({
   return (
     <div className="space-y-4">
       {/* Type + Input */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        {/* Dropdown */}
-        <select
-          value={inputType}
-          onChange={(e) => setInputType(e.target.value)}
-          title={t("Input type tooltip")}
-          className="sm:w-[110px] w-full border rounded px-3 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
-        >
-          <option value="jauho">{t("Flour")}</option>
-          <option value="vesi">{t("Water")}</option>
-        </select>
+      {/* Type + Input */}
+<div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
+  {/* Dropdown */}
+  <div className="w-full sm:w-[120px]">
+    <select
+      value={inputType}
+      onChange={(e) => setInputType(e.target.value)}
+      title={t("Input type tooltip")}
+      className="w-full border rounded px-3 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
+    >
+      <option value="jauho">{t("Flour")}</option>
+      <option value="vesi">{t("Water")}</option>
+    </select>
+  </div>
 
-        {/* Input with unit */}
-        <div className="relative flex-1">
-          <input
-            type="number"
-            placeholder={t("Grams")}
-            value={inputGrams}
-            onChange={(e) => setInputGrams(e.target.value)}
-            title={t("Input amount tooltip")}
-            className="w-full border rounded px-3 h-[44px] pr-10 text-sm dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
-          />
-          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
-            {inputType === 'jauho' ? 'g' : 'ml'}
-          </span>
-        </div>
-      </div>
+  {/* Input with unit */}
+  <div className="relative flex-1">
+    <input
+      type="number"
+      placeholder={t("Grams")}
+      value={inputGrams}
+      onChange={(e) => setInputGrams(e.target.value)}
+      title={t("Input amount tooltip")}
+      className="w-full border rounded px-3 h-[44px] pr-10 text-sm dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
+    />
+    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+      {inputType === 'jauho' ? 'g' : 'ml'}
+    </span>
+  </div>
+</div>
+
 
       {/* Hydration + Salt */}
       <div className="flex space-x-2">
