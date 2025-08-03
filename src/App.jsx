@@ -1,5 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
 
 import Header from '@/components/Header';
@@ -12,8 +13,9 @@ import RecipeView from '@/components/RecipeView';
 import FavoritesList from '@/components/FavoritesList';
 import RecipesPage from '@/components/RecipesPage';
 import AdminRecipeEditor from '@/components/AdminRecipeEditor';
+import RecipeViewPage from '@/components/RecipeViewPage';
 
-export default function App() {
+function AppContent() {
   const [user, setUser] = useState(null);
   const [activeView, setActiveView] = useState('calculator');
   const [inputGrams, setInputGrams] = useState('');
@@ -30,7 +32,6 @@ export default function App() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
-  // 🌙 Dark mode
   useEffect(() => {
     const stored = localStorage.getItem('theme');
     const root = document.documentElement;
@@ -38,7 +39,6 @@ export default function App() {
     else root.classList.remove('dark');
   }, []);
 
-  // 🔐 Supabase auth listener
   useEffect(() => {
     async function loadSession() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -62,29 +62,6 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  // 🌍 Load public favorite from URL
-  useEffect(() => {
-    const loadSharedFavorite = async () => {
-      const pathParts = window.location.pathname.split('/').filter(Boolean);
-      if (pathParts.length === 2) {
-        const [username, favSlug] = pathParts;
-
-        const { data, error } = await supabase
-          .from('favorites')
-          .select('*')
-          .ilike('share_path', `${username}/${favSlug}`)
-          .eq('is_public', true)
-          .single();
-
-        if (data && !error) {
-          handleLoadFavorite(data);
-        }
-      }
-    };
-
-    loadSharedFavorite();
   }, []);
 
   const logout = async () => {
@@ -188,86 +165,102 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center py-10 px-4 text-gray-900 dark:text-gray-100">
-      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-        <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center py-10 px-4 text-gray-900 dark:text-gray-100">
+            <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+              <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
 
-        {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-        {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-        {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
+              {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+              {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+              {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
 
-        {user && activeView === 'favorites' && (
-          <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
-        )}
+              {user && activeView === 'favorites' && (
+                <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
+              )}
 
-        {user && activeView === 'recipes' && (
-          <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
-        )}
+              {user && activeView === 'recipes' && (
+                <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
+              )}
 
-        {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
-          <AdminRecipeEditor user={user} />
-        )}
+              {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+                <AdminRecipeEditor user={user} />
+              )}
 
-        {activeView === 'calculator' && (
-          <>
-            <CalculatorForm
-              inputGrams={inputGrams}
-              setInputGrams={setInputGrams}
-              inputType={inputType}
-              setInputType={setInputType}
-              hydration={hydration}
-              setHydration={setHydration}
-              saltPct={saltPct}
-              setSaltPct={setSaltPct}
-              mode={mode}
-              setMode={setMode}
-              useOil={useOil}
-              setUseOil={setUseOil}
-              coldFermentation={coldFermentation}
-              setColdFermentation={setColdFermentation}
-              useRye={useRye}
-              setUseRye={setUseRye}
-              useSeeds={useSeeds}
-              setUseSeeds={setUseSeeds}
-              showRecipe={showRecipe}
-              setShowRecipe={setShowRecipe}
-              resetAll={resetAll}
-            />
+              {activeView === 'calculator' && (
+                <>
+                  <CalculatorForm
+                    inputGrams={inputGrams}
+                    setInputGrams={setInputGrams}
+                    inputType={inputType}
+                    setInputType={setInputType}
+                    hydration={hydration}
+                    setHydration={setHydration}
+                    saltPct={saltPct}
+                    setSaltPct={setSaltPct}
+                    mode={mode}
+                    setMode={setMode}
+                    useOil={useOil}
+                    setUseOil={setUseOil}
+                    coldFermentation={coldFermentation}
+                    setColdFermentation={setColdFermentation}
+                    useRye={useRye}
+                    setUseRye={setUseRye}
+                    useSeeds={useSeeds}
+                    setUseSeeds={setUseSeeds}
+                    showRecipe={showRecipe}
+                    setShowRecipe={setShowRecipe}
+                    resetAll={resetAll}
+                  />
 
-            {user && (
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  placeholder="Suosikin nimi"
-                  value={favName}
-                  onChange={(e) => setFavName(e.target.value)}
-                  className="w-full border rounded px-3 py-2 text-sm"
-                />
-                <button
-                  onClick={saveFavorite}
-                  className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-                >
-                  Tallenna suosikiksi
-                </button>
-                {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
-              </div>
-            )}
+                  {user && (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        placeholder="Suosikin nimi"
+                        value={favName}
+                        onChange={(e) => setFavName(e.target.value)}
+                        className="w-full border rounded px-3 py-2 text-sm"
+                      />
+                      <button
+                        onClick={saveFavorite}
+                        className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+                      >
+                        Tallenna suosikiksi
+                      </button>
+                      {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
+                    </div>
+                  )}
 
-            {result && <ResultDisplay result={result} />}
+                  {result && <ResultDisplay result={result} />}
 
-            {showRecipe && result && (
-              <RecipeView
-                doughType={mode}
-                useSeeds={useSeeds}
-                coldFermentation={coldFermentation}
-                foldsDone={foldsDone}
-                setFoldsDone={setFoldsDone}
-                useOil={useOil}
-              />
-            )}
-          </>
-        )}
-      </div>
-    </div>
+                  {showRecipe && result && (
+                    <RecipeView
+                      doughType={mode}
+                      useSeeds={useSeeds}
+                      coldFermentation={coldFermentation}
+                      foldsDone={foldsDone}
+                      setFoldsDone={setFoldsDone}
+                      useOil={useOil}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        }
+      />
+      <Route path="/recipe/:id" element={<RecipeViewPage />} />
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
   );
 }
