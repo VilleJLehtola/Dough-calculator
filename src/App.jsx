@@ -16,6 +16,13 @@ import RecipesPage from '@/components/RecipesPage';
 import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 import RecipeViewPage from '@/components/RecipeViewPage';
 
+const pageTransition = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+  transition: { duration: 0.4, ease: 'easeInOut' },
+};
+
 function AppContent() {
   const [user, setUser] = useState(null);
   const [activeView, setActiveView] = useState('calculator');
@@ -180,7 +187,7 @@ function AppContent() {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+            <motion.div {...pageTransition}>
               <div className="flex flex-col items-center py-10 px-4">
                 <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
                   <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
@@ -251,8 +258,13 @@ function AppContent() {
             </motion.div>
           } />
           <Route path="/recipe/:id" element={
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-              <RecipeViewPage />
+            <motion.div {...pageTransition}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <Header user={user} activeView="recipe" setActiveView={setActiveView} logout={logout} />
+                  <RecipeViewPage />
+                </div>
+              </div>
             </motion.div>
           } />
         </Routes>
