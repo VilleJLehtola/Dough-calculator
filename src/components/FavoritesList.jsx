@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 import {
   FaBreadSlice,
   FaPizzaSlice,
@@ -15,6 +16,7 @@ export default function FavoritesList({ user, onLoadFavorite }) {
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recipesMap, setRecipesMap] = useState({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user?.id) {
@@ -119,6 +121,15 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                     </button>
                   )}
 
+                  {linkedRecipe && (
+                    <button
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      onClick={() => navigate(`/recipe/${fav.recipe_id}`)}
+                    >
+                      Avaa resepti
+                    </button>
+                  )}
+
                   {fav.share_path && (
                     <button
                       className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
@@ -171,24 +182,6 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                               {tag}
                             </span>
                           ))}
-                        </div>
-
-                        {linkedRecipe.instructions && (
-                          <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded text-sm space-y-1">
-                            <h4 className="font-semibold text-gray-700 dark:text-gray-200">Ohjeet</h4>
-                            {linkedRecipe.instructions.split('\n').filter(Boolean).map((line, idx) => (
-                              <p key={idx}>• {line}</p>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 space-y-1">
-                          {linkedRecipe.flour_amount && <p>Jauho: {linkedRecipe.flour_amount} g</p>}
-                          {linkedRecipe.water_amount && <p>Vesi: {linkedRecipe.water_amount} g</p>}
-                          {linkedRecipe.salt_amount && <p>Suola: {linkedRecipe.salt_amount} g</p>}
-                          {linkedRecipe.oil_amount && <p>Öljy: {linkedRecipe.oil_amount} g</p>}
-                          {linkedRecipe.juuri_amount && <p>Juuri: {linkedRecipe.juuri_amount} g</p>}
-                          {linkedRecipe.seeds_amount && <p>Siemenet: {linkedRecipe.seeds_amount} g</p>}
                         </div>
                       </div>
                     ) : (
