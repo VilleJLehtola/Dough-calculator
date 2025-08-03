@@ -75,16 +75,18 @@ export default function RecipeDetails() {
           </div>
         </div>
 
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded space-y-1 text-sm">
+        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded space-y-1 text-sm text-white">
           <h2 className="font-semibold mb-2 text-base">Ainekset</h2>
-          {recipe.flour_amount && <p>Jauho: {recipe.flour_amount} g</p>}
-          {recipe.water_amount && <p>Vesi: {recipe.water_amount} g</p>}
-          {recipe.salt_amount && <p>Suola: {recipe.salt_amount} g</p>}
-          {recipe.oil_amount && <p>Öljy: {recipe.oil_amount} g</p>}
-          {recipe.juuri_amount && <p>Juuri: {recipe.juuri_amount} g</p>}
-          {recipe.seeds_amount && <p>Siemenet: {recipe.seeds_amount} g</p>}
-          {recipe.total_time && <p>Kokonaika: {recipe.total_time}</p>}
-          {recipe.active_time && <p>Työaika: {recipe.active_time}</p>}
+          <ul className="space-y-1">
+            {recipe.flour_amount !== null && <li>Jauho: {recipe.flour_amount} g</li>}
+            {recipe.water_amount !== null && <li>Vesi: {recipe.water_amount} g</li>}
+            {recipe.salt_amount !== null && <li>Suola: {recipe.salt_amount} g</li>}
+            {recipe.oil_amount !== null && <li>Öljy: {recipe.oil_amount} g</li>}
+            {recipe.juuri_amount !== null && <li>Juuri: {recipe.juuri_amount} g</li>}
+            {recipe.seeds_amount !== null && <li>Siemenet: {recipe.seeds_amount} g</li>}
+            {recipe.total_time && <li>Kokonaika: {recipe.total_time}</li>}
+            {recipe.active_time && <li>Työaika: {recipe.active_time}</li>}
+          </ul>
         </div>
       </div>
     </div>
