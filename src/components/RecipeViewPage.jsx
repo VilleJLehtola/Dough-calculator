@@ -38,52 +38,54 @@ export default function RecipeDetails() {
   if (!recipe) return <p className="text-center">Reseptiä ei löytynyt.</p>;
 
   return (
-    <div className="max-w-2xl mx-auto p-4 text-gray-900 dark:text-white">
-      <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
+      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-2xl w-full mx-auto p-6 space-y-6 border border-blue-200 dark:border-gray-700">
+        <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
-      <div className="flex items-center gap-3 mt-4">
-        {recipe.mode === 'pizza' ? (
-          <FaPizzaSlice className="text-yellow-500 text-2xl" />
-        ) : (
-          <FaBreadSlice className="text-orange-600 text-2xl" />
+        <div className="flex items-center gap-3 mt-4">
+          {recipe.mode === 'pizza' ? (
+            <FaPizzaSlice className="text-yellow-500 text-2xl" />
+          ) : (
+            <FaBreadSlice className="text-orange-600 text-2xl" />
+          )}
+          <h1 className="text-3xl font-bold">{recipe.title}</h1>
+        </div>
+
+        {recipe.description && (
+          <p className="italic text-gray-600 dark:text-gray-400 mt-2 mb-4">{recipe.description}</p>
         )}
-        <h1 className="text-3xl font-bold">{recipe.title}</h1>
-      </div>
 
-      {recipe.description && (
-        <p className="italic text-gray-600 dark:text-gray-400 mt-2 mb-4">{recipe.description}</p>
-      )}
+        {recipe.tags && recipe.tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {recipe.tags.map(tag => (
+              <span
+                key={tag}
+                className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {recipe.tags && recipe.tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {recipe.tags.map(tag => (
-            <span
-              key={tag}
-              className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
-            >
-              {tag}
-            </span>
-          ))}
+        <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded mb-4">
+          <h2 className="font-semibold mb-2">Ohjeet</h2>
+          <div className="space-y-1">
+            {renderInstructions(recipe.instructions, recipe.fold_timings)}
+          </div>
         </div>
-      )}
 
-      <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded mb-4">
-        <h2 className="font-semibold mb-2">Ohjeet</h2>
-        <div className="space-y-1">
-          {renderInstructions(recipe.instructions, recipe.fold_timings)}
+        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded space-y-1 text-sm">
+          <h2 className="font-semibold mb-2 text-base">Ainekset</h2>
+          {recipe.flour_amount && <p>Jauho: {recipe.flour_amount} g</p>}
+          {recipe.water_amount && <p>Vesi: {recipe.water_amount} g</p>}
+          {recipe.salt_amount && <p>Suola: {recipe.salt_amount} g</p>}
+          {recipe.oil_amount && <p>Öljy: {recipe.oil_amount} g</p>}
+          {recipe.juuri_amount && <p>Juuri: {recipe.juuri_amount} g</p>}
+          {recipe.seeds_amount && <p>Siemenet: {recipe.seeds_amount} g</p>}
+          {recipe.total_time && <p>Kokonaika: {recipe.total_time}</p>}
+          {recipe.active_time && <p>Työaika: {recipe.active_time}</p>}
         </div>
-      </div>
-
-      <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded space-y-1 text-sm">
-        <h2 className="font-semibold mb-2 text-base">Ainekset</h2>
-        {recipe.flour_amount && <p>Jauho: {recipe.flour_amount} g</p>}
-        {recipe.water_amount && <p>Vesi: {recipe.water_amount} g</p>}
-        {recipe.salt_amount && <p>Suola: {recipe.salt_amount} g</p>}
-        {recipe.oil_amount && <p>Öljy: {recipe.oil_amount} g</p>}
-        {recipe.juuri_amount && <p>Juuri: {recipe.juuri_amount} g</p>}
-        {recipe.seeds_amount && <p>Siemenet: {recipe.seeds_amount} g</p>}
-        {recipe.total_time && <p>Kokonaika: {recipe.total_time}</p>}
-        {recipe.active_time && <p>Työaika: {recipe.active_time}</p>}
       </div>
     </div>
   );
