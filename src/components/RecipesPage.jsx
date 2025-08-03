@@ -29,16 +29,8 @@ export default function RecipesPage({ user }) {
       {
         user_id: user.id,
         name: recipe.title,
-        input_grams: recipe.flour_amount || '',
-        input_type: 'jauho',
-        hydration: recipe.hydration,
-        salt_pct: recipe.salt_pct,
-        mode: recipe.mode,
-        use_oil: recipe.use_oil,
-        cold_fermentation: recipe.cold_fermentation,
-        use_rye: recipe.use_rye,
-        use_seeds: recipe.use_seeds,
-      },
+        recipe_id: recipe.id // ✅ Store admin recipe link
+      }
     ]);
 
     if (!error) {
@@ -136,13 +128,6 @@ export default function RecipesPage({ user }) {
               </div>
 
               <div className="flex gap-2 flex-wrap">
-                {/* HIDE "Lataa laskimeen" */}
-                {/* <button
-                  onClick={() => onLoadFavorite(recipe)}
-                  className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600"
-                >
-                  {t("Load to calculator")}
-                </button> */}
                 <button
                   onClick={() => saveRecipeAsFavorite(recipe)}
                   className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
