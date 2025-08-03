@@ -1,6 +1,7 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
 
 import Header from '@/components/Header';
@@ -32,6 +33,7 @@ function AppContent() {
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
@@ -175,78 +177,86 @@ function AppContent() {
 
   return (
     <div className="transition-colors duration-500 min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
-      <Routes>
-        <Route path="/" element={
-          <div className="flex flex-col items-center py-10 px-4">
-            <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-              <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
-              {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-              {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-              {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
-              {user && activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />}
-              {user && activeView === 'recipes' && <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />}
-              {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
-              {activeView === 'calculator' && (
-                <>
-                  <CalculatorForm
-                    inputGrams={inputGrams}
-                    setInputGrams={setInputGrams}
-                    inputType={inputType}
-                    setInputType={setInputType}
-                    hydration={hydration}
-                    setHydration={setHydration}
-                    saltPct={saltPct}
-                    setSaltPct={setSaltPct}
-                    mode={mode}
-                    setMode={setMode}
-                    useOil={useOil}
-                    setUseOil={setUseOil}
-                    coldFermentation={coldFermentation}
-                    setColdFermentation={setColdFermentation}
-                    useRye={useRye}
-                    setUseRye={setUseRye}
-                    useSeeds={useSeeds}
-                    setUseSeeds={setUseSeeds}
-                    showRecipe={showRecipe}
-                    setShowRecipe={setShowRecipe}
-                    resetAll={resetAll}
-                  />
-                  {user && (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        placeholder="Suosikin nimi"
-                        value={favName}
-                        onChange={(e) => setFavName(e.target.value)}
-                        className="w-full border rounded px-3 py-2 text-sm"
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
+                  {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+                  {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+                  {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
+                  {user && activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />}
+                  {user && activeView === 'recipes' && <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />}
+                  {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
+                  {activeView === 'calculator' && (
+                    <>
+                      <CalculatorForm
+                        inputGrams={inputGrams}
+                        setInputGrams={setInputGrams}
+                        inputType={inputType}
+                        setInputType={setInputType}
+                        hydration={hydration}
+                        setHydration={setHydration}
+                        saltPct={saltPct}
+                        setSaltPct={setSaltPct}
+                        mode={mode}
+                        setMode={setMode}
+                        useOil={useOil}
+                        setUseOil={setUseOil}
+                        coldFermentation={coldFermentation}
+                        setColdFermentation={setColdFermentation}
+                        useRye={useRye}
+                        setUseRye={setUseRye}
+                        useSeeds={useSeeds}
+                        setUseSeeds={setUseSeeds}
+                        showRecipe={showRecipe}
+                        setShowRecipe={setShowRecipe}
+                        resetAll={resetAll}
                       />
-                      <button
-                        onClick={saveFavorite}
-                        className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-                      >
-                        Tallenna suosikiksi
-                      </button>
-                      {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
-                    </div>
+                      {user && (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Suosikin nimi"
+                            value={favName}
+                            onChange={(e) => setFavName(e.target.value)}
+                            className="w-full border rounded px-3 py-2 text-sm"
+                          />
+                          <button
+                            onClick={saveFavorite}
+                            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
+                          >
+                            Tallenna suosikiksi
+                          </button>
+                          {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
+                        </div>
+                      )}
+                      {result && <ResultDisplay result={result} />}
+                      {showRecipe && result && (
+                        <RecipeView
+                          doughType={mode}
+                          useSeeds={useSeeds}
+                          coldFermentation={coldFermentation}
+                          foldsDone={foldsDone}
+                          setFoldsDone={setFoldsDone}
+                          useOil={useOil}
+                        />
+                      )}
+                    </>
                   )}
-                  {result && <ResultDisplay result={result} />}
-                  {showRecipe && result && (
-                    <RecipeView
-                      doughType={mode}
-                      useSeeds={useSeeds}
-                      coldFermentation={coldFermentation}
-                      foldsDone={foldsDone}
-                      setFoldsDone={setFoldsDone}
-                      useOil={useOil}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        } />
-        <Route path="/recipe/:id" element={<RecipeViewPage />} />
-      </Routes>
+                </div>
+              </div>
+            </motion.div>
+          } />
+          <Route path="/recipe/:id" element={
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+              <RecipeViewPage />
+            </motion.div>
+          } />
+        </Routes>
+      </AnimatePresence>
     </div>
   );
 }
