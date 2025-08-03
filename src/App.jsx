@@ -174,10 +174,10 @@ function AppContent() {
   };
 
   return (
-    <div className="transition-colors duration-500">
+    <div className="transition-colors duration-500 min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
       <Routes>
         <Route path="/" element={
-          <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center py-10 px-4 text-gray-900 dark:text-gray-100 transition-colors duration-500">
+          <div className="flex flex-col items-center py-10 px-4">
             <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
               <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
               {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
