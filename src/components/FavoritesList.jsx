@@ -1,6 +1,5 @@
-// src/components/FavoritesList.jsx
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
 import {
   FaBreadSlice,
@@ -8,12 +7,14 @@ import {
   FaTrash,
   FaChevronDown,
   FaChevronUp,
-} from "react-icons/fa";
+  FaRegFileAlt,
+} from 'react-icons/fa';
 
 export default function FavoritesList({ user, onLoadFavorite }) {
   const [favorites, setFavorites] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recipesMap, setRecipesMap] = useState({});
 
   useEffect(() => {
     if (user?.id) {
@@ -23,24 +24,39 @@ export default function FavoritesList({ user, onLoadFavorite }) {
 
   const fetchFavorites = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("favorites")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+    const { data: favs, error } = await supabase
+      .from('favorites')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching favorites:', error);
       setFavorites([]);
-    } else {
-      setFavorites(data);
+      setLoading(false);
+      return;
     }
 
+    const recipeIds = favs.map(f => f.recipe_id).filter(Boolean);
+    let recipesData = [];
+    if (recipeIds.length) {
+      const { data: recipes, error: recipeError } = await supabase
+        .from('recipes')
+        .select('*')
+        .in('id', recipeIds);
+      if (!recipeError) {
+        recipesData = recipes;
+      }
+    }
+
+    const recipeMap = Object.fromEntries(recipesData.map(r => [r.id, r]));
+    setRecipesMap(recipeMap);
+    setFavorites(favs);
     setLoading(false);
   };
 
   const handleDelete = async (id) => {
-    const { error } = await supabase.from("favorites").delete().eq("id", id);
+    const { error } = await supabase.from('favorites').delete().eq('id', id);
     if (!error) {
       setFavorites((prev) => prev.filter((fav) => fav.id !== id));
     }
@@ -55,7 +71,6 @@ export default function FavoritesList({ user, onLoadFavorite }) {
       alert("Tällä suosikilla ei ole jaettavaa linkkiä.");
       return;
     }
-
     const link = `https://www.breadcalculator.online/${fav.share_path}`;
     navigator.clipboard.writeText(link)
       .then(() => alert(`Linkki kopioitu:\n${link}`))
@@ -81,6 +96,8 @@ export default function FavoritesList({ user, onLoadFavorite }) {
           <AnimatePresence>
             {favorites.map((fav) => {
               const isExpanded = fav.id === expandedId;
+              const linkedRecipe = fav.recipe_id ? recipesMap[fav.recipe_id] : null;
+
               return (
                 <motion.li
                   key={fav.id}
@@ -93,7 +110,9 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                 >
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2 font-medium">
-                      {fav.mode === "pizza" ? (
+                      {linkedRecipe ? (
+                        <FaRegFileAlt className="text-green-600" />
+                      ) : fav.mode === "pizza" ? (
                         <FaPizzaSlice className="text-yellow-500" />
                       ) : (
                         <FaBreadSlice className="text-orange-600" />
@@ -102,12 +121,14 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                     </div>
 
                     <div className="flex gap-2 items-center">
-                      <button
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                        onClick={() => onLoadFavorite(fav)}
-                      >
-                        Lataa
-                      </button>
+                      {!linkedRecipe && (
+                        <button
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                          onClick={() => onLoadFavorite(fav)}
+                        >
+                          Lataa
+                        </button>
+                      )}
 
                       {fav.share_path && (
                         <button
@@ -144,12 +165,28 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden mt-4 text-sm text-gray-700 dark:text-gray-300 space-y-1"
                       >
-                        <p>Hydraatio: {fav.hydration}%</p>
-                        <p>Suola: {fav.salt_pct}%</p>
-                        {fav.use_oil && <p>Öljy: kyllä</p>}
-                        {fav.use_seeds && <p>Siemenet: kyllä</p>}
-                        {fav.use_rye && <p>Ruisjauho: kyllä</p>}
-                        {fav.cold_fermentation && <p>Kylmäkohotus: kyllä</p>}
+                        {linkedRecipe ? (
+                          <div>
+                            <p>{linkedRecipe.description}</p>
+                            {(linkedRecipe.tags || []).map((tag) => (
+                              <span
+                                key={tag}
+                                className="inline-block bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs mr-1"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <>
+                            <p>Hydraatio: {fav.hydration}%</p>
+                            <p>Suola: {fav.salt_pct}%</p>
+                            {fav.use_oil && <p>Öljy: kyllä</p>}
+                            {fav.use_seeds && <p>Siemenet: kyllä</p>}
+                            {fav.use_rye && <p>Ruisjauho: kyllä</p>}
+                            {fav.cold_fermentation && <p>Kylmäkohotus: kyllä</p>}
+                          </>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
