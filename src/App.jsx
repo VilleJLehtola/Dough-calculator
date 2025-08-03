@@ -174,30 +174,18 @@ function AppContent() {
   };
 
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center py-10 px-4 text-gray-900 dark:text-gray-100">
+    <div className="transition-colors duration-500">
+      <Routes>
+        <Route path="/" element={
+          <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col items-center py-10 px-4 text-gray-900 dark:text-gray-100 transition-colors duration-500">
             <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
               <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
-
               {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
               {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
               {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
-
-              {user && activeView === 'favorites' && (
-                <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />
-              )}
-
-              {user && activeView === 'recipes' && (
-                <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
-              )}
-
-              {isAdmin && activeView === 'admin' && (
-                <AdminRecipeEditor user={user} />
-              )}
-
+              {user && activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />}
+              {user && activeView === 'recipes' && <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />}
+              {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
               {activeView === 'calculator' && (
                 <>
                   <CalculatorForm
@@ -223,7 +211,6 @@ function AppContent() {
                     setShowRecipe={setShowRecipe}
                     resetAll={resetAll}
                   />
-
                   {user && (
                     <div className="space-y-2">
                       <input
@@ -242,9 +229,7 @@ function AppContent() {
                       {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
                     </div>
                   )}
-
                   {result && <ResultDisplay result={result} />}
-
                   {showRecipe && result && (
                     <RecipeView
                       doughType={mode}
@@ -259,10 +244,10 @@ function AppContent() {
               )}
             </div>
           </div>
-        }
-      />
-      <Route path="/recipe/:id" element={<RecipeViewPage />} />
-    </Routes>
+        } />
+        <Route path="/recipe/:id" element={<RecipeViewPage />} />
+      </Routes>
+    </div>
   );
 }
 
