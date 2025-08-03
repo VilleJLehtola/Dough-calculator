@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
 
@@ -17,15 +17,16 @@ import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 import RecipeViewPage from '@/components/RecipeViewPage';
 
 const pageTransition = {
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 0, y: 30 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -20 },
-  transition: { duration: 0.4, ease: 'easeInOut' },
+  exit: { opacity: 0, y: -30 },
+  transition: { duration: 0.5, ease: [0.42, 0, 0.58, 1] },
 };
 
 function AppContent() {
   const [user, setUser] = useState(null);
   const [activeView, setActiveView] = useState('calculator');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
   const [hydration, setHydration] = useState(75);
@@ -39,8 +40,9 @@ function AppContent() {
   const [useSeeds, setUseSeeds] = useState(false);
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
+
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
@@ -53,7 +55,6 @@ function AppContent() {
     async function loadSession() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        const email = session.user.email;
         setUser(session.user);
         const { data: userData } = await supabase.from('users').select('role').eq('id', session.user.id).single();
         setIsAdmin(userData?.role === 'admin');
@@ -89,23 +90,7 @@ function AppContent() {
     setUser(null);
     setIsAdmin(false);
     setActiveView('calculator');
-    window.location.reload();
-  };
-
-  const resetAll = () => {
-    setInputGrams('');
-    setInputType('jauho');
-    setHydration(75);
-    setSaltPct(2);
-    setMode('leipa');
-    setUseOil(false);
-    setColdFermentation(false);
-    setUseRye(false);
-    setUseSeeds(false);
-    setShowRecipe(false);
-    setFoldsDone(0);
-    setFavName('');
-    setMessage('');
+    navigate('/');
   };
 
   const calculate = () => {
@@ -138,50 +123,6 @@ function AppContent() {
 
   const result = calculate();
 
-  const saveFavorite = async () => {
-    if (!favName || !user?.id) return;
-
-    const username = user.email.split('@')[0];
-    const sanitizedFavName = favName.toLowerCase().replace(/\s+/g, '-');
-
-    const { error } = await supabase.from('favorites').insert([{
-      user_id: user.id,
-      name: favName,
-      input_grams: inputGrams,
-      input_type: inputType,
-      hydration,
-      salt_pct: saltPct,
-      mode,
-      use_oil: useOil,
-      cold_fermentation: coldFermentation,
-      use_rye: useRye,
-      use_seeds: useSeeds,
-      is_public: true,
-      share_path: `${username}/${sanitizedFavName}`
-    }]);
-
-    if (!error) {
-      const link = `https://www.breadcalculator.online/${username}/${sanitizedFavName}`;
-      setMessage(`Suosikki tallennettu! Jaa linkki: ${link}`);
-      setFavName('');
-    } else {
-      setMessage('Tallennus epäonnistui.');
-    }
-  };
-
-  const handleLoadFavorite = (fav) => {
-    setInputGrams(fav.input_grams);
-    setInputType(fav.input_type);
-    setHydration(fav.hydration);
-    setSaltPct(fav.salt_pct);
-    setMode(fav.mode);
-    setUseOil(fav.use_oil);
-    setColdFermentation(fav.cold_fermentation);
-    setUseRye(fav.use_rye);
-    setUseSeeds(fav.use_seeds);
-    setActiveView('calculator');
-  };
-
   return (
     <div className="transition-colors duration-500 min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
       <AnimatePresence mode="wait">
@@ -191,12 +132,9 @@ function AppContent() {
               <div className="flex flex-col items-center py-10 px-4">
                 <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
                   <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
-                  {!user && activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-                  {!user && activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-                  {!user && activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
-                  {user && activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={handleLoadFavorite} />}
-                  {user && activeView === 'recipes' && <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />}
-                  {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
+                  {activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+                  {activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+                  {activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
                   {activeView === 'calculator' && (
                     <>
                       <CalculatorForm
@@ -220,26 +158,22 @@ function AppContent() {
                         setUseSeeds={setUseSeeds}
                         showRecipe={showRecipe}
                         setShowRecipe={setShowRecipe}
-                        resetAll={resetAll}
+                        resetAll={() => {
+                          setInputGrams('');
+                          setInputType('jauho');
+                          setHydration(75);
+                          setSaltPct(2);
+                          setMode('leipa');
+                          setUseOil(false);
+                          setColdFermentation(false);
+                          setUseRye(false);
+                          setUseSeeds(false);
+                          setShowRecipe(false);
+                          setFoldsDone(0);
+                          setFavName('');
+                          setMessage('');
+                        }}
                       />
-                      {user && (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            placeholder="Suosikin nimi"
-                            value={favName}
-                            onChange={(e) => setFavName(e.target.value)}
-                            className="w-full border rounded px-3 py-2 text-sm"
-                          />
-                          <button
-                            onClick={saveFavorite}
-                            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition"
-                          >
-                            Tallenna suosikiksi
-                          </button>
-                          {message && <p className="text-sm text-blue-700 dark:text-blue-300 break-all">{message}</p>}
-                        </div>
-                      )}
                       {result && <ResultDisplay result={result} />}
                       {showRecipe && result && (
                         <RecipeView
@@ -253,6 +187,9 @@ function AppContent() {
                       )}
                     </>
                   )}
+                  {activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />}
+                  {activeView === 'recipes' && <RecipesPage user={user} isAdmin={isAdmin} />}
+                  {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
                 </div>
               </div>
             </motion.div>
@@ -262,7 +199,7 @@ function AppContent() {
               <div className="flex flex-col items-center py-10 px-4">
                 <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
                   <Header user={user} activeView="recipe" setActiveView={setActiveView} logout={logout} />
-                  <RecipeViewPage />
+                  <RecipeViewPage user={user} />
                 </div>
               </div>
             </motion.div>
