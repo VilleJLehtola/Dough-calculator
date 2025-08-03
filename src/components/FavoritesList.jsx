@@ -9,6 +9,7 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaRegFileAlt,
+  FaShareAlt,
 } from 'react-icons/fa';
 
 export default function FavoritesList({ user, onLoadFavorite }) {
@@ -16,6 +17,8 @@ export default function FavoritesList({ user, onLoadFavorite }) {
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [recipesMap, setRecipesMap] = useState({});
+  const [showRecipeSection, setShowRecipeSection] = useState(true);
+  const [showQuickSection, setShowQuickSection] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -131,12 +134,14 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                   )}
 
                   {fav.share_path && (
-                    <button
-                      className="text-sm text-purple-600 dark:text-purple-400 hover:underline"
+                    <motion.button
+                      whileHover={{ scale: 1.2 }}
+                      className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300"
                       onClick={() => copyLink(fav)}
+                      title={`https://www.breadcalculator.online/${fav.share_path}`}
                     >
-                      Jaa linkki
-                    </button>
+                      <FaShareAlt />
+                    </motion.button>
                   )}
 
                   <button
@@ -172,7 +177,6 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                             {linkedRecipe.description}
                           </p>
                         )}
-
                         <div className="flex flex-wrap gap-1">
                           {(linkedRecipe.tags || []).map((tag) => (
                             <span
@@ -214,19 +218,57 @@ export default function FavoritesList({ user, onLoadFavorite }) {
         <p className="text-center text-gray-500 dark:text-gray-400">Ladataan...</p>
       ) : (
         <div className="space-y-8">
+
+          {/* Accordion: Reseptisuosikit */}
           {recipeFavorites.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold mb-2 dark:text-white">Reseptisuosikit</h3>
-              {renderFavoriteList(recipeFavorites, true)}
+              <button
+                onClick={() => setShowRecipeSection(prev => !prev)}
+                className="flex items-center justify-between w-full text-left text-lg font-semibold mb-2 dark:text-white"
+              >
+                Reseptisuosikit
+                {showRecipeSection ? <FaChevronUp /> : <FaChevronDown />}
+              </button>
+              <AnimatePresence>
+                {showRecipeSection && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {renderFavoriteList(recipeFavorites, true)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
 
+          {/* Accordion: Pikasuosikit */}
           {quickFavorites.length > 0 && (
             <div>
-              <h3 className="text-lg font-semibold mb-2 dark:text-white">Pikasuosikit</h3>
-              {renderFavoriteList(quickFavorites)}
+              <button
+                onClick={() => setShowQuickSection(prev => !prev)}
+                className="flex items-center justify-between w-full text-left text-lg font-semibold mb-2 dark:text-white"
+              >
+                Pikasuosikit
+                {showQuickSection ? <FaChevronUp /> : <FaChevronDown />}
+              </button>
+              <AnimatePresence>
+                {showQuickSection && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {renderFavoriteList(quickFavorites)}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )}
+
         </div>
       )}
     </div>
