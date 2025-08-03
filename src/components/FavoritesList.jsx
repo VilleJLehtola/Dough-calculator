@@ -125,15 +125,28 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                   )}
 
                   {linkedRecipe && (
-                    <button
-                      className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                      onClick={() => navigate(`/recipe/${fav.recipe_id}`)}
-                    >
-                      Avaa resepti
-                    </button>
+                    <>
+                      <button
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                        onClick={() => navigate(`/recipe/${fav.recipe_id}`)}
+                      >
+                        Avaa resepti
+                      </button>
+
+                      {fav.share_path && (
+                        <motion.button
+                          whileHover={{ scale: 1.2 }}
+                          className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300"
+                          onClick={() => copyLink(fav)}
+                          title={`https://www.breadcalculator.online/${fav.share_path}`}
+                        >
+                          <FaShareAlt />
+                        </motion.button>
+                      )}
+                    </>
                   )}
 
-                  {fav.share_path && (
+                  {!linkedRecipe && fav.share_path && (
                     <motion.button
                       whileHover={{ scale: 1.2 }}
                       className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300"
@@ -152,7 +165,7 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                     <FaTrash />
                   </button>
                   <button
-                    className="text-gray-600 dark:text-gray-300"
+                    className="text-gray-600 dark:text-gray-300 hover:text-white transition"
                     onClick={() => toggleExpand(fav.id)}
                     title="Näytä lisätiedot"
                   >
@@ -164,11 +177,11 @@ export default function FavoritesList({ user, onLoadFavorite }) {
               <AnimatePresence>
                 {isExpanded && (
                   <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden mt-4 text-sm text-gray-700 dark:text-gray-300 space-y-1"
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-4 text-sm text-gray-700 dark:text-gray-300 space-y-1"
                   >
                     {linkedRecipe ? (
                       <div className="space-y-2">
