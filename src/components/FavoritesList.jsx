@@ -155,16 +155,41 @@ export default function FavoritesList({ user, onLoadFavorite }) {
                     className="overflow-hidden mt-4 text-sm text-gray-700 dark:text-gray-300 space-y-1"
                   >
                     {linkedRecipe ? (
-                      <div>
-                        <p>{linkedRecipe.description}</p>
-                        {(linkedRecipe.tags || []).map((tag) => (
-                          <span
-                            key={tag}
-                            className="inline-block bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs mr-1"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="space-y-2">
+                        {linkedRecipe.description && (
+                          <p className="text-sm italic text-gray-600 dark:text-gray-400">
+                            {linkedRecipe.description}
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap gap-1">
+                          {(linkedRecipe.tags || []).map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-block bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+
+                        {linkedRecipe.instructions && (
+                          <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded text-sm space-y-1">
+                            <h4 className="font-semibold text-gray-700 dark:text-gray-200">Ohjeet</h4>
+                            {linkedRecipe.instructions.split('\n').filter(Boolean).map((line, idx) => (
+                              <p key={idx}>• {line}</p>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 space-y-1">
+                          {linkedRecipe.flour_amount && <p>Jauho: {linkedRecipe.flour_amount} g</p>}
+                          {linkedRecipe.water_amount && <p>Vesi: {linkedRecipe.water_amount} g</p>}
+                          {linkedRecipe.salt_amount && <p>Suola: {linkedRecipe.salt_amount} g</p>}
+                          {linkedRecipe.oil_amount && <p>Öljy: {linkedRecipe.oil_amount} g</p>}
+                          {linkedRecipe.juuri_amount && <p>Juuri: {linkedRecipe.juuri_amount} g</p>}
+                          {linkedRecipe.seeds_amount && <p>Siemenet: {linkedRecipe.seeds_amount} g</p>}
+                        </div>
                       </div>
                     ) : (
                       <>
