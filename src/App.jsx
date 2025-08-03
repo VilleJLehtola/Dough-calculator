@@ -1,5 +1,6 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
 
 import Header from '@/components/Header';
@@ -30,6 +31,7 @@ function AppContent() {
   const [useSeeds, setUseSeeds] = useState(false);
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
@@ -42,10 +44,13 @@ function AppContent() {
     async function loadSession() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        const email = session.user.email;
         setUser(session.user);
-        await supabase.from('users').upsert([{ id: session.user.id, email: session.user.email }]);
+        const { data: userData } = await supabase.from('users').select('role').eq('id', session.user.id).single();
+        setIsAdmin(userData?.role === 'admin');
       } else {
         setUser(null);
+        setIsAdmin(false);
       }
     }
 
@@ -54,8 +59,12 @@ function AppContent() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
+        supabase.from('users').select('role').eq('id', session.user.id).single().then(({ data }) => {
+          setIsAdmin(data?.role === 'admin');
+        });
       } else {
         setUser(null);
+        setIsAdmin(false);
         setActiveView('calculator');
       }
     });
@@ -69,6 +78,7 @@ function AppContent() {
     sessionStorage.clear();
     indexedDB.deleteDatabase('supabase-auth-cache');
     setUser(null);
+    setIsAdmin(false);
     setActiveView('calculator');
     window.location.reload();
   };
@@ -184,7 +194,7 @@ function AppContent() {
                 <RecipesPage user={user} onLoadFavorite={handleLoadFavorite} />
               )}
 
-              {user?.email === 'ville.j.lehtola@gmail.com' && activeView === 'admin' && (
+              {isAdmin && activeView === 'admin' && (
                 <AdminRecipeEditor user={user} />
               )}
 
