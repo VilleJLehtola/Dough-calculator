@@ -42,6 +42,15 @@ export default function RecipeDetails() {
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-2xl w-full mx-auto p-6 space-y-6 border border-blue-200 dark:border-gray-700">
         <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
+        {/* Recipe Image */}
+        {recipe.image_url && (
+          <img
+            src={recipe.image_url}
+            alt={recipe.title}
+            className="w-full max-h-96 object-cover rounded-xl shadow-md"
+          />
+        )}
+
         <div className="flex items-center gap-3 mt-4">
           {recipe.mode === 'pizza' ? (
             <FaPizzaSlice className="text-yellow-500 text-2xl" />
