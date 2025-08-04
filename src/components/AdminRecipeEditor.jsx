@@ -38,9 +38,8 @@ export default function AdminRecipeEditor({ user }) {
   const [instructions, setInstructions] = useState('');
   const [message, setMessage] = useState('');
 
-  // New: Image upload
-  const [imageFile, setImageFile] = useState(null);
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
+  const [previewUrls, setPreviewUrls] = useState([]);
 
   const totalFlour = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
   const hydration = totalFlour > 0 ? ((Number(water) / totalFlour) * 100).toFixed(1) : 0;
@@ -69,34 +68,44 @@ export default function AdminRecipeEditor({ user }) {
     setInstructions(before + marker + after);
   };
 
-  const handleImageUpload = async () => {
-    if (!imageFile) return null;
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files);
+    setImageFiles(files);
 
-    const fileExt = imageFile.name.split('.').pop();
-    const filePath = `recipes/${Date.now()}.${fileExt}`;
+    const previews = files.map((file) => URL.createObjectURL(file));
+    setPreviewUrls(previews);
+  };
 
-    const { error: uploadError } = await supabase.storage
-      .from('recipes')
-      .upload(filePath, imageFile);
+  const uploadImages = async (recipeId) => {
+    for (const file of imageFiles) {
+      const ext = file.name.split('.').pop();
+      const path = `recipes/${recipeId}/${Date.now()}-${file.name}`;
 
-    if (uploadError) {
-      console.error('Image upload failed:', uploadError);
-      setMessage('Kuvan tallennus epäonnistui');
-      return null;
+      const { error: uploadError } = await supabase.storage
+        .from('recipes')
+        .upload(path, file);
+
+      if (uploadError) {
+        console.error('Image upload failed:', uploadError);
+        continue;
+      }
+
+      const { data } = supabase.storage.from('recipes').getPublicUrl(path);
+
+      await supabase.from('recipe_images').insert({
+        recipe_id: recipeId,
+        url: data.publicUrl,
+      });
     }
-
-    const { data } = supabase.storage.from('recipes').getPublicUrl(filePath);
-    return data.publicUrl;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
 
-    const image_url = await handleImageUpload();
     const tags = selectedTags.map(tag => tag.value);
 
-    const { error } = await supabase.from('recipes').insert([{
+    const { data: insertData, error } = await supabase.from('recipes').insert([{
       created_by: user.id,
       title,
       description,
@@ -116,32 +125,26 @@ export default function AdminRecipeEditor({ user }) {
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
       instructions,
-      mode,
-      image_url
-    }]);
+      mode
+    }]).select();
 
-    if (error) {
+    if (error || !insertData?.length) {
       setMessage('Virhe tallennuksessa');
       console.error(error);
-    } else {
-      setMessage('Resepti tallennettu!');
-      setTitle('');
-      setDescription('');
-      setSelectedTags([]);
-      setInstructions('');
-      setImageFile(null);
-      setImageUrl('');
+      return;
     }
-  };
 
-  const handleImageSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setImageUrl(reader.result);
-      reader.readAsDataURL(file);
-    }
+    const newRecipeId = insertData[0].id;
+
+    await uploadImages(newRecipeId);
+
+    setMessage('Resepti ja kuvat tallennettu!');
+    setTitle('');
+    setDescription('');
+    setSelectedTags([]);
+    setInstructions('');
+    setImageFiles([]);
+    setPreviewUrls([]);
   };
 
   return (
@@ -193,18 +196,26 @@ export default function AdminRecipeEditor({ user }) {
         className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
       />
 
-      {/* Image upload */}
+      {/* Multiple Image Upload */}
       <div>
-        <label className="block mb-1 font-medium">Reseptikuva (valinnainen)</label>
+        <label className="block mb-1 font-medium">Reseptikuvat</label>
         <input
           type="file"
+          multiple
           accept="image/*"
           onChange={handleImageSelect}
           className="mb-2"
         />
-        {imageUrl && (
-          <img src={imageUrl} alt="Esikatselu" className="w-full max-h-64 object-cover rounded-lg shadow" />
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+          {previewUrls.map((url, idx) => (
+            <img
+              key={idx}
+              src={url}
+              alt={`Kuva ${idx + 1}`}
+              className="rounded shadow object-cover w-full h-40"
+            />
+          ))}
+        </div>
       </div>
 
       <TimeInputs
