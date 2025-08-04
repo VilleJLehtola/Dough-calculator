@@ -15,6 +15,7 @@ import FavoritesList from '@/components/FavoritesList';
 import RecipesPage from '@/components/RecipesPage';
 import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 import RecipeViewPage from '@/components/RecipeViewPage';
+import SharedFavoritePage from '@/components/SharedFavoritePage';
 
 const pageTransition = {
   initial: { opacity: 0, y: 30 },
@@ -200,6 +201,15 @@ function AppContent() {
                 <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
                   <Header user={user} activeView="recipe" setActiveView={setActiveView} logout={logout} />
                   <RecipeViewPage user={user} />
+                </div>
+              </div>
+            </motion.div>
+          } />
+          <Route path="/:userId/:favoriteName" element={
+            <motion.div {...pageTransition}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <SharedFavoritePage />
                 </div>
               </div>
             </motion.div>
