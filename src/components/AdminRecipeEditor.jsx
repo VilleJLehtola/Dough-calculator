@@ -71,19 +71,20 @@ export default function AdminRecipeEditor({ user }) {
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
     setImageFiles(files);
-
-    const previews = files.map((file) => URL.createObjectURL(file));
+    const previews = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(previews);
   };
 
   const uploadImages = async (recipeId) => {
     for (const file of imageFiles) {
-      const ext = file.name.split('.').pop();
-      const path = `recipes/${recipeId}/${Date.now()}-${file.name}`;
+      const filename = `${Date.now()}-${file.name}`;
+      const path = `${recipeId}/${filename}`;
 
       const { error: uploadError } = await supabase.storage
         .from('recipes')
-        .upload(path, file);
+        .upload(path, file, {
+          contentType: file.type
+        });
 
       if (uploadError) {
         console.error('Image upload failed:', uploadError);
@@ -91,11 +92,17 @@ export default function AdminRecipeEditor({ user }) {
       }
 
       const { data } = supabase.storage.from('recipes').getPublicUrl(path);
+      const publicUrl = data?.publicUrl;
 
-      await supabase.from('recipe_images').insert({
-        recipe_id: recipeId,
-        url: data.publicUrl,
-      });
+      if (publicUrl) {
+        const { error: insertError } = await supabase.from('recipe_images').insert({
+          recipe_id: recipeId,
+          url: publicUrl
+        });
+        if (insertError) {
+          console.error('DB insert error for image:', insertError);
+        }
+      }
     }
   };
 
