@@ -12,6 +12,7 @@ import {
   FaSearchMinus
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSwipeable } from 'react-swipeable';
 
 export default function RecipeViewPage() {
   const { id } = useParams();
@@ -53,6 +54,12 @@ export default function RecipeViewPage() {
     return () => window.removeEventListener('keydown', escHandler);
   }, [showModal, escHandler]);
 
+  const swipeHandlers = useSwipeable({
+    onSwipedLeft: () => setModalIndex((modalIndex + 1) % images.length),
+    onSwipedRight: () => setModalIndex((modalIndex - 1 + images.length) % images.length),
+    trackMouse: true
+  });
+
   const renderInstructions = (text, folds = []) => {
     const lines = text.split('\n').filter(Boolean);
     let foldIndex = 0;
@@ -86,7 +93,6 @@ export default function RecipeViewPage() {
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-2xl w-full mx-auto p-6 space-y-6 border border-blue-200 dark:border-gray-700">
         <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
-        {/* Image gallery */}
         {images.length > 0 && (
           <div className="grid grid-cols-1 gap-4 cursor-pointer">
             {images.map((img, idx) => (
@@ -101,7 +107,6 @@ export default function RecipeViewPage() {
           </div>
         )}
 
-        {/* Modal */}
         <AnimatePresence>
           {showModal && currentImage && (
             <motion.div
@@ -118,57 +123,46 @@ export default function RecipeViewPage() {
                 transition={{ duration: 0.3 }}
                 onClick={(e) => e.stopPropagation()}
                 className="relative max-w-4xl w-full mx-4"
+                {...swipeHandlers}
               >
                 <div className="absolute top-2 right-2 flex gap-2 z-10">
                   <button onClick={() => setZoom(zoom + 0.1)} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaSearchPlus /></button>
                   <button onClick={() => setZoom(Math.max(0.5, zoom - 0.1))} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaSearchMinus /></button>
                   <button onClick={() => setZoom(1)} className="text-white text-sm bg-black bg-opacity-40 px-3 rounded-full hover:bg-opacity-60">Reset</button>
-                  <a
-                    href={currentImage}
-                    download
-                    className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"
-                    title="Lataa kuva"
-                  >
-                    <FaDownload />
-                  </a>
+                  <a href={currentImage} download className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaDownload /></a>
                   <button onClick={() => setShowModal(false)} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaTimes /></button>
                 </div>
 
-                {/* Navigation */}
                 {images.length > 1 && (
                   <>
-                    <button
-                      className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"
-                      onClick={() => setModalIndex((modalIndex - 1 + images.length) % images.length)}
-                    >
-                      <FaChevronLeft />
-                    </button>
-                    <button
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"
-                      onClick={() => setModalIndex((modalIndex + 1) % images.length)}
-                    >
-                      <FaChevronRight />
-                    </button>
+                    <button className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60" onClick={() => setModalIndex((modalIndex - 1 + images.length) % images.length)}><FaChevronLeft /></button>
+                    <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60" onClick={() => setModalIndex((modalIndex + 1) % images.length)}><FaChevronRight /></button>
                   </>
                 )}
 
-                <img
-                  src={currentImage}
-                  alt="Esikatselu"
-                  style={{ transform: `scale(${zoom})` }}
-                  className="w-full h-auto rounded-lg shadow-lg max-h-[90vh] object-contain transition-transform"
-                />
+                <img src={currentImage} alt="Esikatselu" style={{ transform: `scale(${zoom})` }} className="w-full h-auto rounded-lg shadow-lg max-h-[80vh] object-contain transition-transform" />
+
+                <div className="mt-4 flex overflow-x-auto gap-2 py-2 px-1 bg-black bg-opacity-30 rounded">
+                  {images.map((img, i) => (
+                    <img
+                      key={img.id}
+                      src={img.url}
+                      alt={`Thumb ${i}`}
+                      onClick={() => {
+                        setModalIndex(i);
+                        setZoom(1);
+                      }}
+                      className={`w-20 h-20 object-cover rounded-md cursor-pointer border-2 ${i === modalIndex ? 'border-white' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                    />
+                  ))}
+                </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
         <div className="flex items-center gap-3 mt-4">
-          {recipe.mode === 'pizza' ? (
-            <FaPizzaSlice className="text-yellow-500 text-2xl" />
-          ) : (
-            <FaBreadSlice className="text-orange-600 text-2xl" />
-          )}
+          {recipe.mode === 'pizza' ? <FaPizzaSlice className="text-yellow-500 text-2xl" /> : <FaBreadSlice className="text-orange-600 text-2xl" />}
           <h1 className="text-3xl font-bold">{recipe.title}</h1>
         </div>
 
@@ -179,12 +173,7 @@ export default function RecipeViewPage() {
         {recipe.tags && recipe.tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-4">
             {recipe.tags.map(tag => (
-              <span
-                key={tag}
-                className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
-              >
-                {tag}
-              </span>
+              <span key={tag} className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs">{tag}</span>
             ))}
           </div>
         )}
