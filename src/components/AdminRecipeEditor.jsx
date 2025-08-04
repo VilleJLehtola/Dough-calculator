@@ -38,6 +38,10 @@ export default function AdminRecipeEditor({ user }) {
   const [instructions, setInstructions] = useState('');
   const [message, setMessage] = useState('');
 
+  // New: Image upload
+  const [imageFile, setImageFile] = useState(null);
+  const [imageUrl, setImageUrl] = useState('');
+
   const totalFlour = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
   const hydration = totalFlour > 0 ? ((Number(water) / totalFlour) * 100).toFixed(1) : 0;
 
@@ -65,9 +69,31 @@ export default function AdminRecipeEditor({ user }) {
     setInstructions(before + marker + after);
   };
 
+  const handleImageUpload = async () => {
+    if (!imageFile) return null;
+
+    const fileExt = imageFile.name.split('.').pop();
+    const filePath = `recipes/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('recipes')
+      .upload(filePath, imageFile);
+
+    if (uploadError) {
+      console.error('Image upload failed:', uploadError);
+      setMessage('Kuvan tallennus epäonnistui');
+      return null;
+    }
+
+    const { data } = supabase.storage.from('recipes').getPublicUrl(filePath);
+    return data.publicUrl;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage('');
 
+    const image_url = await handleImageUpload();
     const tags = selectedTags.map(tag => tag.value);
 
     const { error } = await supabase.from('recipes').insert([{
@@ -90,7 +116,8 @@ export default function AdminRecipeEditor({ user }) {
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
       instructions,
-      mode
+      mode,
+      image_url
     }]);
 
     if (error) {
@@ -102,6 +129,18 @@ export default function AdminRecipeEditor({ user }) {
       setDescription('');
       setSelectedTags([]);
       setInstructions('');
+      setImageFile(null);
+      setImageUrl('');
+    }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImageUrl(reader.result);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -153,6 +192,20 @@ export default function AdminRecipeEditor({ user }) {
         onChange={e => setExtraIngredients(e.target.value)}
         className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
       />
+
+      {/* Image upload */}
+      <div>
+        <label className="block mb-1 font-medium">Reseptikuva (valinnainen)</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handleImageSelect}
+          className="mb-2"
+        />
+        {imageUrl && (
+          <img src={imageUrl} alt="Esikatselu" className="w-full max-h-64 object-cover rounded-lg shadow" />
+        )}
+      </div>
 
       <TimeInputs
         totalTime={totalTime}
