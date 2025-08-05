@@ -16,6 +16,7 @@ import RecipesPage from '@/components/RecipesPage';
 import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 import RecipeViewPage from '@/components/RecipeViewPage';
 import SharedFavoritePage from '@/components/SharedFavoritePage';
+import AdminDashboard from './components/AdminDashboard';
 
 const pageTransition = {
   initial: { opacity: 0, y: 30 },
