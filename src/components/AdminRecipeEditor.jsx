@@ -1,5 +1,4 @@
-// Full updated file
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { TitleAndTags } from './AdminRecipeEditor/TitleAndTags';
 import { FlourInputs } from './AdminRecipeEditor/FlourInputs';
@@ -9,13 +8,13 @@ import { TimeInputs } from './AdminRecipeEditor/TimeInputs';
 import { FoldScheduler } from './AdminRecipeEditor/FoldScheduler';
 import { InstructionsEditor } from './AdminRecipeEditor/InstructionsEditor';
 
-export default function AdminRecipeEditor({ user }) {
+export default function AdminRecipeEditor({ user, existingRecipe }) {
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
   if (!isAdmin) return null;
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tagOptions] = useState([
+  const [tagOptions, setTagOptions] = useState([
     { label: 'leipä', value: 'leipä' },
     { label: 'pizza', value: 'pizza' },
     { label: 'juuri', value: 'juuri' },
@@ -41,6 +40,35 @@ export default function AdminRecipeEditor({ user }) {
 
   const [imageFiles, setImageFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
+
+  const isEditMode = !!existingRecipe;
+
+  // Prefill data if editing
+  useEffect(() => {
+    if (existingRecipe) {
+      setTitle(existingRecipe.title || '');
+      setDescription(existingRecipe.description || '');
+      setSelectedTags((existingRecipe.tags || []).map(tag => ({ label: tag, value: tag })));
+      setFlours(existingRecipe.flours || [{ type: '', grams: '' }]);
+      setWater(existingRecipe.water?.toString() || '');
+      setSaltPercent(existingRecipe.salt_percent?.toString() || '');
+      setOilPercent(existingRecipe.oil_percent?.toString() || '');
+      setDoughType(existingRecipe.dough_type || 'bread');
+      setMode(existingRecipe.mode || 'manual');
+      setColdFerment(existingRecipe.cold_ferment || false);
+      setRye(existingRecipe.rye || false);
+      setSeeds(existingRecipe.seeds || false);
+      setExtraIngredients(existingRecipe.extra_ingredients || '');
+      setTotalTime(existingRecipe.total_time || '');
+      setActiveTime(existingRecipe.active_time || '');
+      setFoldCount(existingRecipe.fold_count || 4);
+      setFoldTimings(existingRecipe.fold_timings || ['', '', '', '', '', '']);
+      setInstructions(existingRecipe.instructions || '');
+    }
+  }, [existingRecipe]);
+
+  const totalFlour = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
+  const hydration = totalFlour > 0 ? ((Number(water) / totalFlour) * 100).toFixed(1) : 0;
 
   const handleFlourChange = (index, field, value) => {
     const updated = [...flours];
@@ -75,6 +103,7 @@ export default function AdminRecipeEditor({ user }) {
 
   const uploadImages = async (recipeId) => {
     for (const file of imageFiles) {
+      const ext = file.name.split('.').pop();
       const filename = `${Date.now()}-${file.name}`;
       const path = `${recipeId}/${filename}`;
 
@@ -90,37 +119,26 @@ export default function AdminRecipeEditor({ user }) {
       }
 
       const { data } = supabase.storage.from('recipes').getPublicUrl(path);
-      const publicUrl = data?.publicUrl;
 
-      if (publicUrl) {
-        await supabase.from('recipe_images').insert({
-          recipe_id: recipeId,
-          url: publicUrl
-        });
-      }
+      await supabase.from('recipe_images').insert({
+        recipe_id: recipeId,
+        url: data.publicUrl
+      });
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
-
-    const totalFlour = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
-    const waterAmount = Number(water);
-    const saltAmount = totalFlour * (Number(saltPercent) / 100);
-    const juuriAmount = totalFlour * 0.2;
-    const oilAmount = doughType === 'pizza' ? totalFlour * (Number(oilPercent) / 100) : 0;
-    const seedsAmount = seeds ? totalFlour * 0.15 : 0;
-
     const tags = selectedTags.map(tag => tag.value);
 
-    const { data: insertData, error } = await supabase.from('recipes').insert([{
+    const recipeData = {
       created_by: user.id,
       title,
       description,
       tags,
       flours,
-      water: waterAmount,
+      water: Number(water),
       salt_percent: Number(saltPercent),
       oil_percent: Number(oilPercent) || 0,
       dough_type: doughType,
@@ -128,42 +146,49 @@ export default function AdminRecipeEditor({ user }) {
       rye,
       seeds,
       extra_ingredients: extraIngredients,
-      hydration: totalFlour > 0 ? Number((waterAmount / totalFlour) * 100).toFixed(1) : 0,
+      hydration: Number(hydration),
       total_time: totalTime,
       active_time: activeTime,
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
       instructions,
-      mode,
-      flour_amount: totalFlour,
-      water_amount: waterAmount,
-      salt_amount: saltAmount,
-      juuri_amount: juuriAmount,
-      oil_amount: oilAmount,
-      seeds_amount: seedsAmount
-    }]).select();
+      mode
+    };
 
-    if (error || !insertData?.length) {
-      setMessage('Virhe tallennuksessa');
-      console.error(error);
-      return;
+    let recipeId = existingRecipe?.id;
+
+    if (isEditMode) {
+      const { error } = await supabase
+        .from('recipes')
+        .update(recipeData)
+        .eq('id', existingRecipe.id);
+
+      if (error) {
+        console.error(error);
+        setMessage('Päivitys epäonnistui');
+        return;
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert([recipeData])
+        .select();
+
+      if (error || !data?.[0]) {
+        console.error(error);
+        setMessage('Tallennus epäonnistui');
+        return;
+      }
+      recipeId = data[0].id;
     }
 
-    const newRecipeId = insertData[0].id;
-    await uploadImages(newRecipeId);
-
-    setMessage('Resepti ja kuvat tallennettu!');
-    setTitle('');
-    setDescription('');
-    setSelectedTags([]);
-    setInstructions('');
-    setImageFiles([]);
-    setPreviewUrls([]);
+    await uploadImages(recipeId);
+    setMessage('Resepti tallennettu!');
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:text-white shadow">
-      <h2 className="text-xl font-semibold">Admin Reseptieditori</h2>
+      <h2 className="text-xl font-semibold">{isEditMode ? 'Muokkaa reseptiä' : 'Luo uusi resepti'}</h2>
 
       <TitleAndTags
         title={title}
@@ -189,7 +214,7 @@ export default function AdminRecipeEditor({ user }) {
         oilPercent={oilPercent}
         setOilPercent={setOilPercent}
         doughType={doughType}
-        hydration={totalFlour > 0 ? ((Number(water) / totalFlour) * 100).toFixed(1) : 0}
+        hydration={hydration}
       />
 
       <DoughOptions
@@ -253,7 +278,7 @@ export default function AdminRecipeEditor({ user }) {
       />
 
       <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-        Tallenna resepti
+        {isEditMode ? 'Päivitä resepti' : 'Tallenna resepti'}
       </button>
 
       {message && <p className="text-sm text-green-700 dark:text-green-400 mt-2">{message}</p>}
