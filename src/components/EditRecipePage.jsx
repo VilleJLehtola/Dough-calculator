@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { supabase } from '@/supabaseClient';
 import AdminRecipeEditor from './AdminRecipeEditor';
-import { supabase } from '../supabaseClient';
 
 export default function EditRecipePage({ user }) {
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -16,26 +17,26 @@ export default function EditRecipePage({ user }) {
         .eq('id', id)
         .single();
 
-      if (error) {
-        console.error('Reseptiä ei löytynyt:', error);
-        setRecipe(null);
+      if (error || !data) {
+        console.error('Failed to fetch recipe:', error);
+        setNotFound(true);
+        setLoading(false);
       } else {
         setRecipe(data);
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchRecipe();
   }, [id]);
 
-  if (loading) return <p className="text-center mt-8">Ladataan...</p>;
-  if (!recipe) return (
-    <div className="text-red-500 text-center mt-10 bg-gray-800 p-4 rounded-lg">
-      Reseptiä ei löytynyt.
-    </div>
-  );
+  if (loading) return <p className="text-center">Ladataan...</p>;
+  if (notFound) return <p className="text-center text-red-500">Reseptiä ei löytynyt.</p>;
 
   return (
-    <AdminRecipeEditor user={user} existingRecipe={recipe} />
+    <div className="p-4">
+      <h2 className="text-xl font-semibold mb-4">Muokkaa reseptiä: {recipe.title}</h2>
+      <AdminRecipeEditor user={user} existingRecipe={recipe} />
+    </div>
   );
 }
