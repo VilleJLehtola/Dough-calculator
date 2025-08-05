@@ -17,6 +17,7 @@ import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 import RecipeViewPage from '@/components/RecipeViewPage';
 import SharedFavoritePage from '@/components/SharedFavoritePage';
 import AdminDashboard from './components/AdminDashboard';
+import EditRecipePage from './components/EditRecipePage';
 
 const pageTransition = {
   initial: { opacity: 0, y: 30 },
@@ -225,6 +226,17 @@ function AppContent() {
     </div>
   </motion.div>
 } />
+<Route path="/edit-recipe/:id" element={
+  <motion.div {...pageTransition}>
+    <div className="flex flex-col items-center py-10 px-4">
+      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+        <Header user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout} />
+        <EditRecipePage user={user} />
+      </div>
+    </div>
+  </motion.div>
+} />
+
 
         </Routes>
       </AnimatePresence>
