@@ -1,3 +1,4 @@
+// src/components/EditRecipePage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
@@ -20,11 +21,10 @@ export default function EditRecipePage({ user }) {
       if (error || !data) {
         console.error('Failed to fetch recipe:', error);
         setNotFound(true);
-        setLoading(false);
       } else {
         setRecipe(data);
-        setLoading(false);
       }
+      setLoading(false);
     };
 
     fetchRecipe();
