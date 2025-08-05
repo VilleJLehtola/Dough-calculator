@@ -1,3 +1,4 @@
+// Full updated file
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { TitleAndTags } from './AdminRecipeEditor/TitleAndTags';
@@ -14,7 +15,7 @@ export default function AdminRecipeEditor({ user }) {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [tagOptions, setTagOptions] = useState([
+  const [tagOptions] = useState([
     { label: 'leipä', value: 'leipä' },
     { label: 'pizza', value: 'pizza' },
     { label: 'juuri', value: 'juuri' },
@@ -40,9 +41,6 @@ export default function AdminRecipeEditor({ user }) {
 
   const [imageFiles, setImageFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
-
-  const totalFlour = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
-  const hydration = totalFlour > 0 ? ((Number(water) / totalFlour) * 100).toFixed(1) : 0;
 
   const handleFlourChange = (index, field, value) => {
     const updated = [...flours];
@@ -95,13 +93,10 @@ export default function AdminRecipeEditor({ user }) {
       const publicUrl = data?.publicUrl;
 
       if (publicUrl) {
-        const { error: insertError } = await supabase.from('recipe_images').insert({
+        await supabase.from('recipe_images').insert({
           recipe_id: recipeId,
           url: publicUrl
         });
-        if (insertError) {
-          console.error('DB insert error for image:', insertError);
-        }
       }
     }
   };
@@ -109,6 +104,13 @@ export default function AdminRecipeEditor({ user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
+
+    const totalFlour = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
+    const waterAmount = Number(water);
+    const saltAmount = totalFlour * (Number(saltPercent) / 100);
+    const juuriAmount = totalFlour * 0.2;
+    const oilAmount = doughType === 'pizza' ? totalFlour * (Number(oilPercent) / 100) : 0;
+    const seedsAmount = seeds ? totalFlour * 0.15 : 0;
 
     const tags = selectedTags.map(tag => tag.value);
 
@@ -118,7 +120,7 @@ export default function AdminRecipeEditor({ user }) {
       description,
       tags,
       flours,
-      water: Number(water),
+      water: waterAmount,
       salt_percent: Number(saltPercent),
       oil_percent: Number(oilPercent) || 0,
       dough_type: doughType,
@@ -126,13 +128,19 @@ export default function AdminRecipeEditor({ user }) {
       rye,
       seeds,
       extra_ingredients: extraIngredients,
-      hydration: Number(hydration),
+      hydration: totalFlour > 0 ? Number((waterAmount / totalFlour) * 100).toFixed(1) : 0,
       total_time: totalTime,
       active_time: activeTime,
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
       instructions,
-      mode
+      mode,
+      flour_amount: totalFlour,
+      water_amount: waterAmount,
+      salt_amount: saltAmount,
+      juuri_amount: juuriAmount,
+      oil_amount: oilAmount,
+      seeds_amount: seedsAmount
     }]).select();
 
     if (error || !insertData?.length) {
@@ -142,7 +150,6 @@ export default function AdminRecipeEditor({ user }) {
     }
 
     const newRecipeId = insertData[0].id;
-
     await uploadImages(newRecipeId);
 
     setMessage('Resepti ja kuvat tallennettu!');
@@ -182,7 +189,7 @@ export default function AdminRecipeEditor({ user }) {
         oilPercent={oilPercent}
         setOilPercent={setOilPercent}
         doughType={doughType}
-        hydration={hydration}
+        hydration={totalFlour > 0 ? ((Number(water) / totalFlour) * 100).toFixed(1) : 0}
       />
 
       <DoughOptions
@@ -203,7 +210,6 @@ export default function AdminRecipeEditor({ user }) {
         className="w-full border p-2 rounded dark:bg-gray-700 dark:text-white"
       />
 
-      {/* Multiple Image Upload */}
       <div>
         <label className="block mb-1 font-medium">Reseptikuvat</label>
         <input
