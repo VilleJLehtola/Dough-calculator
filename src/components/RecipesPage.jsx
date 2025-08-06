@@ -72,7 +72,7 @@ export default function RecipesPage({ user, isAdmin }) {
         {t('Recipe Library') || 'Reseptikirjasto'}
       </h2>
 
-      {/* Only visible to admin */}
+      {/* Only show editor for admin */}
       {isAdmin && <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />}
 
       <input
@@ -94,7 +94,7 @@ export default function RecipesPage({ user, isAdmin }) {
                 : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
             }`}
           >
-            {mode === 'all' ? t('All') || 'Kaikki' : mode === 'leipa' ? t('Bread') : t('Pizza')}
+            {mode === 'all' ? t('All') : mode === 'leipa' ? t('Bread') : t('Pizza')}
           </button>
         ))}
       </div>
