@@ -197,53 +197,50 @@ function AppContent() {
               </div>
             </motion.div>
           } />
-          <Routes location={location} key={location.pathname}>
 
-  <Route path="/recipe/:id" element={
-    <motion.div {...pageTransition}>
-      <div className="flex flex-col items-center py-10 px-4">
-        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-          <Header user={user} activeView="recipe" setActiveView={setActiveView} logout={logout} />
-          <RecipeViewPage user={user} />
-        </div>
-      </div>
-    </motion.div>
-  } />
+          <Route path="/recipe/:id" element={
+            <motion.div {...pageTransition}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <Header user={user} activeView="recipe" setActiveView={setActiveView} logout={logout} />
+                  <RecipeViewPage user={user} />
+                </div>
+              </div>
+            </motion.div>
+          } />
 
-  <Route path="/admin-dashboard" element={
-    <motion.div {...pageTransition}>
-      <div className="flex flex-col items-center py-10 px-4">
-        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-          <Header user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout} />
-          <AdminDashboard user={user} />
-        </div>
-      </div>
-    </motion.div>
-  } />
+          <Route path="/admin-dashboard" element={
+            <motion.div {...pageTransition}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <Header user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout} />
+                  <AdminDashboard user={user} />
+                </div>
+              </div>
+            </motion.div>
+          } />
 
-  <Route path="/edit-recipe/:id" element={
-    <motion.div {...pageTransition}>
-      <div className="flex flex-col items-center py-10 px-4">
-        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-          <Header user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout} />
-          <EditRecipePage user={user} />
-        </div>
-      </div>
-    </motion.div>
-  } />
+          <Route path="/edit-recipe/:id" element={
+            <motion.div {...pageTransition}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <Header user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout} />
+                  <EditRecipePage user={user} />
+                </div>
+              </div>
+            </motion.div>
+          } />
 
-  {/* 👇 This should come last to avoid catching other routes */}
-  <Route path="/:userId/:favoriteName" element={
-    <motion.div {...pageTransition}>
-      <div className="flex flex-col items-center py-10 px-4">
-        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-          <SharedFavoritePage />
-        </div>
-      </div>
-    </motion.div>
-  } />
-</Routes>
-
+          <Route path="/:userId/:favoriteName" element={
+            <motion.div {...pageTransition}>
+              <div className="flex flex-col items-center py-10 px-4">
+                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
+                  <SharedFavoritePage />
+                </div>
+              </div>
+            </motion.div>
+          } />
+        </Routes>
       </AnimatePresence>
     </div>
   );
