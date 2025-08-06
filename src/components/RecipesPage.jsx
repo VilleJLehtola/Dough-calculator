@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import RecipeEditor from './RecipeEditor';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
-export default function RecipesPage({ user }) {
+export default function RecipesPage({ user, isAdmin }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState('all');
+  const [images, setImages] = useState({});
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -19,22 +21,43 @@ export default function RecipesPage({ user }) {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error) setRecipes(data);
+    if (!error) {
+      setRecipes(data);
+      const imageMap = {};
+
+      for (const recipe of data) {
+        const { data: imageData } = await supabase
+          .from('recipe_images')
+          .select('url')
+          .eq('recipe_id', recipe.id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (imageData && imageData.length > 0) {
+          imageMap[recipe.id] = imageData[0].url;
+        }
+      }
+
+      setImages(imageMap);
+    }
   };
 
   const saveRecipeAsFavorite = async (recipe) => {
-    if (!user) return;
+    if (!user) {
+      alert(t('You must be logged in to save favorites'));
+      return;
+    }
 
     const { error } = await supabase.from('favorites').insert([
       {
         user_id: user.id,
         name: recipe.title,
-        recipe_id: recipe.id // ✅ Store admin recipe link
-      }
+        recipe_id: recipe.id,
+      },
     ]);
 
     if (!error) {
-      // optionally show a message
+      alert(t('Saved to favorites!'));
     }
   };
 
@@ -46,54 +69,27 @@ export default function RecipesPage({ user }) {
     return matchSearch && matchMode;
   });
 
-  const formatInstructions = (text, foldTimings) => {
-    const lines = text.split('\n').filter(Boolean);
-    let foldIndex = 0;
-
-    return lines.map((line, idx) => {
-      const isFoldMarker = /\[FOLD\s*\d+\]/i.test(line);
-
-      if (isFoldMarker) {
-        const timing = foldTimings?.[foldIndex] || null;
-        foldIndex++;
-        return (
-          <p key={`fold-${idx}`} className="ml-2">
-            • <strong>{t('Fold')} {foldIndex}</strong>{timing ? ` (${timing} min)` : ''}
-          </p>
-        );
-      }
-
-      return (
-        <p key={`line-${idx}`} className="ml-2">
-          • {line}
-        </p>
-      );
-    });
-  };
-
   return (
-    <div className="max-w-2xl mx-auto p-4">
-      <h2 className="text-2xl font-bold mb-4 text-center">
-        {t('Recipe Library') || 'Reseptikirjasto'}
-      </h2>
+    <div className="max-w-6xl mx-auto p-4">
+      <h2 className="text-3xl font-bold mb-6 text-center">{t('Recipe Library') || 'Reseptikirjasto'}</h2>
 
-      <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />
+      {isAdmin && <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />}
 
       <input
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t('Search recipes or tags...') || 'Etsi reseptejä tai tageja...'}
-        className="w-full px-3 py-2 mb-4 border rounded"
+        className="w-full px-3 py-2 mb-4 border rounded text-gray-900 dark:text-white dark:bg-gray-800"
       />
 
-      <div className="flex justify-center gap-2 mb-4">
+      <div className="flex justify-center gap-2 mb-6">
         {['all', 'leipa', 'pizza'].map((mode) => (
           <button
             key={mode}
             onClick={() => setFilterMode(mode)}
             className={`px-3 py-1 rounded ${
-              filterMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200'
+              filterMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
             }`}
           >
             {mode === 'all' ? t('All') || 'Kaikki' : mode === 'leipa' ? t('Bread') : t('Pizza')}
@@ -102,56 +98,55 @@ export default function RecipesPage({ user }) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-center text-gray-500">{t('No recipes found') || 'Ei reseptejä'}</p>
+        <p className="text-center text-gray-500 dark:text-gray-400">{t('No recipes found') || 'Ei reseptejä'}</p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((recipe) => (
             <li
               key={recipe.id}
-              className="bg-white border rounded-lg shadow p-4 dark:bg-gray-800 dark:border-gray-700"
+              className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-xl overflow-hidden shadow hover:shadow-lg transition-shadow"
             >
-              <h3 className="text-lg font-semibold mb-1 text-gray-900 dark:text-white">
-                {recipe.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                {recipe.description}
-              </p>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {(recipe.tags || []).map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs"
+              {images[recipe.id] && (
+                <img
+                  src={images[recipe.id]}
+                  alt={recipe.title}
+                  className="w-full h-48 object-cover"
+                />
+              )}
+
+              <div className="p-4 space-y-2">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{recipe.title}</h3>
+                {recipe.description && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{recipe.description}</p>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  {(recipe.tags || []).map((tag) => (
+                    <span
+                      key={tag}
+                      className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex gap-2 mt-3">
+                  <Link
+                    to={`/recipe/${recipe.id}`}
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 text-sm"
                   >
-                    {tag}
-                  </span>
-                ))}
-              </div>
+                    {t('Open Recipe')}
+                  </Link>
 
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  onClick={() => saveRecipeAsFavorite(recipe)}
-                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
-                >
-                  {t("Save as favorite") || "Tallenna suosikiksi"}
-                </button>
+                  <button
+                    onClick={() => saveRecipeAsFavorite(recipe)}
+                    className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 text-sm"
+                  >
+                    {t('Save as favorite')}
+                  </button>
+                </div>
               </div>
-
-              <details className="w-full mt-2">
-                <summary className="cursor-pointer text-sm text-blue-700 hover:underline">
-                  {t('Show instructions') || 'Näytä ohjeet'}
-                </summary>
-                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md text-sm text-gray-800 dark:text-gray-100 space-y-2">
-                  {formatInstructions(recipe.instructions, recipe.fold_timings)}
-                </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-3 space-y-1">
-                  {recipe.flour_amount && <p>{t("Flour")}: {recipe.flour_amount} g</p>}
-                  {recipe.water_amount && <p>{t("Water")}: {recipe.water_amount} g</p>}
-                  {recipe.salt_amount && <p>{t("Salt")}: {recipe.salt_amount} g</p>}
-                  {recipe.oil_amount && <p>{t("Oil")}: {recipe.oil_amount} g</p>}
-                  {recipe.juuri_amount && <p>{t("Starter")}: {recipe.juuri_amount} g</p>}
-                  {recipe.seeds_amount && <p>{t("Seeds")}: {recipe.seeds_amount} g</p>}
-                </div>
-              </details>
             </li>
           ))}
         </ul>
