@@ -145,21 +145,10 @@ function AppContent() {
           <Route
             path="/"
             element={
-              <Layout
-                user={user}
-                activeView={activeView}
-                setActiveView={setActiveView}
-                logout={logout}
-              >
-                {activeView === 'auth' && (
-                  <AuthForm setUser={setUser} setActiveView={setActiveView} />
-                )}
-                {activeView === 'forgot-password' && (
-                  <ForgotPasswordForm setActiveView={setActiveView} />
-                )}
-                {activeView === 'reset-password' && (
-                  <ResetPassword setActiveView={setActiveView} />
-                )}
+              <Layout user={user} activeView={activeView} setActiveView={setActiveView} logout={logout}>
+                {activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+                {activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+                {activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
                 {activeView === 'calculator' && (
                   <>
                     <CalculatorForm
