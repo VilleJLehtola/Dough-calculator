@@ -50,7 +50,9 @@ function AppContent() {
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
-    document.documentElement.classList.toggle('dark', stored === 'dark');
+    const root = document.documentElement;
+    if (stored === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
   }, []);
 
   useEffect(() => {
@@ -58,12 +60,11 @@ function AppContent() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        const { data: userData } = await supabase.from('users').select('role').eq('id', session.user.id).single();
         setIsAdmin(userData?.role === 'admin');
+      } else {
+        setUser(null);
+        setIsAdmin(false);
       }
     }
 
@@ -72,12 +73,9 @@ function AppContent() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => setIsAdmin(data?.role === 'admin'));
+        supabase.from('users').select('role').eq('id', session.user.id).single().then(({ data }) => {
+          setIsAdmin(data?.role === 'admin');
+        });
       } else {
         setUser(null);
         setIsAdmin(false);
@@ -105,7 +103,6 @@ function AppContent() {
     const h = hydration / 100;
     const s = saltPct / 100;
     let jauho, vesi;
-
     if (inputType === 'jauho') {
       jauho = grams;
       vesi = h * jauho;
@@ -113,7 +110,6 @@ function AppContent() {
       vesi = grams;
       jauho = vesi / h;
     }
-
     const suola = jauho * s;
     const juuri = jauho * 0.2;
     const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
@@ -199,9 +195,9 @@ function AppContent() {
           } />
 
           <Route path="/recipe/:id" element={
-            <motion.div {...pageTransition}>
+            <Layout user={user} activeView="recipe" setActiveView={setActiveView} logout={logout}>
               <RecipeViewPage user={user} />
-            </motion.div>
+            </Layout>
           } />
 
           <Route path="/admin-dashboard" element={
@@ -217,7 +213,7 @@ function AppContent() {
           } />
 
           <Route path="/:userId/:favoriteName" element={
-            <Layout>
+            <Layout user={user} activeView="shared" setActiveView={setActiveView} logout={logout}>
               <SharedFavoritePage />
             </Layout>
           } />
