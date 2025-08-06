@@ -123,7 +123,7 @@ export default function RecipesPage({ user, isAdmin }) {
                 <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                   {recipe.description}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <div className="flex flex-wrap gap-2 mb-4">
                   {(recipe.tags || []).map((tag) => (
                     <span
                       key={tag}
@@ -137,7 +137,7 @@ export default function RecipesPage({ user, isAdmin }) {
                 <div className="flex items-center justify-between mt-2">
                   <Link
                     to={`/recipe/${recipe.id}`}
-                    className="text-blue-600 hover:underline text-sm"
+                    className="inline-block bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-1.5 px-4 rounded transition"
                   >
                     {t('Open Recipe') || 'Avaa resepti'}
                   </Link>
