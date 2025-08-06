@@ -1,4 +1,3 @@
-import Header from '@/components/Header';
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/supabaseClient';
@@ -120,110 +119,107 @@ export default function RecipeViewPage({ user }) {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
-      {/* ✅ Header added */}
       <div className="max-w-[1600px] mx-auto">
-        <Header user={user} activeView="recipe" />
-      </div>
+        {images.length > 0 && (
+          <div className="w-full">
+            <ImageCarousel images={images} />
+          </div>
+        )}
 
-      {images.length > 0 && (
-        <div className="w-full max-w-[1600px] mx-auto">
-          <ImageCarousel images={images} />
-        </div>
-      )}
+        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full mt-10 p-10 space-y-6 border border-blue-200 dark:border-gray-700">
+          <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
-      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full max-w-[1600px] mx-auto mt-10 p-10 space-y-6 border border-blue-200 dark:border-gray-700">
-        <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
-
-        <AnimatePresence>
-          {showModal && currentImage && (
-            <motion.div
-              className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowModal(false)}
-            >
+          <AnimatePresence>
+            {showModal && currentImage && (
               <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                onClick={(e) => e.stopPropagation()}
-                className="relative max-w-4xl w-full mx-4"
-                {...swipeHandlers}
+                className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowModal(false)}
               >
-                <div className="absolute top-2 right-2 flex gap-2 z-10">
-                  <button onClick={() => setZoom(zoom + 0.1)} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaSearchPlus /></button>
-                  <button onClick={() => setZoom(Math.max(0.5, zoom - 0.1))} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaSearchMinus /></button>
-                  <button onClick={() => setZoom(1)} className="text-white text-sm bg-black bg-opacity-40 px-3 rounded-full hover:bg-opacity-60">Reset</button>
-                  <a href={currentImage} download className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaDownload /></a>
-                  <button onClick={() => setShowModal(false)} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaTimes /></button>
-                </div>
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="relative max-w-4xl w-full mx-4"
+                  {...swipeHandlers}
+                >
+                  <div className="absolute top-2 right-2 flex gap-2 z-10">
+                    <button onClick={() => setZoom(zoom + 0.1)} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaSearchPlus /></button>
+                    <button onClick={() => setZoom(Math.max(0.5, zoom - 0.1))} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaSearchMinus /></button>
+                    <button onClick={() => setZoom(1)} className="text-white text-sm bg-black bg-opacity-40 px-3 rounded-full hover:bg-opacity-60">Reset</button>
+                    <a href={currentImage} download className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaDownload /></a>
+                    <button onClick={() => setShowModal(false)} className="text-white text-lg bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60"><FaTimes /></button>
+                  </div>
 
-                {images.length > 1 && (
-                  <>
-                    <button className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60" onClick={() => setModalIndex((modalIndex - 1 + images.length) % images.length)}><FaChevronLeft /></button>
-                    <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60" onClick={() => setModalIndex((modalIndex + 1) % images.length)}><FaChevronRight /></button>
-                  </>
-                )}
+                  {images.length > 1 && (
+                    <>
+                      <button className="absolute left-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60" onClick={() => setModalIndex((modalIndex - 1 + images.length) % images.length)}><FaChevronLeft /></button>
+                      <button className="absolute right-2 top-1/2 transform -translate-y-1/2 text-white text-2xl bg-black bg-opacity-40 p-2 rounded-full hover:bg-opacity-60" onClick={() => setModalIndex((modalIndex + 1) % images.length)}><FaChevronRight /></button>
+                    </>
+                  )}
 
-                <img src={currentImage} alt="Esikatselu" style={{ transform: `scale(${zoom})` }} className="w-full h-auto rounded-lg shadow-lg max-h-[80vh] object-contain transition-transform" />
+                  <img src={currentImage} alt="Esikatselu" style={{ transform: `scale(${zoom})` }} className="w-full h-auto rounded-lg shadow-lg max-h-[80vh] object-contain transition-transform" />
 
-                <div className="mt-4 flex overflow-x-auto gap-2 py-2 px-1 bg-black bg-opacity-30 rounded">
-                  {images.map((img, i) => (
-                    <img
-                      key={img.id}
-                      src={img.url}
-                      alt={`Thumb ${i}`}
-                      onClick={() => {
-                        setModalIndex(i);
-                        setZoom(1);
-                      }}
-                      className={`w-20 h-20 object-cover rounded-md cursor-pointer border-2 ${i === modalIndex ? 'border-white' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                    />
-                  ))}
-                </div>
+                  <div className="mt-4 flex overflow-x-auto gap-2 py-2 px-1 bg-black bg-opacity-30 rounded">
+                    {images.map((img, i) => (
+                      <img
+                        key={img.id}
+                        src={img.url}
+                        alt={`Thumb ${i}`}
+                        onClick={() => {
+                          setModalIndex(i);
+                          setZoom(1);
+                        }}
+                        className={`w-20 h-20 object-cover rounded-md cursor-pointer border-2 ${i === modalIndex ? 'border-white' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
               </motion.div>
-            </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="flex items-center gap-3 mt-4">
+            {recipe.mode === 'pizza' ? <FaPizzaSlice className="text-yellow-500 text-2xl" /> : <FaBreadSlice className="text-orange-600 text-2xl" />}
+            <h1 className="text-3xl font-bold">{recipe.title}</h1>
+          </div>
+
+          {recipe.description && (
+            <p className="italic text-gray-600 dark:text-gray-400 mt-2 mb-4">{recipe.description}</p>
           )}
-        </AnimatePresence>
 
-        <div className="flex items-center gap-3 mt-4">
-          {recipe.mode === 'pizza' ? <FaPizzaSlice className="text-yellow-500 text-2xl" /> : <FaBreadSlice className="text-orange-600 text-2xl" />}
-          <h1 className="text-3xl font-bold">{recipe.title}</h1>
-        </div>
+          {recipe.tags && recipe.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {recipe.tags.map(tag => (
+                <span key={tag} className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs">{tag}</span>
+              ))}
+            </div>
+          )}
 
-        {recipe.description && (
-          <p className="italic text-gray-600 dark:text-gray-400 mt-2 mb-4">{recipe.description}</p>
-        )}
-
-        {recipe.tags && recipe.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {recipe.tags.map(tag => (
-              <span key={tag} className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs">{tag}</span>
-            ))}
+          <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded mb-4">
+            <h2 className="font-semibold mb-2">Ohjeet</h2>
+            <div className="space-y-1">
+              {renderInstructions(recipe.instructions, recipe.fold_timings)}
+            </div>
           </div>
-        )}
 
-        <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded mb-4">
-          <h2 className="font-semibold mb-2">Ohjeet</h2>
-          <div className="space-y-1">
-            {renderInstructions(recipe.instructions, recipe.fold_timings)}
+          <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded space-y-1 text-sm text-white">
+            <h2 className="font-semibold mb-2 text-base">Ainekset</h2>
+            <ul className="space-y-1">
+              {recipe.flour_amount !== null && <li>Jauho: {recipe.flour_amount} g</li>}
+              {recipe.water_amount !== null && <li>Vesi: {recipe.water_amount} g</li>}
+              {recipe.salt_amount !== null && <li>Suola: {recipe.salt_amount} g</li>}
+              {recipe.oil_amount !== null && <li>Öljy: {recipe.oil_amount} g</li>}
+              {recipe.juuri_amount !== null && <li>Juuri: {recipe.juuri_amount} g</li>}
+              {recipe.seeds_amount !== null && <li>Siemenet: {recipe.seeds_amount} g</li>}
+              {recipe.total_time && <li>Kokonaika: {recipe.total_time}</li>}
+              {recipe.active_time && <li>Työaika: {recipe.active_time}</li>}
+            </ul>
           </div>
-        </div>
-
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded space-y-1 text-sm text-white">
-          <h2 className="font-semibold mb-2 text-base">Ainekset</h2>
-          <ul className="space-y-1">
-            {recipe.flour_amount !== null && <li>Jauho: {recipe.flour_amount} g</li>}
-            {recipe.water_amount !== null && <li>Vesi: {recipe.water_amount} g</li>}
-            {recipe.salt_amount !== null && <li>Suola: {recipe.salt_amount} g</li>}
-            {recipe.oil_amount !== null && <li>Öljy: {recipe.oil_amount} g</li>}
-            {recipe.juuri_amount !== null && <li>Juuri: {recipe.juuri_amount} g</li>}
-            {recipe.seeds_amount !== null && <li>Siemenet: {recipe.seeds_amount} g</li>}
-            {recipe.total_time && <li>Kokonaika: {recipe.total_time}</li>}
-            {recipe.active_time && <li>Työaika: {recipe.active_time}</li>}
-          </ul>
         </div>
       </div>
     </div>
