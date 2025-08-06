@@ -96,34 +96,46 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
+    console.log('Selected image files:', files); // DEBUG
     setImageFiles(files);
     const previews = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(previews);
   };
 
   const uploadImages = async (recipeId) => {
+    console.log('Uploading images for recipe ID:', recipeId); // DEBUG
     for (const file of imageFiles) {
       const ext = file.name.split('.').pop();
       const filename = `${Date.now()}-${file.name}`;
       const path = `${recipeId}/${filename}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('recipes')
+        .from('recipes') // ✅ make sure 'recipes' is your actual Supabase storage bucket name
         .upload(path, file, {
           contentType: file.type
         });
 
       if (uploadError) {
-        console.error('Image upload failed:', uploadError);
+        console.error('Image upload failed:', uploadError); // DEBUG
         continue;
       }
 
-      const { data } = supabase.storage.from('recipes').getPublicUrl(path);
+      const { data, error: publicUrlError } = supabase.storage.from('recipes').getPublicUrl(path);
 
-      await supabase.from('recipe_images').insert({
-        recipe_id: recipeId,
-        url: data.publicUrl
-      });
+      if (publicUrlError) {
+        console.error('Getting public URL failed:', publicUrlError); // DEBUG
+        continue;
+      }
+
+      console.log('Uploaded image public URL:', data.publicUrl); // DEBUG
+
+      const { error: insertError } = await supabase
+        .from('recipe_images')
+        .insert({ recipe_id: recipeId, url: data.publicUrl });
+
+      if (insertError) {
+        console.error('Inserting image URL to DB failed:', insertError); // DEBUG
+      }
     }
   };
 
@@ -182,7 +194,9 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
       recipeId = data[0].id;
     }
 
+    // ✅ Upload images in both create and edit modes
     await uploadImages(recipeId);
+
     setMessage('Resepti tallennettu!');
   };
 
