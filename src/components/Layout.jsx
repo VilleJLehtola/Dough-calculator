@@ -38,8 +38,10 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-500">
-      <Header user={user} setActiveView={() => {}} activeView={location.pathname} logout={logout} />
+    <div className="w-full max-w-screen-xl mx-auto px-4">
+  <Header user={user} setActiveView={() => {}} activeView={location.pathname} logout={logout} />
+</div>
+
 
       <main className="flex-grow w-full max-w-screen-xl mx-auto px-4 py-8">
         {children}
