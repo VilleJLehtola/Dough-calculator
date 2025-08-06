@@ -1,4 +1,3 @@
-// src/components/RecipeViewPage.jsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
@@ -25,20 +24,29 @@ export default function RecipeViewPage() {
         .eq('id', id)
         .single();
 
-      if (!error && data) {
-        const parsed = {
-          ...data,
-          ingredients:
-            typeof data.ingredients === 'string'
-              ? JSON.parse(data.ingredients)
-              : data.ingredients || {},
-          flour_types:
-            typeof data.flour_types === 'string'
-              ? JSON.parse(data.flour_types)
-              : data.flour_types || {},
-        };
-        setRecipe(parsed);
-      }
+      if (error || !data) return;
+
+      const parsedIngredients = (() => {
+        try {
+          return typeof data.ingredients === 'string'
+            ? JSON.parse(data.ingredients)
+            : data.ingredients || {};
+        } catch {
+          return {};
+        }
+      })();
+
+      const parsedFlours = (() => {
+        try {
+          return typeof data.flour_types === 'string'
+            ? JSON.parse(data.flour_types)
+            : data.flour_types || {};
+        } catch {
+          return {};
+        }
+      })();
+
+      setRecipe({ ...data, ingredients: parsedIngredients, flour_types: parsedFlours });
     };
 
     fetchRecipe();
@@ -63,16 +71,18 @@ export default function RecipeViewPage() {
   return (
     <div className="max-w-screen-md mx-auto p-4">
       {recipe_images?.length > 0 && (
-        <Slider dots infinite speed={500} slidesToShow={1} slidesToScroll={1}>
-          {recipe_images.map((img) => (
-            <img
-              key={img.url}
-              src={img.url}
-              alt={title}
-              className="w-full h-64 object-cover rounded-xl"
-            />
-          ))}
-        </Slider>
+        <div className="w-full max-h-80 overflow-hidden rounded-xl mb-4">
+          <Slider dots infinite speed={500} slidesToShow={1} slidesToScroll={1}>
+            {recipe_images.map((img) => (
+              <img
+                key={img.url}
+                src={img.url}
+                alt={title}
+                className="w-full h-64 object-cover rounded-xl"
+              />
+            ))}
+          </Slider>
+        </div>
       )}
 
       <div className="mt-4 bg-gray-100 dark:bg-gray-800 p-4 rounded-xl shadow">
@@ -102,61 +112,67 @@ export default function RecipeViewPage() {
         {/* Instructions */}
         {instructions && (
           <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-1">{t('Instructions') || 'Ohjeet'}</h3>
+            <h3 className="text-lg font-semibold mb-1">
+              {t('Instructions') || 'Ohjeet'}
+            </h3>
             <div className="prose dark:prose-invert text-sm whitespace-pre-line">
               {instructions}
             </div>
           </div>
         )}
 
-        {/* Ingredients Section */}
+        {/* Ingredients */}
         <div className="bg-gray-200 dark:bg-gray-700 rounded p-4 text-sm text-gray-900 dark:text-white">
           <h3 className="font-semibold mb-2">{t('Ingredients') || 'Ainekset'}</h3>
 
-          {ingredients?.jauho && (
-            <p>🌾 <strong>{t('Flour') || 'Jauhot'}:</strong> {ingredients.jauho.toFixed(0)}g</p>
+          {ingredients?.jauho != null && (
+            <p>🌾 <strong>{t('Flour') || 'Jauhot'}:</strong> {Number(ingredients.jauho).toFixed(0)}g</p>
           )}
-          {ingredients?.vesi && (
-            <p>💧 <strong>{t('Water') || 'Vesi'}:</strong> {ingredients.vesi.toFixed(0)}g</p>
+          {ingredients?.vesi != null && (
+            <p>💧 <strong>{t('Water') || 'Vesi'}:</strong> {Number(ingredients.vesi).toFixed(0)}g</p>
           )}
-          {ingredients?.suola && (
-            <p>🧂 <strong>{t('Salt') || 'Suola'}:</strong> {ingredients.suola.toFixed(1)}g</p>
+          {ingredients?.suola != null && (
+            <p>🧂 <strong>{t('Salt') || 'Suola'}:</strong> {Number(ingredients.suola).toFixed(1)}g</p>
           )}
-          {ingredients?.juuri && (
-            <p>🍶 <strong>{t('Starter') || 'Juuri'}:</strong> {ingredients.juuri.toFixed(0)}g</p>
+          {ingredients?.juuri != null && (
+            <p>🌱 <strong>{t('Starter') || 'Juuri'}:</strong> {Number(ingredients.juuri).toFixed(0)}g</p>
           )}
-          {ingredients?.öljy > 0 && (
-            <p>🫒 <strong>{t('Oil') || 'Öljy'}:</strong> {ingredients.öljy.toFixed(1)}g</p>
+          {ingredients?.öljy != null && Number(ingredients.öljy) > 0 && (
+            <p>🫒 <strong>{t('Oil') || 'Öljy'}:</strong> {Number(ingredients.öljy).toFixed(1)}g</p>
           )}
-          {ingredients?.siemenet > 0 && (
-            <p>🌻 <strong>{t('Seeds') || 'Siemenet'}:</strong> {ingredients.siemenet.toFixed(0)}g</p>
+          {ingredients?.siemenet != null && Number(ingredients.siemenet) > 0 && (
+            <p>🌻 <strong>{t('Seeds') || 'Siemenet'}:</strong> {Number(ingredients.siemenet).toFixed(0)}g</p>
           )}
-          {ingredients?.yhteensa && (
+          {ingredients?.yhteensa != null && (
             <p className="mt-2">
-              ⚖️ <strong>{t('Total dough weight') || 'Taikinan kokonaispaino'}:</strong> {ingredients.yhteensa.toFixed(0)}g
+              ⚖️ <strong>{t('Total dough weight') || 'Taikinan kokonaispaino'}:</strong>{' '}
+              {Number(ingredients.yhteensa).toFixed(0)}g
             </p>
           )}
 
-          {/* Flour breakdown */}
           {flour_types && Object.keys(flour_types).length > 0 && (
             <div className="mt-2">
               <strong>{t('Flour breakdown') || 'Jauhojakauma'}:</strong>
               <ul className="list-disc list-inside ml-4">
                 {Object.entries(flour_types).map(([type, amount]) => (
                   <li key={type}>
-                    {type}: {amount.toFixed(0)}g
+                    {type}: {Number(amount).toFixed(0)}g
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          <div className="mt-4">
+          <div className="mt-2">
             {total_time && (
-              <p>⏱️ <strong>{t('Total time') || 'Kokonaisaika'}:</strong> {total_time} min</p>
+              <p>
+                ⏱️ <strong>{t('Total time') || 'Kokonaisaika'}:</strong> {total_time} min
+              </p>
             )}
             {active_time && (
-              <p>💪 <strong>{t('Active time') || 'Työaika'}:</strong> {active_time} min</p>
+              <p>
+                💪 <strong>{t('Active time') || 'Työaika'}:</strong> {active_time} min
+              </p>
             )}
           </div>
         </div>
