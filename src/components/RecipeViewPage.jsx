@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 
 export default function RecipeViewPage() {
   const { id } = useParams();
@@ -13,27 +15,25 @@ export default function RecipeViewPage() {
     const fetchRecipe = async () => {
       const { data, error } = await supabase
         .from('recipes')
-        .select(`
+        .select(
+          `
           *,
           recipe_images (
             url
           )
-        `)
+        `
+        )
         .eq('id', id)
         .single();
 
-      if (error || !data) {
-        console.error('Failed to fetch recipe:', error);
-        return;
-      }
+      if (error || !data) return;
 
       const parsedIngredients = (() => {
         try {
           return typeof data.ingredients === 'string'
             ? JSON.parse(data.ingredients)
             : data.ingredients || {};
-        } catch (e) {
-          console.warn('Failed to parse ingredients', e);
+        } catch {
           return {};
         }
       })();
@@ -43,8 +43,7 @@ export default function RecipeViewPage() {
           return typeof data.flour_types === 'string'
             ? JSON.parse(data.flour_types)
             : data.flour_types || {};
-        } catch (e) {
-          console.warn('Failed to parse flour_types', e);
+        } catch {
           return {};
         }
       })();
@@ -55,7 +54,9 @@ export default function RecipeViewPage() {
     fetchRecipe();
   }, [id]);
 
-  if (!recipe) return <p className="text-center p-4">Ladataan...</p>;
+  if (!recipe) {
+    return <p className="text-center p-4">Ladataan...</p>;
+  }
 
   const {
     title,
@@ -72,15 +73,16 @@ export default function RecipeViewPage() {
   return (
     <div className="max-w-screen-md mx-auto p-4">
       {recipe_images?.length > 0 && (
-        <div className="w-full max-h-80 overflow-hidden rounded-xl mb-4">
-          <Slider dots={true} infinite={false} speed={500} slidesToShow={1} slidesToScroll={1}>
+        <div className="w-full overflow-hidden rounded-xl mb-4">
+          <Slider dots infinite speed={500} slidesToShow={1} slidesToScroll={1}>
             {recipe_images.map((img) => (
-              <img
-                key={img.url}
-                src={img.url}
-                alt={title}
-                className="w-full h-64 object-cover rounded-xl"
-              />
+              <div key={img.url} className="h-72">
+                <img
+                  src={img.url}
+                  alt={title}
+                  className="w-full h-full object-cover rounded-xl"
+                />
+              </div>
             ))}
           </Slider>
         </div>
@@ -113,7 +115,9 @@ export default function RecipeViewPage() {
         {/* Instructions */}
         {instructions && (
           <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-1">{t('Instructions') || 'Ohjeet'}</h3>
+            <h3 className="text-lg font-semibold mb-1">
+              {t('Instructions') || 'Ohjeet'}
+            </h3>
             <div className="prose dark:prose-invert text-sm whitespace-pre-line">
               {instructions}
             </div>
