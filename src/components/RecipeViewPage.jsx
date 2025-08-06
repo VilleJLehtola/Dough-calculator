@@ -1,10 +1,9 @@
+// src/components/RecipeViewPage.jsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import Slider from 'react-slick';
-import 'slick-carousel/slick/slick.css';
-import 'slick-carousel/slick/slick-theme.css';
 
 export default function RecipeViewPage() {
   const { id } = useParams();
@@ -12,41 +11,38 @@ export default function RecipeViewPage() {
   const { t } = useTranslation();
 
   useEffect(() => {
-  const fetchRecipe = async () => {
-    const { data, error } = await supabase
-      .from('recipes')
-      .select(
+    const fetchRecipe = async () => {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select(
+          `
+          *,
+          recipe_images (
+            url
+          )
         `
-        *,
-        recipe_images (
-          url
         )
-      `
-      )
-      .eq('id', id)
-      .single();
+        .eq('id', id)
+        .single();
 
-    if (!error && data) {
-      const parsedData = {
-        ...data,
-        ingredients:
-          typeof data.ingredients === 'string'
-            ? JSON.parse(data.ingredients)
-            : data.ingredients || {},
-        flour_types:
-          typeof data.flour_types === 'string'
-            ? JSON.parse(data.flour_types)
-            : data.flour_types || {},
-      };
+      if (!error && data) {
+        const parsed = {
+          ...data,
+          ingredients:
+            typeof data.ingredients === 'string'
+              ? JSON.parse(data.ingredients)
+              : data.ingredients || {},
+          flour_types:
+            typeof data.flour_types === 'string'
+              ? JSON.parse(data.flour_types)
+              : data.flour_types || {},
+        };
+        setRecipe(parsed);
+      }
+    };
 
-      setRecipe(parsedData);
-    }
-  };
-
-  fetchRecipe();
-}, [id]);
-
-
+    fetchRecipe();
+  }, [id]);
 
   if (!recipe) {
     return <p className="text-center p-4">Ladataan...</p>;
@@ -58,47 +54,23 @@ export default function RecipeViewPage() {
     tags,
     instructions,
     flour_types,
-    hydration,
-    salt,
-    starter,
-    oil,
-    seeds,
     ingredients,
     total_time,
     active_time,
     recipe_images,
   } = recipe;
 
-  const settings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    arrows: false,
-  };
-
-  const iconMap = {
-    jauho: '🌾',
-    vesi: '💧',
-    suola: '🧂',
-    juuri: '🧬',
-    öljy: '🪔',
-    siemenet: '🌻',
-  };
-
   return (
     <div className="max-w-screen-md mx-auto p-4">
       {recipe_images?.length > 0 && (
-        <Slider {...settings} className="rounded-lg overflow-hidden mb-4">
+        <Slider dots infinite speed={500} slidesToShow={1} slidesToScroll={1}>
           {recipe_images.map((img) => (
-            <div key={img.url} className="px-2">
-              <img
-                src={img.url}
-                alt={title}
-                className="w-full h-64 object-cover rounded-lg"
-              />
-            </div>
+            <img
+              key={img.url}
+              src={img.url}
+              alt={title}
+              className="w-full h-64 object-cover rounded-xl"
+            />
           ))}
         </Slider>
       )}
@@ -132,21 +104,7 @@ export default function RecipeViewPage() {
           <div className="mb-4">
             <h3 className="text-lg font-semibold mb-1">{t('Instructions') || 'Ohjeet'}</h3>
             <div className="prose dark:prose-invert text-sm whitespace-pre-line">
-              {instructions
-                .split('\n')
-                .map((line, index) => {
-                  const match = line.match(/^Taitto\s*(\d)/i);
-                  if (match) {
-                    const number = match[1];
-                    return (
-                      <p key={index}>
-                        🌀 <strong>{t('Fold')} {number}:</strong>{' '}
-                        {line.replace(/^Taitto\s*\d+:?/i, '').trim()}
-                      </p>
-                    );
-                  }
-                  return <p key={index}>{line}</p>;
-                })}
+              {instructions}
             </div>
           </div>
         )}
@@ -155,29 +113,31 @@ export default function RecipeViewPage() {
         <div className="bg-gray-200 dark:bg-gray-700 rounded p-4 text-sm text-gray-900 dark:text-white">
           <h3 className="font-semibold mb-2">{t('Ingredients') || 'Ainekset'}</h3>
 
-          {Object.entries(iconMap).map(([key, icon]) => {
-            const value = ingredients?.[key];
-            if (value > 0) {
-              return (
-                <p key={key}>
-                  {icon}{' '}
-                  <strong>
-                    {t(key.charAt(0).toUpperCase() + key.slice(1))}:
-                  </strong>{' '}
-                  {value.toFixed(1)}g
-                </p>
-              );
-            }
-            return null;
-          })}
-
+          {ingredients?.jauho && (
+            <p>🌾 <strong>{t('Flour') || 'Jauhot'}:</strong> {ingredients.jauho.toFixed(0)}g</p>
+          )}
+          {ingredients?.vesi && (
+            <p>💧 <strong>{t('Water') || 'Vesi'}:</strong> {ingredients.vesi.toFixed(0)}g</p>
+          )}
+          {ingredients?.suola && (
+            <p>🧂 <strong>{t('Salt') || 'Suola'}:</strong> {ingredients.suola.toFixed(1)}g</p>
+          )}
+          {ingredients?.juuri && (
+            <p>🍶 <strong>{t('Starter') || 'Juuri'}:</strong> {ingredients.juuri.toFixed(0)}g</p>
+          )}
+          {ingredients?.öljy > 0 && (
+            <p>🫒 <strong>{t('Oil') || 'Öljy'}:</strong> {ingredients.öljy.toFixed(1)}g</p>
+          )}
+          {ingredients?.siemenet > 0 && (
+            <p>🌻 <strong>{t('Seeds') || 'Siemenet'}:</strong> {ingredients.siemenet.toFixed(0)}g</p>
+          )}
           {ingredients?.yhteensa && (
             <p className="mt-2">
-              ⚖️ <strong>{t('Total dough weight') || 'Taikinan kokonaispaino'}:</strong>{' '}
-              {ingredients.yhteensa.toFixed(0)}g
+              ⚖️ <strong>{t('Total dough weight') || 'Taikinan kokonaispaino'}:</strong> {ingredients.yhteensa.toFixed(0)}g
             </p>
           )}
 
+          {/* Flour breakdown */}
           {flour_types && Object.keys(flour_types).length > 0 && (
             <div className="mt-2">
               <strong>{t('Flour breakdown') || 'Jauhojakauma'}:</strong>
@@ -191,16 +151,12 @@ export default function RecipeViewPage() {
             </div>
           )}
 
-          <div className="mt-2">
+          <div className="mt-4">
             {total_time && (
-              <p>
-                ⏱️ <strong>{t('Total time') || 'Kokonaisaika'}:</strong> {total_time} min
-              </p>
+              <p>⏱️ <strong>{t('Total time') || 'Kokonaisaika'}:</strong> {total_time} min</p>
             )}
             {active_time && (
-              <p>
-                💪 <strong>{t('Active time') || 'Työaika'}:</strong> {active_time} min
-              </p>
+              <p>💪 <strong>{t('Active time') || 'Työaika'}:</strong> {active_time} min</p>
             )}
           </div>
         </div>
