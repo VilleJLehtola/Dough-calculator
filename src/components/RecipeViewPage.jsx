@@ -13,6 +13,9 @@ import {
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeable } from 'react-swipeable';
+import Slider from 'react-slick';
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
 export default function RecipeViewPage() {
   const { id } = useParams();
@@ -85,6 +88,32 @@ export default function RecipeViewPage() {
 
   const currentImage = images[modalIndex]?.url;
 
+  const ImageCarousel = ({ images }) => {
+    const settings = {
+      dots: true,
+      infinite: true,
+      speed: 500,
+      slidesToShow: 1,
+      slidesToScroll: 1,
+      adaptiveHeight: true
+    };
+
+    return (
+      <Slider {...settings}>
+        {images.map((img, idx) => (
+          <div key={img.id} className="px-2">
+            <img
+              src={img.url}
+              alt={`Kuva ${idx + 1}`}
+              className="rounded-xl object-cover w-full max-h-[500px] mx-auto cursor-pointer"
+              onClick={() => openModal(idx)}
+            />
+          </div>
+        ))}
+      </Slider>
+    );
+  };
+
   if (loading) return <p className="text-center">Ladataan...</p>;
   if (!recipe) return <p className="text-center">Reseptiä ei löytynyt.</p>;
 
@@ -94,16 +123,8 @@ export default function RecipeViewPage() {
         <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
         {images.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 cursor-pointer">
-            {images.map((img, idx) => (
-              <img
-                key={img.id}
-                src={img.url}
-                alt={`Kuva ${idx + 1}`}
-                className="w-full max-h-96 object-cover rounded-xl shadow-md hover:opacity-90 transition"
-                onClick={() => openModal(idx)}
-              />
-            ))}
+          <div className="w-full max-w-2xl mx-auto">
+            <ImageCarousel images={images} />
           </div>
         )}
 
