@@ -1,5 +1,6 @@
 // src/components/Layout.jsx
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/supabaseClient';
@@ -15,7 +16,11 @@ export default function Layout({ children }) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        const { data: userData } = await supabase.from('users').select('role').eq('id', session.user.id).single();
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
         setIsAdmin(userData?.role === 'admin');
       }
     };
@@ -33,9 +38,14 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-500">
       <Header user={user} setActiveView={() => {}} activeView={location.pathname} logout={logout} />
-      <main className="pt-4">{children}</main>
+
+      <main className="flex-grow w-full max-w-screen-xl mx-auto px-4 py-8">
+        {children}
+      </main>
+
+      <Footer />
     </div>
   );
 }
