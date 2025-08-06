@@ -1,3 +1,4 @@
+import Header from '@/components/Header';
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/supabaseClient';
@@ -17,7 +18,7 @@ import Slider from 'react-slick';
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';
 
-export default function RecipeViewPage() {
+export default function RecipeViewPage({ user }) {
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [images, setImages] = useState([]);
@@ -106,7 +107,7 @@ export default function RecipeViewPage() {
             <img
               src={img.url}
               alt={`Kuva ${idx + 1}`}
-              className="w-full h-[250px] sm:h-[350px] md:h-[500px] object-cover"
+              className="w-full h-[250px] sm:h-[350px] md:h-[500px] object-cover rounded-xl shadow-md"
             />
           </div>
         ))}
@@ -119,6 +120,10 @@ export default function RecipeViewPage() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
+      {/* ✅ Header added */}
+      <div className="max-w-[1600px] mx-auto">
+        <Header user={user} activeView="recipe" />
+      </div>
 
       {images.length > 0 && (
         <div className="w-full max-w-[1600px] mx-auto">
@@ -127,7 +132,6 @@ export default function RecipeViewPage() {
       )}
 
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full max-w-[1600px] mx-auto mt-10 p-10 space-y-6 border border-blue-200 dark:border-gray-700">
-
         <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
         <AnimatePresence>
