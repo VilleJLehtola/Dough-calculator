@@ -1,11 +1,9 @@
-// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
 
 import Layout from '@/components/Layout';
-import Header from '@/components/Header';
 import AuthForm from '@/components/AuthForm';
 import ForgotPasswordForm from '@/components/ForgotPasswordForm';
 import ResetPassword from '@/components/ResetPassword';
@@ -19,13 +17,6 @@ import RecipeViewPage from '@/components/RecipeViewPage';
 import SharedFavoritePage from '@/components/SharedFavoritePage';
 import AdminDashboard from './components/AdminDashboard';
 import EditRecipePage from './components/EditRecipePage';
-
-const pageTransition = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -30 },
-  transition: { duration: 0.5, ease: [0.42, 0, 0.58, 1] },
-};
 
 function AppContent() {
   const [user, setUser] = useState(null);
@@ -60,7 +51,11 @@ function AppContent() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        const { data: userData } = await supabase.from('users').select('role').eq('id', session.user.id).single();
+        const { data: userData } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
         setIsAdmin(userData?.role === 'admin');
       } else {
         setUser(null);
@@ -73,9 +68,14 @@ function AppContent() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        supabase.from('users').select('role').eq('id', session.user.id).single().then(({ data }) => {
-          setIsAdmin(data?.role === 'admin');
-        });
+        supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            setIsAdmin(data?.role === 'admin');
+          });
       } else {
         setUser(null);
         setIsAdmin(false);
@@ -122,7 +122,16 @@ function AppContent() {
         ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
         : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
 
-    return { jauho, vesi, suola, juuri, öljy: oljy, yhteensa, jauhotyypit, siemenet: seeds };
+    return {
+      jauho,
+      vesi,
+      suola,
+      juuri,
+      öljy: oljy,
+      yhteensa,
+      jauhotyypit,
+      siemenet: seeds
+    };
   };
 
   const result = calculate();
