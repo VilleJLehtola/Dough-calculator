@@ -1,4 +1,3 @@
-// src/components/RecipeViewPage.jsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
@@ -14,25 +13,27 @@ export default function RecipeViewPage() {
     const fetchRecipe = async () => {
       const { data, error } = await supabase
         .from('recipes')
-        .select(
-          `
+        .select(`
           *,
           recipe_images (
             url
           )
-        `
-        )
+        `)
         .eq('id', id)
         .single();
 
-      if (error || !data) return;
+      if (error || !data) {
+        console.error('Failed to fetch recipe:', error);
+        return;
+      }
 
       const parsedIngredients = (() => {
         try {
           return typeof data.ingredients === 'string'
             ? JSON.parse(data.ingredients)
             : data.ingredients || {};
-        } catch {
+        } catch (e) {
+          console.warn('Failed to parse ingredients', e);
           return {};
         }
       })();
@@ -42,7 +43,8 @@ export default function RecipeViewPage() {
           return typeof data.flour_types === 'string'
             ? JSON.parse(data.flour_types)
             : data.flour_types || {};
-        } catch {
+        } catch (e) {
+          console.warn('Failed to parse flour_types', e);
           return {};
         }
       })();
@@ -53,9 +55,7 @@ export default function RecipeViewPage() {
     fetchRecipe();
   }, [id]);
 
-  if (!recipe) {
-    return <p className="text-center p-4">Ladataan...</p>;
-  }
+  if (!recipe) return <p className="text-center p-4">Ladataan...</p>;
 
   const {
     title,
@@ -72,23 +72,15 @@ export default function RecipeViewPage() {
   return (
     <div className="max-w-screen-md mx-auto p-4">
       {recipe_images?.length > 0 && (
-        <div className="w-full max-w-2xl mx-auto mb-6">
-          <Slider
-            dots={true}
-            infinite={true}
-            speed={500}
-            slidesToShow={1}
-            slidesToScroll={1}
-            className="rounded-xl overflow-hidden"
-          >
+        <div className="w-full max-h-80 overflow-hidden rounded-xl mb-4">
+          <Slider dots={true} infinite={false} speed={500} slidesToShow={1} slidesToScroll={1}>
             {recipe_images.map((img) => (
-              <div key={img.url}>
-                <img
-                  src={img.url}
-                  alt={title}
-                  className="w-full h-72 object-cover rounded-xl"
-                />
-              </div>
+              <img
+                key={img.url}
+                src={img.url}
+                alt={title}
+                className="w-full h-64 object-cover rounded-xl"
+              />
             ))}
           </Slider>
         </div>
@@ -128,7 +120,7 @@ export default function RecipeViewPage() {
           </div>
         )}
 
-        {/* Ingredients Section */}
+        {/* Ingredients */}
         <div className="bg-gray-200 dark:bg-gray-700 rounded p-4 text-sm text-gray-900 dark:text-white">
           <h3 className="font-semibold mb-2">{t('Ingredients') || 'Ainekset'}</h3>
 
