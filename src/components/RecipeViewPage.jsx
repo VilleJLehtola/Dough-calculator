@@ -1,3 +1,4 @@
+// src/components/RecipeViewPage.jsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
@@ -71,15 +72,23 @@ export default function RecipeViewPage() {
   return (
     <div className="max-w-screen-md mx-auto p-4">
       {recipe_images?.length > 0 && (
-        <div className="w-full max-h-80 overflow-hidden rounded-xl mb-4">
-          <Slider dots infinite speed={500} slidesToShow={1} slidesToScroll={1}>
+        <div className="w-full max-w-2xl mx-auto mb-6">
+          <Slider
+            dots={true}
+            infinite={true}
+            speed={500}
+            slidesToShow={1}
+            slidesToScroll={1}
+            className="rounded-xl overflow-hidden"
+          >
             {recipe_images.map((img) => (
-              <img
-                key={img.url}
-                src={img.url}
-                alt={title}
-                className="w-full h-64 object-cover rounded-xl"
-              />
+              <div key={img.url}>
+                <img
+                  src={img.url}
+                  alt={title}
+                  className="w-full h-72 object-cover rounded-xl"
+                />
+              </div>
             ))}
           </Slider>
         </div>
@@ -112,16 +121,14 @@ export default function RecipeViewPage() {
         {/* Instructions */}
         {instructions && (
           <div className="mb-4">
-            <h3 className="text-lg font-semibold mb-1">
-              {t('Instructions') || 'Ohjeet'}
-            </h3>
+            <h3 className="text-lg font-semibold mb-1">{t('Instructions') || 'Ohjeet'}</h3>
             <div className="prose dark:prose-invert text-sm whitespace-pre-line">
               {instructions}
             </div>
           </div>
         )}
 
-        {/* Ingredients */}
+        {/* Ingredients Section */}
         <div className="bg-gray-200 dark:bg-gray-700 rounded p-4 text-sm text-gray-900 dark:text-white">
           <h3 className="font-semibold mb-2">{t('Ingredients') || 'Ainekset'}</h3>
 
