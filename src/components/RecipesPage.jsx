@@ -4,7 +4,7 @@ import RecipeEditor from './RecipeEditor';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-export default function RecipesPage({ user }) {
+export default function RecipesPage({ user, isAdmin }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState('all');
@@ -54,7 +54,7 @@ export default function RecipesPage({ user }) {
     ]);
 
     if (!error) {
-      // Optionally show a message
+      alert('Tallennettu suosikiksi!');
     }
   };
 
@@ -72,7 +72,8 @@ export default function RecipesPage({ user }) {
         {t('Recipe Library') || 'Reseptikirjasto'}
       </h2>
 
-      <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />
+      {/* Only visible to admin */}
+      {isAdmin && <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />}
 
       <input
         type="text"
@@ -88,7 +89,9 @@ export default function RecipesPage({ user }) {
             key={mode}
             onClick={() => setFilterMode(mode)}
             className={`px-3 py-1 rounded ${
-              filterMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
+              filterMode === mode
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
             }`}
           >
             {mode === 'all' ? t('All') || 'Kaikki' : mode === 'leipa' ? t('Bread') : t('Pizza')}
@@ -136,15 +139,17 @@ export default function RecipesPage({ user }) {
                     to={`/recipe/${recipe.id}`}
                     className="text-blue-600 hover:underline text-sm"
                   >
-                    {t("Open Recipe") || "Avaa resepti"}
+                    {t('Open Recipe') || 'Avaa resepti'}
                   </Link>
 
-                  <button
-                    onClick={() => saveRecipeAsFavorite(recipe)}
-                    className="text-green-600 text-sm hover:underline"
-                  >
-                    {t("Save as favorite") || "Tallenna suosikiksi"}
-                  </button>
+                  {user && (
+                    <button
+                      onClick={() => saveRecipeAsFavorite(recipe)}
+                      className="text-green-600 text-sm hover:underline"
+                    >
+                      {t('Save as favorite') || 'Tallenna suosikiksi'}
+                    </button>
+                  )}
                 </div>
               </div>
             </li>
