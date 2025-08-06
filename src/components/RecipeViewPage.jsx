@@ -119,7 +119,7 @@ export default function RecipeViewPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
-      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-2xl w-full mx-auto p-6 space-y-6 border border-blue-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full max-w-6xl mx-auto p-10 space-y-6 border border-blue-200 dark:border-gray-700">
         <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
         {images.length > 0 && (
