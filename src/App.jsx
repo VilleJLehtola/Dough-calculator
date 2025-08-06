@@ -1,5 +1,12 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
 
@@ -15,24 +22,25 @@ import RecipesPage from '@/components/RecipesPage';
 import AdminRecipeEditor from '@/components/AdminRecipeEditor';
 import RecipeViewPage from '@/components/RecipeViewPage';
 import SharedFavoritePage from '@/components/SharedFavoritePage';
-import AdminDashboard from './components/AdminDashboard';
-import EditRecipePage from './components/EditRecipePage';
+import AdminDashboard from '@/components/AdminDashboard';
+import EditRecipePage from '@/components/EditRecipePage';
 
 function AppContent() {
   const [user, setUser] = useState(null);
-  const [activeView, setActiveView] = useState('calculator');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [activeView, setActiveView] = useState('calculator');
+
   const [inputGrams, setInputGrams] = useState('');
   const [inputType, setInputType] = useState('jauho');
   const [hydration, setHydration] = useState(75);
   const [saltPct, setSaltPct] = useState(2);
   const [mode, setMode] = useState('leipa');
-  const [showRecipe, setShowRecipe] = useState(false);
-  const [foldsDone, setFoldsDone] = useState(0);
   const [useOil, setUseOil] = useState(false);
   const [coldFermentation, setColdFermentation] = useState(false);
   const [useRye, setUseRye] = useState(false);
   const [useSeeds, setUseSeeds] = useState(false);
+  const [showRecipe, setShowRecipe] = useState(false);
+  const [foldsDone, setFoldsDone] = useState(0);
   const [favName, setFavName] = useState('');
   const [message, setMessage] = useState('');
 
@@ -40,10 +48,12 @@ function AppContent() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const stored = localStorage.getItem('theme');
-    const root = document.documentElement;
-    if (stored === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
+    const theme = localStorage.getItem('theme');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 
   useEffect(() => {
@@ -57,9 +67,6 @@ function AppContent() {
           .eq('id', session.user.id)
           .single();
         setIsAdmin(userData?.role === 'admin');
-      } else {
-        setUser(null);
-        setIsAdmin(false);
       }
     }
 
@@ -100,9 +107,11 @@ function AppContent() {
   const calculate = () => {
     const grams = parseFloat(inputGrams);
     if (isNaN(grams) || grams <= 0) return null;
+
     const h = hydration / 100;
     const s = saltPct / 100;
     let jauho, vesi;
+
     if (inputType === 'jauho') {
       jauho = grams;
       vesi = h * jauho;
@@ -110,28 +119,21 @@ function AppContent() {
       vesi = grams;
       jauho = vesi / h;
     }
+
     const suola = jauho * s;
     const juuri = jauho * 0.2;
     const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
     const seeds = useSeeds ? jauho * 0.15 : 0;
     const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
 
-    const jauhotyypit = mode === 'pizza'
-      ? { '00-jauho': jauho * (1000 / 1070), puolikarkea: jauho * (70 / 1070) }
-      : useRye
+    const jauhotyypit =
+      mode === 'pizza'
+        ? { '00-jauho': jauho * (1000 / 1070), puolikarkea: jauho * (70 / 1070) }
+        : useRye
         ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
         : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
 
-    return {
-      jauho,
-      vesi,
-      suola,
-      juuri,
-      öljy: oljy,
-      yhteensa,
-      jauhotyypit,
-      siemenet: seeds
-    };
+    return { jauho, vesi, suola, juuri, öljy: oljy, yhteensa, jauhotyypit, siemenet: seeds };
   };
 
   const result = calculate();
@@ -140,92 +142,120 @@ function AppContent() {
     <div className="transition-colors duration-500 min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={
-            <Layout user={user} activeView={activeView} setActiveView={setActiveView} logout={logout}>
-              {activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-              {activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-              {activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
-              {activeView === 'calculator' && (
-                <>
-                  <CalculatorForm
-                    inputGrams={inputGrams}
-                    setInputGrams={setInputGrams}
-                    inputType={inputType}
-                    setInputType={setInputType}
-                    hydration={hydration}
-                    setHydration={setHydration}
-                    saltPct={saltPct}
-                    setSaltPct={setSaltPct}
-                    mode={mode}
-                    setMode={setMode}
-                    useOil={useOil}
-                    setUseOil={setUseOil}
-                    coldFermentation={coldFermentation}
-                    setColdFermentation={setColdFermentation}
-                    useRye={useRye}
-                    setUseRye={setUseRye}
-                    useSeeds={useSeeds}
-                    setUseSeeds={setUseSeeds}
-                    showRecipe={showRecipe}
-                    setShowRecipe={setShowRecipe}
-                    resetAll={() => {
-                      setInputGrams('');
-                      setInputType('jauho');
-                      setHydration(75);
-                      setSaltPct(2);
-                      setMode('leipa');
-                      setUseOil(false);
-                      setColdFermentation(false);
-                      setUseRye(false);
-                      setUseSeeds(false);
-                      setShowRecipe(false);
-                      setFoldsDone(0);
-                      setFavName('');
-                      setMessage('');
-                    }}
-                  />
-                  {result && <ResultDisplay result={result} />}
-                  {showRecipe && result && (
-                    <RecipeView
-                      doughType={mode}
-                      useSeeds={useSeeds}
-                      coldFermentation={coldFermentation}
-                      foldsDone={foldsDone}
-                      setFoldsDone={setFoldsDone}
+          <Route
+            path="/"
+            element={
+              <Layout
+                user={user}
+                activeView={activeView}
+                setActiveView={setActiveView}
+                logout={logout}
+              >
+                {activeView === 'auth' && (
+                  <AuthForm setUser={setUser} setActiveView={setActiveView} />
+                )}
+                {activeView === 'forgot-password' && (
+                  <ForgotPasswordForm setActiveView={setActiveView} />
+                )}
+                {activeView === 'reset-password' && (
+                  <ResetPassword setActiveView={setActiveView} />
+                )}
+                {activeView === 'calculator' && (
+                  <>
+                    <CalculatorForm
+                      inputGrams={inputGrams}
+                      setInputGrams={setInputGrams}
+                      inputType={inputType}
+                      setInputType={setInputType}
+                      hydration={hydration}
+                      setHydration={setHydration}
+                      saltPct={saltPct}
+                      setSaltPct={setSaltPct}
+                      mode={mode}
+                      setMode={setMode}
                       useOil={useOil}
+                      setUseOil={setUseOil}
+                      coldFermentation={coldFermentation}
+                      setColdFermentation={setColdFermentation}
+                      useRye={useRye}
+                      setUseRye={setUseRye}
+                      useSeeds={useSeeds}
+                      setUseSeeds={setUseSeeds}
+                      showRecipe={showRecipe}
+                      setShowRecipe={setShowRecipe}
+                      resetAll={() => {
+                        setInputGrams('');
+                        setInputType('jauho');
+                        setHydration(75);
+                        setSaltPct(2);
+                        setMode('leipa');
+                        setUseOil(false);
+                        setColdFermentation(false);
+                        setUseRye(false);
+                        setUseSeeds(false);
+                        setShowRecipe(false);
+                        setFoldsDone(0);
+                        setFavName('');
+                        setMessage('');
+                      }}
                     />
-                  )}
-                </>
-              )}
-              {activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />}
-              {activeView === 'recipes' && <RecipesPage user={user} isAdmin={isAdmin} />}
-              {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
-            </Layout>
-          } />
-
-          <Route path="/recipe/:id" element={
-            <Layout user={user} activeView="recipe" setActiveView={setActiveView} logout={logout}>
-              <RecipeViewPage user={user} />
-            </Layout>
-          } />
-
-          <Route path="/admin-dashboard" element={
-            <Layout user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout}>
-              <AdminDashboard user={user} />
-            </Layout>
-          } />
-
-          <Route path="/edit-recipe/:id" element={
-            <Layout user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout}>
-              <EditRecipePage user={user} />
-            </Layout>
-          } />
-
-          <Route path="/:userId/:favoriteName" element={
-            <Layout user={user} activeView="shared" setActiveView={setActiveView} logout={logout}>
-              <SharedFavoritePage />
-            </Layout>
-          } />
+                    {result && <ResultDisplay result={result} />}
+                    {showRecipe && result && (
+                      <RecipeView
+                        doughType={mode}
+                        useSeeds={useSeeds}
+                        coldFermentation={coldFermentation}
+                        foldsDone={foldsDone}
+                        setFoldsDone={setFoldsDone}
+                        useOil={useOil}
+                      />
+                    )}
+                  </>
+                )}
+                {activeView === 'favorites' && (
+                  <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />
+                )}
+                {activeView === 'recipes' && (
+                  <RecipesPage user={user} isAdmin={isAdmin} />
+                )}
+                {isAdmin && activeView === 'admin' && (
+                  <AdminRecipeEditor user={user} />
+                )}
+              </Layout>
+            }
+          />
+          <Route
+            path="/recipe/:id"
+            element={
+              <Layout user={user} activeView="recipe" setActiveView={setActiveView} logout={logout}>
+                <RecipeViewPage user={user} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/admin-dashboard"
+            element={
+              <Layout user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout}>
+                <AdminDashboard user={user} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/edit-recipe/:id"
+            element={
+              <Layout user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout}>
+                <EditRecipePage user={user} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/:userId/:favoriteName"
+            element={
+              <Layout user={user} activeView="shared" setActiveView={setActiveView} logout={logout}>
+                <SharedFavoritePage />
+              </Layout>
+            }
+          />
         </Routes>
       </AnimatePresence>
     </div>
