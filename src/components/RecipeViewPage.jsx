@@ -106,7 +106,7 @@ export default function RecipeViewPage() {
             <img
               src={img.url}
               alt={`Kuva ${idx + 1}`}
-              className="w-full h-[250px] sm:h-[350px] md:h-[450px] object-cover"
+              className="w-full h-[250px] sm:h-[350px] md:h-[500px] object-cover"
             />
           </div>
         ))}
@@ -121,11 +121,10 @@ export default function RecipeViewPage() {
     <div className="min-h-screen w-full bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
 
       {images.length > 0 && (
-  <div className="w-full">
-    <ImageCarousel images={images} />
-  </div>
-)}
-
+        <div className="w-full max-w-[1600px] mx-auto">
+          <ImageCarousel images={images} />
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full max-w-[1600px] mx-auto mt-10 p-10 space-y-6 border border-blue-200 dark:border-gray-700">
 
