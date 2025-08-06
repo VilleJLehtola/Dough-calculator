@@ -12,27 +12,33 @@ export default function RecipeViewPage() {
   const { t } = useTranslation();
 
   useEffect(() => {
-    const fetchRecipe = async () => {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select(
-          `
-          *,
-          recipe_images (
-            url
-          )
+  const fetchRecipe = async () => {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(
         `
+        *,
+        recipe_images (
+          url
         )
-        .eq('id', id)
-        .single();
+      `
+      )
+      .eq('id', id)
+      .single();
 
-      if (!error) {
-        setRecipe(data);
-      }
-    };
+    if (!error) {
+      const parsedData = {
+        ...data,
+        ingredients: typeof data.ingredients === 'string' ? JSON.parse(data.ingredients) : data.ingredients,
+        flour_types: typeof data.flour_types === 'string' ? JSON.parse(data.flour_types) : data.flour_types,
+      };
+      setRecipe(parsedData);
+    }
+  };
 
-    fetchRecipe();
-  }, [id]);
+  fetchRecipe();
+}, [id]);
+
 
   if (!recipe) {
     return <p className="text-center p-4">Ladataan...</p>;
