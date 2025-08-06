@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
+import RecipeEditor from './RecipeEditor';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
@@ -7,7 +8,6 @@ export default function RecipesPage({ user }) {
   const [recipes, setRecipes] = useState([]);
   const [search, setSearch] = useState('');
   const [filterMode, setFilterMode] = useState('all');
-  const [tagFilter, setTagFilter] = useState(null);
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -17,10 +17,45 @@ export default function RecipesPage({ user }) {
   const fetchRecipes = async () => {
     const { data, error } = await supabase
       .from('recipes')
-      .select('id, title, description, tags, mode, created_at')
+      .select(`
+        id,
+        title,
+        description,
+        tags,
+        mode,
+        created_at,
+        recipe_images (
+          url
+        )
+      `)
       .order('created_at', { ascending: false });
 
-    if (!error) setRecipes(data);
+    if (!error) {
+      const withFirstImage = data.map(r => ({
+        ...r,
+        imageUrl: r.recipe_images?.[0]?.url || null
+      }));
+      setRecipes(withFirstImage);
+    }
+  };
+
+  const saveRecipeAsFavorite = async (recipe) => {
+    if (!user) {
+      alert('Kirjaudu sisään tallentaaksesi suosikkeja.');
+      return;
+    }
+
+    const { error } = await supabase.from('favorites').insert([
+      {
+        user_id: user.id,
+        name: recipe.title,
+        recipe_id: recipe.id
+      }
+    ]);
+
+    if (!error) {
+      // Optionally show a message
+    }
   };
 
   const filtered = recipes.filter((r) => {
@@ -28,104 +63,93 @@ export default function RecipesPage({ user }) {
       r.title.toLowerCase().includes(search.toLowerCase()) ||
       (r.tags || []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
     const matchMode = filterMode === 'all' || r.mode === filterMode;
-    const matchTag = !tagFilter || (r.tags || []).includes(tagFilter);
-    return matchSearch && matchMode && matchTag;
+    return matchSearch && matchMode;
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <h2 className="text-3xl font-bold mb-6 text-center">{t('Recipe Library')}</h2>
+    <div className="max-w-screen-xl mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-4 text-center">
+        {t('Recipe Library') || 'Reseptikirjasto'}
+      </h2>
 
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t('Search recipes or tags...')}
-          className="w-full md:w-1/2 px-4 py-2 border rounded dark:bg-gray-700 dark:text-white"
-        />
-        <div className="flex gap-2">
-          {['all', 'leipa', 'pizza'].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => {
-                setFilterMode(mode);
-                setTagFilter(null);
-              }}
-              className={`px-4 py-2 rounded text-sm font-medium ${
-                filterMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-600 dark:text-white'
-              }`}
-            >
-              {mode === 'all' ? t('All') : mode === 'leipa' ? t('Bread') : t('Pizza')}
-            </button>
-          ))}
-        </div>
+      <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />
+
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('Search recipes or tags...') || 'Etsi reseptejä tai tageja...'}
+        className="w-full px-3 py-2 mb-4 border rounded dark:bg-gray-700 dark:text-white"
+      />
+
+      <div className="flex justify-center gap-2 mb-4">
+        {['all', 'leipa', 'pizza'].map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setFilterMode(mode)}
+            className={`px-3 py-1 rounded ${
+              filterMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
+            }`}
+          >
+            {mode === 'all' ? t('All') || 'Kaikki' : mode === 'leipa' ? t('Bread') : t('Pizza')}
+          </button>
+        ))}
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-center text-gray-500">{t('No recipes found')}</p>
+        <p className="text-center text-gray-500">{t('No recipes found') || 'Ei reseptejä'}</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ul className="space-y-6">
           {filtered.map((recipe) => (
-            <div
+            <li
               key={recipe.id}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow hover:shadow-lg transition"
+              className="bg-white border rounded-xl shadow dark:bg-gray-800 dark:border-gray-700 overflow-hidden"
             >
-              <Link to={`/recipe/${recipe.id}`}>
+              {recipe.imageUrl && (
                 <img
-                  src={`https://via.placeholder.com/600x400.png?text=${encodeURIComponent(recipe.title)}`}
+                  src={recipe.imageUrl}
                   alt={recipe.title}
                   className="w-full h-48 object-cover rounded-t-xl"
                 />
-              </Link>
+              )}
 
               <div className="p-4">
-                <h3 className="text-xl font-semibold mb-1 dark:text-white">{recipe.title}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{recipe.description}</p>
-
-                <div className="flex flex-wrap gap-2 my-3">
+                <h3 className="text-xl font-semibold mb-1 text-gray-900 dark:text-white">
+                  {recipe.title}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                  {recipe.description}
+                </p>
+                <div className="flex flex-wrap gap-2 mb-2">
                   {(recipe.tags || []).map((tag) => (
-                    <button
+                    <span
                       key={tag}
-                      onClick={() => {
-                        setTagFilter(tag);
-                        setFilterMode('all');
-                      }}
-                      className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-white text-xs px-2 py-0.5 rounded hover:bg-blue-200 dark:hover:bg-blue-700"
+                      className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
                     >
                       {tag}
-                    </button>
+                    </span>
                   ))}
                 </div>
 
-                <div className="mt-4 flex justify-between items-center">
+                <div className="flex items-center justify-between mt-2">
                   <Link
                     to={`/recipe/${recipe.id}`}
-                    className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                    className="text-blue-600 hover:underline text-sm"
                   >
-                    {t('Open Recipe')}
+                    {t("Open Recipe") || "Avaa resepti"}
                   </Link>
-                  {user && (
-                    <button
-                      onClick={async () => {
-                        const { error } = await supabase.from('favorites').insert([
-                          {
-                            user_id: user.id,
-                            name: recipe.title,
-                            recipe_id: recipe.id
-                          }
-                        ]);
-                      }}
-                      className="text-xs text-green-600 hover:text-green-800 dark:text-green-400"
-                    >
-                      {t('Save as favorite')}
-                    </button>
-                  )}
+
+                  <button
+                    onClick={() => saveRecipeAsFavorite(recipe)}
+                    className="text-green-600 text-sm hover:underline"
+                  >
+                    {t("Save as favorite") || "Tallenna suosikiksi"}
+                  </button>
                 </div>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
