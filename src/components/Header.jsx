@@ -65,6 +65,17 @@ export default function Header({ user, activeView, setActiveView, logout }) {
             {t("Calculator")}
           </button>
 
+          <button
+            onClick={() => handleViewChange('recipes')}
+            className={`block w-full text-left px-4 py-2 rounded ${
+              activeView === 'recipes'
+                ? 'bg-blue-500 text-white'
+                : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
+            }`}
+          >
+            {t("Recipes")}
+          </button>
+
           {user && (
             <>
               <button
@@ -76,17 +87,6 @@ export default function Header({ user, activeView, setActiveView, logout }) {
                 }`}
               >
                 {t("Favorites")}
-              </button>
-
-              <button
-                onClick={() => handleViewChange('recipes')}
-                className={`block w-full text-left px-4 py-2 rounded ${
-                  activeView === 'recipes'
-                    ? 'bg-blue-500 text-white'
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 dark:text-white'
-                }`}
-              >
-                {t("Recipes")}
               </button>
 
               {isAdmin && (
