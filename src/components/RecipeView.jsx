@@ -1,77 +1,144 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../supabaseClient';
+import RecipeEditor from './RecipeEditor';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
-export default function RecipeView({
-  foldsDone,
-  setFoldsDone,
-  useSeeds,
-  coldFermentation,
-  doughType,
-  useOil,
-}) {
+export default function RecipesPage({ user }) {
+  const [recipes, setRecipes] = useState([]);
+  const [search, setSearch] = useState('');
+  const [filterMode, setFilterMode] = useState('all');
   const { t } = useTranslation();
-  const foldIntervals = [30, 30, 45, 60];
+  const navigate = useNavigate();
 
-  const foldLabels = foldIntervals.map((minutes, index) => {
-    const seedNote = useSeeds && index === foldIntervals.length - 1 ? ` (${t("Add seeds")})` : '';
-    return `${index + 1}. ${t("fold")} ${minutes} min${seedNote}`;
+  useEffect(() => {
+    fetchRecipes();
+  }, []);
+
+  const fetchRecipes = async () => {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(`
+        *,
+        recipe_images (
+          id,
+          url
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (!error) setRecipes(data);
+  };
+
+  const saveRecipeAsFavorite = async (recipe) => {
+    if (!user) {
+      alert(t("You must be logged in to save favorites") || "Kirjaudu sisään tallentaaksesi suosikkeja.");
+      return;
+    }
+
+    const { error } = await supabase.from('favorites').insert([
+      {
+        user_id: user.id,
+        name: recipe.title,
+        recipe_id: recipe.id
+      }
+    ]);
+
+    if (!error) {
+      // optional: feedback message
+    }
+  };
+
+  const filtered = recipes.filter((r) => {
+    const matchSearch =
+      r.title.toLowerCase().includes(search.toLowerCase()) ||
+      (r.tags || []).some((tag) => tag.toLowerCase().includes(search.toLowerCase()));
+    const matchMode = filterMode === 'all' || r.mode === filterMode;
+    return matchSearch && matchMode;
   });
 
-  const breadSteps = [
-    t("Mix flour and water. Let rest for 30 minutes."),
-    t("Add the starter and mix into a smooth dough."),
-    "Taita taikinaa:", // This one is used as a placeholder
-    coldFermentation
-      ? t("Shape, cover, and refrigerate overnight. Bake at 230°C.")
-      : t("Shape, proof, and bake at 230°C."),
-  ];
-
-  const pizzaSteps = [
-    t("Mix flour, water, salt, and yeast or starter."),
-    ...(useOil ? [t("Add oil and mix into the dough.")] : []),
-    "Taita taikinaa:",
-    coldFermentation
-      ? t("Let the dough rest 1–2h at room temperature, then cold ferment overnight.")
-      : t("Let rise for 6–8 hours at room temperature."),
-    t("Shape the pizza bases and let rest 30 min."),
-    t("Add toppings and bake at 250–300°C on stone or tray."),
-  ];
-
-  const steps = doughType === 'pizza' ? pizzaSteps : breadSteps;
-
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 mt-4 space-y-4 shadow-sm">
-      <h2 className="text-lg font-bold text-blue-700">📋 {t("Recipe")}</h2>
+    <div className="max-w-3xl mx-auto p-4">
+      <h2 className="text-2xl font-bold mb-4 text-center">
+        {t('Recipe Library') || 'Reseptikirjasto'}
+      </h2>
 
-      {steps.map((step, index) => {
-        if (step === "Taita taikinaa:") {
-          return (
-            <div key={index} className="flex flex-col gap-1 text-gray-800">
-              {foldLabels.map((label, i) => (
-                <label key={i} className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={foldsDone > i}
-                    onChange={() => setFoldsDone(foldsDone > i ? i : i + 1)}
-                    className="w-4 h-4 cursor-pointer"
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          );
-        }
+      <RecipeEditor user={user} onRecipeCreated={fetchRecipes} />
 
-        return (
-          <p key={index} className="text-gray-800">
-            {step}
-          </p>
-        );
-      })}
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={t('Search recipes or tags...') || 'Etsi reseptejä tai tageja...'}
+        className="w-full px-3 py-2 mb-4 border rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+      />
 
-      <div>
-        <strong>{t("Cold fermentation")}:</strong> {coldFermentation ? t("Yes") : t("No")}
+      <div className="flex justify-center gap-2 mb-4">
+        {['all', 'leipa', 'pizza'].map((mode) => (
+          <button
+            key={mode}
+            onClick={() => setFilterMode(mode)}
+            className={`px-3 py-1 rounded ${
+              filterMode === mode
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 dark:text-white'
+            }`}
+          >
+            {mode === 'all' ? t('All') || 'Kaikki' : mode === 'leipa' ? t('Bread') : t('Pizza')}
+          </button>
+        ))}
       </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-center text-gray-500">{t('No recipes found') || 'Ei reseptejä'}</p>
+      ) : (
+        <ul className="space-y-6">
+          {filtered.map((recipe) => (
+            <li
+              key={recipe.id}
+              className="bg-white dark:bg-gray-800 border rounded-xl shadow-md p-4 dark:border-gray-700 text-gray-900 dark:text-white"
+            >
+              {recipe.recipe_images?.length > 0 && (
+                <img
+                  src={recipe.recipe_images[0].url}
+                  alt={recipe.title}
+                  className="w-full h-64 object-cover rounded-md mb-4"
+                />
+              )}
+
+              <h3 className="text-xl font-semibold mb-1">{recipe.title}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{recipe.description}</p>
+
+              <div className="flex flex-wrap gap-2 mb-4">
+                {(recipe.tags || []).map((tag) => (
+                  <span
+                    key={tag}
+                    className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-white px-2 py-0.5 rounded text-xs"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => navigate(`/recipe/${recipe.id}`)}
+                  className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                >
+                  {t('Open Recipe') || 'Avaa resepti'}
+                </button>
+
+                <button
+                  onClick={() => saveRecipeAsFavorite(recipe)}
+                  className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 transition"
+                >
+                  {t("Save as favorite") || "Tallenna suosikiksi"}
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
