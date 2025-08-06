@@ -14,8 +14,8 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeable } from 'react-swipeable';
 import Slider from 'react-slick';
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 
 export default function RecipeViewPage() {
   const { id } = useParams();
@@ -66,7 +66,6 @@ export default function RecipeViewPage() {
   const renderInstructions = (text, folds = []) => {
     const lines = text.split('\n').filter(Boolean);
     let foldIndex = 0;
-
     return lines.map((line, idx) => {
       if (/\[FOLD \d+\]/i.test(line)) {
         const timing = folds[foldIndex++] || null;
@@ -95,18 +94,19 @@ export default function RecipeViewPage() {
       speed: 500,
       slidesToShow: 1,
       slidesToScroll: 1,
-      adaptiveHeight: true
+      arrows: false,
+      autoplay: true,
+      autoplaySpeed: 6000
     };
 
     return (
       <Slider {...settings}>
         {images.map((img, idx) => (
-          <div key={img.id} className="px-2">
+          <div key={img.id} onClick={() => openModal(idx)} className="cursor-pointer">
             <img
               src={img.url}
               alt={`Kuva ${idx + 1}`}
-              className="rounded-xl object-cover w-full max-h-[500px] mx-auto cursor-pointer"
-              onClick={() => openModal(idx)}
+              className="w-full h-[300px] md:h-[400px] object-cover rounded-xl shadow-md"
             />
           </div>
         ))}
