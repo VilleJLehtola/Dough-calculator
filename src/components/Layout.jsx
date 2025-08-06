@@ -42,10 +42,10 @@ export default function Layout({ children }) {
   <Header user={user} setActiveView={() => {}} activeView={location.pathname} logout={logout} />
 </div>
 
+<main className="flex-grow w-full max-w-screen-xl mx-auto px-4 py-8">
+  {children}
+</main>
 
-      <main className="flex-grow w-full max-w-screen-xl mx-auto px-4 py-8">
-        {children}
-      </main>
 
       <Footer />
     </div>
