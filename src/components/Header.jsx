@@ -1,3 +1,4 @@
+// src/components/Header.jsx
 import React, { useState, useEffect } from 'react';
 import { FiMenu, FiX } from 'react-icons/fi';
 import { useTranslation } from 'react-i18next';
@@ -10,11 +11,6 @@ export default function Header({ user, activeView, setActiveView, logout }) {
   const navigate = useNavigate();
 
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
-
-  const toggleLanguage = () => {
-    const newLang = i18n.language === 'fi' ? 'en' : 'fi';
-    i18n.changeLanguage(newLang);
-  };
 
   useEffect(() => {
     const saved = localStorage.getItem('theme') || 'light';
@@ -30,34 +26,20 @@ export default function Header({ user, activeView, setActiveView, logout }) {
     setShowMenu(false);
   };
 
+  const toggleLanguage = () => {
+    const newLang = i18n.language === 'fi' ? 'en' : 'fi';
+    i18n.changeLanguage(newLang);
+  };
+
   const handleViewChange = (view) => {
     setActiveView(view);
+    navigate('/');
     setShowMenu(false);
-
-    // Navigate based on view
-    switch (view) {
-      case 'calculator':
-        navigate('/');
-        break;
-      case 'favorites':
-        navigate('/');
-        break;
-      case 'recipes':
-        navigate('/');
-        break;
-      case 'admin':
-        navigate('/');
-        break;
-      case 'auth':
-        navigate('/');
-        break;
-      default:
-        navigate('/');
-    }
   };
 
   return (
-    <div className="relative px-4">
+    <div className="relative">
+      {/* Top Bar */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-xl font-semibold dark:text-white">{t("Calculator")}</h1>
         <button
@@ -69,6 +51,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
         </button>
       </div>
 
+      {/* Dropdown Menu */}
       {showMenu && (
         <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded shadow z-50 transition-all duration-300">
           <button
@@ -137,7 +120,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
             </button>
           )}
 
-          {/* Language toggle */}
+          {/* Language Toggle */}
           <div className="flex items-center justify-between px-4 py-2 border-t dark:border-gray-700">
             <span className="text-sm dark:text-white">{t("Language")}</span>
             <button
@@ -149,7 +132,7 @@ export default function Header({ user, activeView, setActiveView, logout }) {
             </button>
           </div>
 
-          {/* Dark mode toggle */}
+          {/* Dark Mode Toggle */}
           <div className="flex items-center justify-between px-4 py-2">
             <span className="text-sm dark:text-white">{t("Dark Mode")}</span>
             <label className="relative inline-flex items-center cursor-pointer">
