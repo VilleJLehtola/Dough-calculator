@@ -1,9 +1,10 @@
-// src/components/RecipeViewPage.jsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
 
 export default function RecipeViewPage() {
   const { id } = useParams();
@@ -54,17 +55,36 @@ export default function RecipeViewPage() {
     recipe_images,
   } = recipe;
 
+  const settings = {
+    dots: true,
+    infinite: true,
+    speed: 500,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    arrows: false,
+  };
+
+  const iconMap = {
+    jauho: '🌾',
+    vesi: '💧',
+    suola: '🧂',
+    juuri: '🧬',
+    öljy: '🪔',
+    siemenet: '🌻',
+  };
+
   return (
     <div className="max-w-screen-md mx-auto p-4">
       {recipe_images?.length > 0 && (
-        <Slider dots infinite speed={500} slidesToShow={1} slidesToScroll={1}>
+        <Slider {...settings} className="rounded-lg overflow-hidden mb-4">
           {recipe_images.map((img) => (
-            <img
-              key={img.url}
-              src={img.url}
-              alt={title}
-              className="w-full h-64 object-cover rounded-xl"
-            />
+            <div key={img.url} className="px-2">
+              <img
+                src={img.url}
+                alt={title}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+            </div>
           ))}
         </Slider>
       )}
@@ -98,7 +118,21 @@ export default function RecipeViewPage() {
           <div className="mb-4">
             <h3 className="text-lg font-semibold mb-1">{t('Instructions') || 'Ohjeet'}</h3>
             <div className="prose dark:prose-invert text-sm whitespace-pre-line">
-              {instructions}
+              {instructions
+                .split('\n')
+                .map((line, index) => {
+                  const match = line.match(/^Taitto\s*(\d)/i);
+                  if (match) {
+                    const number = match[1];
+                    return (
+                      <p key={index}>
+                        🌀 <strong>{t('Fold')} {number}:</strong>{' '}
+                        {line.replace(/^Taitto\s*\d+:?/i, '').trim()}
+                      </p>
+                    );
+                  }
+                  return <p key={index}>{line}</p>;
+                })}
             </div>
           </div>
         )}
@@ -107,39 +141,25 @@ export default function RecipeViewPage() {
         <div className="bg-gray-200 dark:bg-gray-700 rounded p-4 text-sm text-gray-900 dark:text-white">
           <h3 className="font-semibold mb-2">{t('Ingredients') || 'Ainekset'}</h3>
 
-          {ingredients?.jauho && (
-            <p>
-              <strong>{t('Flour') || 'Jauhot'}:</strong> {ingredients.jauho.toFixed(0)}g
-            </p>
-          )}
-          {ingredients?.vesi && (
-            <p>
-              <strong>{t('Water') || 'Vesi'}:</strong> {ingredients.vesi.toFixed(0)}g
-            </p>
-          )}
-          {ingredients?.suola && (
-            <p>
-              <strong>{t('Salt') || 'Suola'}:</strong> {ingredients.suola.toFixed(1)}g
-            </p>
-          )}
-          {ingredients?.juuri && (
-            <p>
-              <strong>{t('Starter') || 'Juuri'}:</strong> {ingredients.juuri.toFixed(0)}g
-            </p>
-          )}
-          {ingredients?.öljy > 0 && (
-            <p>
-              <strong>{t('Oil') || 'Öljy'}:</strong> {ingredients.öljy.toFixed(1)}g
-            </p>
-          )}
-          {ingredients?.siemenet > 0 && (
-            <p>
-              <strong>{t('Seeds') || 'Siemenet'}:</strong> {ingredients.siemenet.toFixed(0)}g
-            </p>
-          )}
+          {Object.entries(iconMap).map(([key, icon]) => {
+            const value = ingredients?.[key];
+            if (value > 0) {
+              return (
+                <p key={key}>
+                  {icon}{' '}
+                  <strong>
+                    {t(key.charAt(0).toUpperCase() + key.slice(1))}:
+                  </strong>{' '}
+                  {value.toFixed(1)}g
+                </p>
+              );
+            }
+            return null;
+          })}
+
           {ingredients?.yhteensa && (
             <p className="mt-2">
-              <strong>{t('Total dough weight') || 'Taikinan kokonaispaino'}:</strong>{' '}
+              ⚖️ <strong>{t('Total dough weight') || 'Taikinan kokonaispaino'}:</strong>{' '}
               {ingredients.yhteensa.toFixed(0)}g
             </p>
           )}
