@@ -198,7 +198,6 @@ function AppContent() {
             </motion.div>
           } />
           <Routes location={location} key={location.pathname}>
-  <Route path="/" element={...} />
 
   <Route path="/recipe/:id" element={
     <motion.div {...pageTransition}>
