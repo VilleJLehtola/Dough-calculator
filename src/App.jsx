@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from
 import { AnimatePresence, motion } from 'framer-motion';
 import { supabase } from '@/supabaseClient';
 
-import Header from '@/components/Header';
+import Layout from '@/components/Layout';
 import AuthForm from '@/components/AuthForm';
 import ForgotPasswordForm from '@/components/ForgotPasswordForm';
 import ResetPassword from '@/components/ResetPassword';
@@ -49,9 +49,7 @@ function AppContent() {
 
   useEffect(() => {
     const stored = localStorage.getItem('theme');
-    const root = document.documentElement;
-    if (stored === 'dark') root.classList.add('dark');
-    else root.classList.remove('dark');
+    document.documentElement.classList.toggle('dark', stored === 'dark');
   }, []);
 
   useEffect(() => {
@@ -113,15 +111,17 @@ function AppContent() {
     const juuri = jauho * 0.2;
     const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
     const seeds = useSeeds ? jauho * 0.15 : 0;
-    const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
 
-    const jauhotyypit = mode === 'pizza'
-      ? { '00-jauho': jauho * (1000 / 1070), puolikarkea: jauho * (70 / 1070) }
-      : useRye
-        ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
-        : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
-
-    return { jauho, vesi, suola, juuri, öljy: oljy, yhteensa, jauhotyypit, siemenet: seeds };
+    return {
+      jauho, vesi, suola, juuri, öljy: oljy,
+      yhteensa: jauho + vesi + suola + juuri + oljy + seeds,
+      jauhotyypit: mode === 'pizza'
+        ? { '00-jauho': jauho * (1000 / 1070), puolikarkea: jauho * (70 / 1070) }
+        : useRye
+          ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
+          : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) },
+      siemenet: seeds
+    };
   };
 
   const result = calculate();
@@ -130,116 +130,81 @@ function AppContent() {
     <div className="transition-colors duration-500 min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={
-            <motion.div {...pageTransition}>
-              <div className="flex flex-col items-center py-10 px-4">
-                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-                  <Header user={user} activeView={activeView} setActiveView={setActiveView} logout={logout} />
-                  {activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-                  {activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-                  {activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
-                  {activeView === 'calculator' && (
-                    <>
-                      <CalculatorForm
-                        inputGrams={inputGrams}
-                        setInputGrams={setInputGrams}
-                        inputType={inputType}
-                        setInputType={setInputType}
-                        hydration={hydration}
-                        setHydration={setHydration}
-                        saltPct={saltPct}
-                        setSaltPct={setSaltPct}
-                        mode={mode}
-                        setMode={setMode}
-                        useOil={useOil}
-                        setUseOil={setUseOil}
-                        coldFermentation={coldFermentation}
-                        setColdFermentation={setColdFermentation}
-                        useRye={useRye}
-                        setUseRye={setUseRye}
+          <Route element={
+            <Layout
+              user={user}
+              activeView={activeView}
+              setActiveView={setActiveView}
+              logout={logout}
+            />
+          }>
+            <Route index element={
+              <motion.div {...pageTransition}>
+                {activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
+                {activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
+                {activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
+                {activeView === 'calculator' && (
+                  <>
+                    <CalculatorForm
+                      inputGrams={inputGrams}
+                      setInputGrams={setInputGrams}
+                      inputType={inputType}
+                      setInputType={setInputType}
+                      hydration={hydration}
+                      setHydration={setHydration}
+                      saltPct={saltPct}
+                      setSaltPct={setSaltPct}
+                      mode={mode}
+                      setMode={setMode}
+                      useOil={useOil}
+                      setUseOil={setUseOil}
+                      coldFermentation={coldFermentation}
+                      setColdFermentation={setColdFermentation}
+                      useRye={useRye}
+                      setUseRye={setUseRye}
+                      useSeeds={useSeeds}
+                      setUseSeeds={setUseSeeds}
+                      showRecipe={showRecipe}
+                      setShowRecipe={setShowRecipe}
+                      resetAll={() => {
+                        setInputGrams('');
+                        setInputType('jauho');
+                        setHydration(75);
+                        setSaltPct(2);
+                        setMode('leipa');
+                        setUseOil(false);
+                        setColdFermentation(false);
+                        setUseRye(false);
+                        setUseSeeds(false);
+                        setShowRecipe(false);
+                        setFoldsDone(0);
+                        setFavName('');
+                        setMessage('');
+                      }}
+                    />
+                    {result && <ResultDisplay result={result} />}
+                    {showRecipe && result && (
+                      <RecipeView
+                        doughType={mode}
                         useSeeds={useSeeds}
-                        setUseSeeds={setUseSeeds}
-                        showRecipe={showRecipe}
-                        setShowRecipe={setShowRecipe}
-                        resetAll={() => {
-                          setInputGrams('');
-                          setInputType('jauho');
-                          setHydration(75);
-                          setSaltPct(2);
-                          setMode('leipa');
-                          setUseOil(false);
-                          setColdFermentation(false);
-                          setUseRye(false);
-                          setUseSeeds(false);
-                          setShowRecipe(false);
-                          setFoldsDone(0);
-                          setFavName('');
-                          setMessage('');
-                        }}
+                        coldFermentation={coldFermentation}
+                        foldsDone={foldsDone}
+                        setFoldsDone={setFoldsDone}
+                        useOil={useOil}
                       />
-                      {result && <ResultDisplay result={result} />}
-                      {showRecipe && result && (
-                        <RecipeView
-                          doughType={mode}
-                          useSeeds={useSeeds}
-                          coldFermentation={coldFermentation}
-                          foldsDone={foldsDone}
-                          setFoldsDone={setFoldsDone}
-                          useOil={useOil}
-                        />
-                      )}
-                    </>
-                  )}
-                  {activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />}
-                  {activeView === 'recipes' && <RecipesPage user={user} isAdmin={isAdmin} />}
-                  {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
-                </div>
-              </div>
-            </motion.div>
-          } />
-
-          <Route path="/recipe/:id" element={
-            <motion.div {...pageTransition}>
-              <div className="flex flex-col items-center py-10 px-4">
-                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-                  <Header user={user} activeView="recipe" setActiveView={setActiveView} logout={logout} />
-                  <RecipeViewPage user={user} />
-                </div>
-              </div>
-            </motion.div>
-          } />
-
-          <Route path="/admin-dashboard" element={
-            <motion.div {...pageTransition}>
-              <div className="flex flex-col items-center py-10 px-4">
-                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-                  <Header user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout} />
-                  <AdminDashboard user={user} />
-                </div>
-              </div>
-            </motion.div>
-          } />
-
-          <Route path="/edit-recipe/:id" element={
-            <motion.div {...pageTransition}>
-              <div className="flex flex-col items-center py-10 px-4">
-                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-6xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-                  <Header user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout} />
-                  <EditRecipePage user={user} />
-                </div>
-              </div>
-            </motion.div>
-          } />
-
-          <Route path="/:userId/:favoriteName" element={
-            <motion.div {...pageTransition}>
-              <div className="flex flex-col items-center py-10 px-4">
-                <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl max-w-xl w-full p-6 space-y-6 border border-blue-200 dark:border-gray-700 flex flex-col">
-                  <SharedFavoritePage />
-                </div>
-              </div>
-            </motion.div>
-          } />
+                    )}
+                  </>
+                )}
+                {activeView === 'favorites' && <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />}
+                {activeView === 'recipes' && <RecipesPage user={user} isAdmin={isAdmin} />}
+                {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
+              </motion.div>
+            } />
+            <Route path="/recipe/:id" element={<RecipeViewPage user={user} />} />
+            <Route path="/admin-dashboard" element={<AdminDashboard user={user} />} />
+            <Route path="/edit-recipe/:id" element={<EditRecipePage user={user} />} />
+            <Route path="/:userId/:favoriteName" element={<SharedFavoritePage />} />
+          </Route>
         </Routes>
       </AnimatePresence>
     </div>
