@@ -43,7 +43,6 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
 
   const isEditMode = !!existingRecipe;
 
-  // Prefill data if editing
   useEffect(() => {
     if (existingRecipe) {
       setTitle(existingRecipe.title || '');
@@ -96,46 +95,31 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files);
-    console.log('Selected image files:', files); // DEBUG
     setImageFiles(files);
     const previews = files.map(file => URL.createObjectURL(file));
     setPreviewUrls(previews);
   };
 
   const uploadImages = async (recipeId) => {
-    console.log('Uploading images for recipe ID:', recipeId); // DEBUG
     for (const file of imageFiles) {
       const ext = file.name.split('.').pop();
       const filename = `${Date.now()}-${file.name}`;
       const path = `${recipeId}/${filename}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('recipes') // ✅ make sure 'recipes' is your actual Supabase storage bucket name
+        .from('recipes')
         .upload(path, file, {
           contentType: file.type
         });
 
-      if (uploadError) {
-        console.error('Image upload failed:', uploadError); // DEBUG
-        continue;
-      }
+      if (uploadError) continue;
 
       const { data, error: publicUrlError } = supabase.storage.from('recipes').getPublicUrl(path);
+      if (publicUrlError) continue;
 
-      if (publicUrlError) {
-        console.error('Getting public URL failed:', publicUrlError); // DEBUG
-        continue;
-      }
-
-      console.log('Uploaded image public URL:', data.publicUrl); // DEBUG
-
-      const { error: insertError } = await supabase
+      await supabase
         .from('recipe_images')
         .insert({ recipe_id: recipeId, url: data.publicUrl });
-
-      if (insertError) {
-        console.error('Inserting image URL to DB failed:', insertError); // DEBUG
-      }
     }
   };
 
@@ -143,6 +127,29 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
     e.preventDefault();
     setMessage('');
     const tags = selectedTags.map(tag => tag.value);
+
+    // Generate ingredients and flour_types
+    const flourTotal = flours.reduce((sum, f) => sum + Number(f.grams || 0), 0);
+    const ingredients = {
+      jauho: flourTotal,
+      vesi: Number(water),
+      suola: ((flourTotal + Number(water)) * Number(saltPercent) / 100).toFixed(1),
+      öljy: doughType === 'pizza' ? ((flourTotal + Number(water)) * Number(oilPercent) / 100).toFixed(1) : 0,
+      siemenet: seeds ? (flourTotal * 0.15).toFixed(0) : 0,
+      juuri: doughType === 'bread' ? Math.round(flourTotal * 0.2) : 0,
+      yhteensa: (
+        Number(water) +
+        flourTotal +
+        Number(((Number(water) + flourTotal) * Number(saltPercent) / 100))
+      ).toFixed(0)
+    };
+
+    const flour_types = {};
+    flours.forEach(({ type, grams }) => {
+      if (type && grams) {
+        flour_types[type] = Number(grams);
+      }
+    });
 
     const recipeData = {
       created_by: user.id,
@@ -164,7 +171,9 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
       fold_count: foldCount,
       fold_timings: foldTimings.slice(0, foldCount),
       instructions,
-      mode
+      mode,
+      ingredients,
+      flour_types
     };
 
     let recipeId = existingRecipe?.id;
@@ -194,9 +203,7 @@ export default function AdminRecipeEditor({ user, existingRecipe }) {
       recipeId = data[0].id;
     }
 
-    // ✅ Upload images in both create and edit modes
     await uploadImages(recipeId);
-
     setMessage('Resepti tallennettu!');
   };
 
