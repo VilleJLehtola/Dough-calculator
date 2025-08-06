@@ -118,10 +118,17 @@ export default function RecipeViewPage() {
   if (!recipe) return <p className="text-center">Reseptiä ei löytynyt.</p>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
-      {images.length > 0 && <ImageCarousel images={images} />}
+    <div className="min-h-screen w-full bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-10 px-4 text-gray-900 dark:text-gray-100">
 
-      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full max-w-6xl mx-auto mt-10 p-10 space-y-6 border border-blue-200 dark:border-gray-700">
+      {images.length > 0 && (
+  <div className="w-full">
+    <ImageCarousel images={images} />
+  </div>
+)}
+
+
+      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl w-full max-w-[1600px] mx-auto mt-10 p-10 space-y-6 border border-blue-200 dark:border-gray-700">
+
         <Link to="/" className="text-blue-500 hover:underline">← Takaisin</Link>
 
         <AnimatePresence>
