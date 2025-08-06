@@ -26,18 +26,26 @@ export default function RecipeViewPage() {
       .eq('id', id)
       .single();
 
-    if (!error) {
+    if (!error && data) {
       const parsedData = {
         ...data,
-        ingredients: typeof data.ingredients === 'string' ? JSON.parse(data.ingredients) : data.ingredients,
-        flour_types: typeof data.flour_types === 'string' ? JSON.parse(data.flour_types) : data.flour_types,
+        ingredients:
+          typeof data.ingredients === 'string'
+            ? JSON.parse(data.ingredients)
+            : data.ingredients || {},
+        flour_types:
+          typeof data.flour_types === 'string'
+            ? JSON.parse(data.flour_types)
+            : data.flour_types || {},
       };
+
       setRecipe(parsedData);
     }
   };
 
   fetchRecipe();
 }, [id]);
+
 
 
   if (!recipe) {
