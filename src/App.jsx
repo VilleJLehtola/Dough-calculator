@@ -1,260 +1,192 @@
-// src/App.jsx
-import React, { useState, useEffect } from 'react';
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
-import { supabase } from '@/supabaseClient';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import Layout from '@/components/Layout';
-import AuthForm from '@/components/AuthForm';
-import ForgotPasswordForm from '@/components/ForgotPasswordForm';
-import ResetPassword from '@/components/ResetPassword';
-import CalculatorForm from '@/components/CalculatorForm';
-import ResultDisplay from '@/components/ResultDisplay';
-import RecipeView from '@/components/RecipeView';
-import FavoritesList from '@/components/FavoritesList';
-import RecipesPage from '@/components/RecipesPage';
-import AdminRecipeEditor from '@/components/AdminRecipeEditor';
-import RecipeViewPage from '@/components/RecipeViewPage';
-import SharedFavoritePage from '@/components/SharedFavoritePage';
-import AdminDashboard from '@/components/AdminDashboard';
-import EditRecipePage from '@/components/EditRecipePage';
-
-function AppContent() {
-  const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [activeView, setActiveView] = useState('calculator');
-
-  const [inputGrams, setInputGrams] = useState('');
-  const [inputType, setInputType] = useState('jauho');
-  const [hydration, setHydration] = useState(75);
-  const [saltPct, setSaltPct] = useState(2);
-  const [mode, setMode] = useState('leipa');
-  const [useOil, setUseOil] = useState(false);
-  const [coldFermentation, setColdFermentation] = useState(false);
-  const [useRye, setUseRye] = useState(false);
-  const [useSeeds, setUseSeeds] = useState(false);
-  const [showRecipe, setShowRecipe] = useState(false);
-  const [foldsDone, setFoldsDone] = useState(0);
-  const [favName, setFavName] = useState('');
-  const [message, setMessage] = useState('');
-
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const theme = localStorage.getItem('theme');
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
-
-  useEffect(() => {
-    async function loadSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        setIsAdmin(userData?.role === 'admin');
-      }
-    }
-
-    loadSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        supabase
-          .from('users')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => {
-            setIsAdmin(data?.role === 'admin');
-          });
-      } else {
-        setUser(null);
-        setIsAdmin(false);
-        setActiveView('calculator');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const logout = async () => {
-    await supabase.auth.signOut();
-    localStorage.clear();
-    sessionStorage.clear();
-    indexedDB.deleteDatabase('supabase-auth-cache');
-    setUser(null);
-    setIsAdmin(false);
-    setActiveView('calculator');
-    navigate('/');
-  };
-
-  const calculate = () => {
-    const grams = parseFloat(inputGrams);
-    if (isNaN(grams) || grams <= 0) return null;
-
-    const h = hydration / 100;
-    const s = saltPct / 100;
-    let jauho, vesi;
-
-    if (inputType === 'jauho') {
-      jauho = grams;
-      vesi = h * jauho;
-    } else {
-      vesi = grams;
-      jauho = vesi / h;
-    }
-
-    const suola = jauho * s;
-    const juuri = jauho * 0.2;
-    const oljy = mode === 'pizza' && useOil ? jauho * 0.03 : 0;
-    const seeds = useSeeds ? jauho * 0.15 : 0;
-    const yhteensa = jauho + vesi + suola + juuri + oljy + seeds;
-
-    const jauhotyypit =
-      mode === 'pizza'
-        ? { '00-jauho': jauho * (1000 / 1070), puolikarkea: jauho * (70 / 1070) }
-        : useRye
-        ? { ruis: jauho * 0.2, puolikarkea: jauho * 0.8 }
-        : { puolikarkea: jauho * (500 / 620), täysjyvä: jauho * (120 / 620) };
-
-    return { jauho, vesi, suola, juuri, öljy: oljy, yhteensa, jauhotyypit, siemenet: seeds };
-  };
-
-  const result = calculate();
+export default function CalculatorForm({
+  inputGrams,
+  setInputGrams,
+  inputType,
+  setInputType,
+  hydration,
+  setHydration,
+  saltPct,
+  setSaltPct,
+  mode,
+  setMode,
+  useOil,
+  setUseOil,
+  coldFermentation,
+  setColdFermentation,
+  useRye,
+  setUseRye,
+  useSeeds,
+  setUseSeeds,
+  showRecipe,
+  setShowRecipe,
+  resetAll
+}) {
+  const { t } = useTranslation();
 
   return (
-    <div className="transition-colors duration-500 min-h-screen bg-gradient-to-br from-blue-100 via-white to-blue-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-gray-100">
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route
-            path="/"
-            element={
-              <Layout user={user} activeView={activeView} setActiveView={setActiveView} logout={logout}>
-                {activeView === 'auth' && <AuthForm setUser={setUser} setActiveView={setActiveView} />}
-                {activeView === 'forgot-password' && <ForgotPasswordForm setActiveView={setActiveView} />}
-                {activeView === 'reset-password' && <ResetPassword setActiveView={setActiveView} />}
-                {activeView === 'calculator' && (
-                  <>
-                    <CalculatorForm
-                      inputGrams={inputGrams}
-                      setInputGrams={setInputGrams}
-                      inputType={inputType}
-                      setInputType={setInputType}
-                      hydration={hydration}
-                      setHydration={setHydration}
-                      saltPct={saltPct}
-                      setSaltPct={setSaltPct}
-                      mode={mode}
-                      setMode={setMode}
-                      useOil={useOil}
-                      setUseOil={setUseOil}
-                      coldFermentation={coldFermentation}
-                      setColdFermentation={setColdFermentation}
-                      useRye={useRye}
-                      setUseRye={setUseRye}
-                      useSeeds={useSeeds}
-                      setUseSeeds={setUseSeeds}
-                      showRecipe={showRecipe}
-                      setShowRecipe={setShowRecipe}
-                      resetAll={() => {
-                        setInputGrams('');
-                        setInputType('jauho');
-                        setHydration(75);
-                        setSaltPct(2);
-                        setMode('leipa');
-                        setUseOil(false);
-                        setColdFermentation(false);
-                        setUseRye(false);
-                        setUseSeeds(false);
-                        setShowRecipe(false);
-                        setFoldsDone(0);
-                        setFavName('');
-                        setMessage('');
-                      }}
-                    />
-                    {result && <ResultDisplay result={result} />}
-                    {showRecipe && result && (
-                      <RecipeView
-                        doughType={mode}
-                        useSeeds={useSeeds}
-                        coldFermentation={coldFermentation}
-                        foldsDone={foldsDone}
-                        setFoldsDone={setFoldsDone}
-                        useOil={useOil}
-                      />
-                    )}
-                  </>
-                )}
-                {activeView === 'favorites' && (
-                  <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />
-                )}
-                {activeView === 'recipes' && (
-                  <RecipesPage user={user} isAdmin={isAdmin} />
-                )}
-                {isAdmin && activeView === 'admin' && (
-                  <AdminRecipeEditor user={user} />
-                )}
-              </Layout>
-            }
+    <div className="space-y-4">
+      {/* Type + Input */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        {/* Dropdown */}
+        <div className="sm:w-32 w-full">
+          <select
+            value={inputType}
+            onChange={(e) => setInputType(e.target.value)}
+            title={t("Input type tooltip")}
+            className="w-full border rounded px-3 h-[44px] text-sm appearance-none dark:bg-gray-800 dark:text-white"
+          >
+            <option value="jauho">{t("Flour")}</option>
+            <option value="vesi">{t("Water")}</option>
+          </select>
+        </div>
+
+        {/* Input with unit */}
+        <div className="flex-1 relative">
+          <input
+            type="number"
+            placeholder={t("Grams")}
+            value={inputGrams}
+            onChange={(e) => setInputGrams(e.target.value)}
+            title={t("Input amount tooltip")}
+            className="w-full border rounded px-3 h-[44px] pr-10 text-sm dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
           />
-          <Route
-            path="/recipe/:id"
-            element={
-              <Layout user={user} activeView="recipe" setActiveView={setActiveView} logout={logout}>
-                <RecipeViewPage user={user} />
-              </Layout>
-            }
+          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none">
+            {inputType === 'jauho' ? 'g' : 'ml'}
+          </span>
+        </div>
+      </div>
+
+      {/* Hydration + Salt */}
+      <div className="flex space-x-2">
+        <div className="flex-1">
+          <label className="block text-sm dark:text-gray-200">{t("Hydration")} (%)</label>
+          <input
+            type="number"
+            value={hydration}
+            onChange={(e) => setHydration(e.target.value)}
+            className="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
+            title={t("Hydration tooltip")}
           />
-          <Route
-            path="/admin-dashboard"
-            element={
-              <Layout user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout}>
-                <AdminDashboard user={user} />
-              </Layout>
-            }
+        </div>
+        <div className="flex-1">
+          <label className="block text-sm dark:text-gray-200">{t("Salt")} (%)</label>
+          <input
+            type="number"
+            value={saltPct}
+            onChange={(e) => setSaltPct(e.target.value)}
+            className="w-full border rounded px-3 py-2 dark:bg-gray-800 dark:text-white dark:placeholder-gray-400"
+            title={t("Salt tooltip")}
           />
-          <Route
-            path="/edit-recipe/:id"
-            element={
-              <Layout user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout}>
-                <EditRecipePage user={user} />
-              </Layout>
-            }
+        </div>
+      </div>
+
+      {/* Mode switch */}
+      <div className="flex space-x-2">
+        <button
+          type="button"
+          onClick={() => setMode('leipa')}
+          className={`flex-1 px-4 py-2 rounded font-semibold ${
+            mode === 'leipa'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-600 dark:text-white'
+          }`}
+        >
+          {t("Bread")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('pizza')}
+          className={`flex-1 px-4 py-2 rounded font-semibold ${
+            mode === 'pizza'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 dark:bg-gray-600 dark:text-white'
+          }`}
+        >
+          {t("Pizza")}
+        </button>
+      </div>
+
+      {/* Options - checkboxes */}
+      <div className="space-y-2">
+        {mode === 'leipa' && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="rye"
+              checked={useRye}
+              onChange={() => setUseRye(!useRye)}
+              className="h-4 w-4"
+            />
+            <label htmlFor="rye" className="text-sm dark:text-gray-200">
+              {t("Include Rye Flour")}
+            </label>
+          </div>
+        )}
+
+        {mode === 'leipa' && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="seeds"
+              checked={useSeeds}
+              onChange={() => setUseSeeds(!useSeeds)}
+              className="h-4 w-4"
+            />
+            <label htmlFor="seeds" className="text-sm dark:text-gray-200">
+              {t("Include Seeds")}
+            </label>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="cold"
+            checked={coldFermentation}
+            onChange={() => setColdFermentation(!coldFermentation)}
+            className="h-4 w-4"
           />
-          <Route
-            path="/:userId/:favoriteName"
-            element={
-              <Layout user={user} activeView="shared" setActiveView={setActiveView} logout={logout}>
-                <SharedFavoritePage />
-              </Layout>
-            }
-          />
-        </Routes>
-      </AnimatePresence>
+          <label htmlFor="cold" className="text-sm dark:text-gray-200">
+            {t("Cold Fermentation")}
+          </label>
+        </div>
+
+        {mode === 'pizza' && (
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="oil"
+              checked={useOil}
+              onChange={() => setUseOil(!useOil)}
+              className="h-4 w-4"
+            />
+            <label htmlFor="oil" className="text-sm dark:text-gray-200">
+              {t("Include Oil")}
+            </label>
+          </div>
+        )}
+      </div>
+
+      {/* Buttons */}
+      <div className="flex space-x-2">
+        <button
+          type="button"
+          onClick={() => setShowRecipe(true)} // ✅ Correct toggle for result + recipe
+          className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+        >
+          {t("Show Recipe")}
+        </button>
+        <button
+          type="button"
+          onClick={resetAll}
+          className="flex-1 bg-gray-300 text-black dark:bg-gray-500 dark:text-white py-2 rounded hover:bg-gray-400"
+        >
+          {t("Clear")}
+        </button>
+      </div>
     </div>
-  );
-}
-
-export default function App() {
-  return (
-    <Router>
-      <AppContent />
-    </Router>
   );
 }
