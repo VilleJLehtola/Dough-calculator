@@ -1,3 +1,4 @@
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import {
   BrowserRouter as Router,
@@ -187,19 +188,17 @@ function AppContent() {
                         setMessage('');
                       }}
                     />
-                    {result && (
+                    {showRecipe && result && (
                       <>
                         <ResultDisplay result={result} />
-                        {showRecipe && (
-                          <RecipeView
-                            doughType={mode}
-                            useSeeds={useSeeds}
-                            coldFermentation={coldFermentation}
-                            foldsDone={foldsDone}
-                            setFoldsDone={setFoldsDone}
-                            useOil={useOil}
-                          />
-                        )}
+                        <RecipeView
+                          doughType={mode}
+                          useSeeds={useSeeds}
+                          coldFermentation={coldFermentation}
+                          foldsDone={foldsDone}
+                          setFoldsDone={setFoldsDone}
+                          useOil={useOil}
+                        />
                       </>
                     )}
                   </>
@@ -207,12 +206,8 @@ function AppContent() {
                 {activeView === 'favorites' && (
                   <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />
                 )}
-                {activeView === 'recipes' && (
-                  <RecipesPage user={user} isAdmin={isAdmin} />
-                )}
-                {isAdmin && activeView === 'admin' && (
-                  <AdminRecipeEditor user={user} />
-                )}
+                {activeView === 'recipes' && <RecipesPage user={user} isAdmin={isAdmin} />}
+                {isAdmin && activeView === 'admin' && <AdminRecipeEditor user={user} />}
               </Layout>
             }
           />
