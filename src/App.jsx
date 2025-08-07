@@ -188,17 +188,8 @@ function AppContent() {
                         setMessage('');
                       }}
                     />
-                    {result && <ResultDisplay result={result} />}
-                    {showRecipe && result && (
-                      <RecipeView
-                        doughType={mode}
-                        useSeeds={useSeeds}
-                        coldFermentation={coldFermentation}
-                        foldsDone={foldsDone}
-                        setFoldsDone={setFoldsDone}
-                        useOil={useOil}
-                      />
-                    )}
+                    {showRecipe && result && <ResultDisplay result={result} />}
+
                   </>
                 )}
                 {activeView === 'favorites' && (
