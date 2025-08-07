@@ -188,16 +188,24 @@ function AppContent() {
                         setMessage('');
                       }}
                     />
-                    {result && <ResultDisplay result={result} />}
-                    {showRecipe && result && (
-                      <RecipeView
-                        doughType={mode}
-                        useSeeds={useSeeds}
-                        coldFermentation={coldFermentation}
-                        foldsDone={foldsDone}
-                        setFoldsDone={setFoldsDone}
-                        useOil={useOil}
-                      />
+                    {showRecipe && (
+                      result ? (
+                        <>
+                          <ResultDisplay result={result} />
+                          <RecipeView
+                            doughType={mode}
+                            useSeeds={useSeeds}
+                            coldFermentation={coldFermentation}
+                            foldsDone={foldsDone}
+                            setFoldsDone={setFoldsDone}
+                            useOil={useOil}
+                          />
+                        </>
+                      ) : (
+                        <div className="text-red-500 text-center mt-4">
+                          ⚠️ Syötä ensin jauho- tai vesimäärä!
+                        </div>
+                      )
                     )}
                   </>
                 )}
