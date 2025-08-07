@@ -1,6 +1,7 @@
+// src/components/CalculatorForm.jsx
 import React from 'react';
 
-export default function CalculatorForm({
+const CalculatorForm = ({
   inputGrams,
   setInputGrams,
   inputType,
@@ -21,134 +22,168 @@ export default function CalculatorForm({
   setUseSeeds,
   showRecipe,
   setShowRecipe,
-  resetAll,
-}) {
+  resetAll
+}) => {
+  const handleInputTypeToggle = () => {
+    setInputType(inputType === 'jauho' ? 'vesi' : 'jauho');
+    setInputGrams('');
+  };
+
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="block mb-1">Jauho</label>
+          <label className="block text-sm font-medium mb-1">
+            {inputType === 'jauho' ? 'Jauho' : 'Vesi'}
+          </label>
           <input
             type="number"
-            value={inputType === 'jauho' ? inputGrams : ''}
-            onChange={(e) => {
-              setInputType('jauho');
-              setInputGrams(e.target.value);
-            }}
+            className="w-full px-3 py-2 border border-gray-300 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
+            value={inputGrams}
+            onChange={(e) => setInputGrams(e.target.value)}
             placeholder="Grammat"
-            className="w-full border px-2 py-1"
           />
         </div>
+
         <div>
-          <label className="block mb-1">Vesi</label>
+          <label className="block text-sm font-medium mb-1">
+            {inputType === 'jauho' ? 'Vesi' : 'Jauho'}
+          </label>
           <input
-            type="number"
-            value={inputType === 'vesi' ? inputGrams : ''}
-            onChange={(e) => {
-              setInputType('vesi');
-              setInputGrams(e.target.value);
-            }}
-            placeholder="Millilitrat"
-            className="w-full border px-2 py-1"
+            type="text"
+            className="w-full px-3 py-2 border border-gray-200 bg-gray-100 rounded text-gray-400 dark:bg-gray-800 dark:text-gray-500"
+            value=""
+            disabled
+            placeholder={inputType === 'jauho' ? 'Lasketaan' : 'Lasketaan'}
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mt-4">
+      <div className="flex justify-center mb-4">
+        <button
+          onClick={handleInputTypeToggle}
+          className="text-sm text-blue-600 dark:text-blue-400 underline"
+        >
+          Vaihda syöttötapa: {inputType === 'jauho' ? 'käytä vettä' : 'käytä jauhoa'}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
-          <label className="block mb-1">Hydraatio (%)</label>
+          <label className="block text-sm font-medium mb-1">Hydraatio (%)</label>
           <input
             type="number"
             value={hydration}
-            onChange={(e) => setHydration(Number(e.target.value))}
-            className="w-full border px-2 py-1"
+            onChange={(e) => setHydration(e.target.value)}
+            min={55}
+            max={100}
+            className="w-full px-3 py-2 border border-gray-300 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
           />
         </div>
         <div>
-          <label className="block mb-1">Suola (%)</label>
+          <label className="block text-sm font-medium mb-1">Suola (%)</label>
           <input
             type="number"
             value={saltPct}
-            onChange={(e) => setSaltPct(Number(e.target.value))}
-            className="w-full border px-2 py-1"
+            onChange={(e) => setSaltPct(e.target.value)}
+            min={0}
+            max={5}
+            className="w-full px-3 py-2 border border-gray-300 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
           />
         </div>
       </div>
 
-      <div className="flex justify-around mt-4">
+      <div className="flex gap-2 mb-4">
         <button
-          className={`px-4 py-2 rounded ${mode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}
           onClick={() => setMode('leipa')}
+          className={`px-4 py-2 rounded font-semibold ${
+            mode === 'leipa'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-white'
+          }`}
         >
           Leipä
         </button>
         <button
-          className={`px-4 py-2 rounded ${mode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}
           onClick={() => setMode('pizza')}
+          className={`px-4 py-2 rounded font-semibold ${
+            mode === 'pizza'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-300 text-gray-800 dark:bg-gray-600 dark:text-white'
+          }`}
         >
           Pizza
         </button>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="space-y-2 mb-4">
         {mode === 'leipa' && (
-          <>
-            <label className="block">
-              <input
-                type="checkbox"
-                checked={useRye}
-                onChange={(e) => setUseRye(e.target.checked)}
-                className="mr-2"
-              />
-              Sisältää 20% ruisjauhoja
-            </label>
-            <label className="block">
-              <input
-                type="checkbox"
-                checked={useSeeds}
-                onChange={(e) => setUseSeeds(e.target.checked)}
-                className="mr-2"
-              />
-              Lisää siemeniä (15%)
-            </label>
-          </>
-        )}
-        {mode === 'pizza' && (
-          <label className="block">
+          <div className="flex items-center">
             <input
+              id="rye"
               type="checkbox"
-              checked={useOil}
-              onChange={(e) => setUseOil(e.target.checked)}
+              checked={useRye}
+              onChange={(e) => setUseRye(e.target.checked)}
               className="mr-2"
             />
-            Lisää öljyä (3%)
-          </label>
+            <label htmlFor="rye">Sisältää 20% ruisjauhoja</label>
+          </div>
         )}
-        <label className="block">
+
+        {mode === 'leipa' && (
+          <div className="flex items-center">
+            <input
+              id="seeds"
+              type="checkbox"
+              checked={useSeeds}
+              onChange={(e) => setUseSeeds(e.target.checked)}
+              className="mr-2"
+            />
+            <label htmlFor="seeds">Lisää siemeniä (15%)</label>
+          </div>
+        )}
+
+        <div className="flex items-center">
           <input
+            id="cold"
             type="checkbox"
             checked={coldFermentation}
             onChange={(e) => setColdFermentation(e.target.checked)}
             className="mr-2"
           />
-          Kylmäkohotus
-        </label>
+          <label htmlFor="cold">Kylmäkohotus</label>
+        </div>
+
+        {mode === 'pizza' && (
+          <div className="flex items-center">
+            <input
+              id="oil"
+              type="checkbox"
+              checked={useOil}
+              onChange={(e) => setUseOil(e.target.checked)}
+              className="mr-2"
+            />
+            <label htmlFor="oil">Lisää öljyä (3%)</label>
+          </div>
+        )}
       </div>
 
-      <div className="mt-4 flex gap-4">
+      <div className="flex gap-4">
         <button
           onClick={() => setShowRecipe(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
         >
           Näytä resepti
         </button>
         <button
           onClick={resetAll}
-          className="bg-gray-400 text-white px-4 py-2 rounded"
+          className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded"
         >
           Tyhjennä
         </button>
       </div>
     </div>
   );
-}
+};
+
+export default CalculatorForm;
