@@ -1,4 +1,3 @@
-// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import {
   BrowserRouter as Router,
@@ -188,17 +187,19 @@ function AppContent() {
                         setMessage('');
                       }}
                     />
-                    {showRecipe && (
+                    {result && (
                       <>
                         <ResultDisplay result={result} />
-                        <RecipeView
-                          doughType={mode}
-                          useSeeds={useSeeds}
-                          coldFermentation={coldFermentation}
-                          foldsDone={foldsDone}
-                          setFoldsDone={setFoldsDone}
-                          useOil={useOil}
-                        />
+                        {showRecipe && (
+                          <RecipeView
+                            doughType={mode}
+                            useSeeds={useSeeds}
+                            coldFermentation={coldFermentation}
+                            foldsDone={foldsDone}
+                            setFoldsDone={setFoldsDone}
+                            useOil={useOil}
+                          />
+                        )}
                       </>
                     )}
                   </>
@@ -215,26 +216,38 @@ function AppContent() {
               </Layout>
             }
           />
-          <Route path="/recipe/:id" element={
-            <Layout user={user} activeView="recipe" setActiveView={setActiveView} logout={logout}>
-              <RecipeViewPage user={user} />
-            </Layout>
-          } />
-          <Route path="/admin-dashboard" element={
-            <Layout user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout}>
-              <AdminDashboard user={user} />
-            </Layout>
-          } />
-          <Route path="/edit-recipe/:id" element={
-            <Layout user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout}>
-              <EditRecipePage user={user} />
-            </Layout>
-          } />
-          <Route path="/:userId/:favoriteName" element={
-            <Layout user={user} activeView="shared" setActiveView={setActiveView} logout={logout}>
-              <SharedFavoritePage />
-            </Layout>
-          } />
+          <Route
+            path="/recipe/:id"
+            element={
+              <Layout user={user} activeView="recipe" setActiveView={setActiveView} logout={logout}>
+                <RecipeViewPage user={user} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/admin-dashboard"
+            element={
+              <Layout user={user} activeView="admin-dashboard" setActiveView={setActiveView} logout={logout}>
+                <AdminDashboard user={user} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/edit-recipe/:id"
+            element={
+              <Layout user={user} activeView="edit-recipe" setActiveView={setActiveView} logout={logout}>
+                <EditRecipePage user={user} />
+              </Layout>
+            }
+          />
+          <Route
+            path="/:userId/:favoriteName"
+            element={
+              <Layout user={user} activeView="shared" setActiveView={setActiveView} logout={logout}>
+                <SharedFavoritePage />
+              </Layout>
+            }
+          />
         </Routes>
       </AnimatePresence>
     </div>
