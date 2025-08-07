@@ -1,4 +1,3 @@
-// src/components/CalculatorForm.jsx
 import React from 'react';
 
 export default function CalculatorForm({
@@ -25,109 +24,127 @@ export default function CalculatorForm({
   resetAll,
 }) {
   return (
-    <div className="p-4">
-      <div className="grid grid-cols-2 gap-4 mb-4">
+    <div className="p-4 max-w-4xl mx-auto">
+      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium">Jauho</label>
+          <label className="block mb-1">Jauho</label>
           <input
             type="number"
-            value={inputGrams}
-            onChange={(e) => setInputGrams(e.target.value)}
+            value={inputType === 'jauho' ? inputGrams : ''}
+            onChange={(e) => {
+              setInputType('jauho');
+              setInputGrams(e.target.value);
+            }}
             placeholder="Grammat"
-            className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:text-white"
+            className="w-full border px-2 py-1"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium">Suola (%)</label>
+          <label className="block mb-1">Vesi</label>
+          <input
+            type="number"
+            value={inputType === 'vesi' ? inputGrams : ''}
+            onChange={(e) => {
+              setInputType('vesi');
+              setInputGrams(e.target.value);
+            }}
+            placeholder="Millilitrat"
+            className="w-full border px-2 py-1"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mt-4">
+        <div>
+          <label className="block mb-1">Hydraatio (%)</label>
+          <input
+            type="number"
+            value={hydration}
+            onChange={(e) => setHydration(Number(e.target.value))}
+            className="w-full border px-2 py-1"
+          />
+        </div>
+        <div>
+          <label className="block mb-1">Suola (%)</label>
           <input
             type="number"
             value={saltPct}
             onChange={(e) => setSaltPct(Number(e.target.value))}
-            className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:text-white"
+            className="w-full border px-2 py-1"
           />
         </div>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium">Hydraatio (%)</label>
-        <input
-          type="number"
-          value={hydration}
-          onChange={(e) => setHydration(Number(e.target.value))}
-          className="w-full px-3 py-2 rounded border dark:bg-gray-700 dark:text-white"
-        />
-      </div>
-
-      <div className="flex gap-4 mb-4">
+      <div className="flex justify-around mt-4">
         <button
+          className={`px-4 py-2 rounded ${mode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}
           onClick={() => setMode('leipa')}
-          className={`flex-1 px-4 py-2 rounded ${mode === 'leipa' ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
           Leipä
         </button>
         <button
+          className={`px-4 py-2 rounded ${mode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-gray-300'}`}
           onClick={() => setMode('pizza')}
-          className={`flex-1 px-4 py-2 rounded ${mode === 'pizza' ? 'bg-blue-600 text-white' : 'bg-gray-300 dark:bg-gray-600'}`}
         >
           Pizza
         </button>
       </div>
 
-      {mode === 'leipa' && (
-        <>
+      <div className="mt-4 space-y-2">
+        {mode === 'leipa' && (
+          <>
+            <label className="block">
+              <input
+                type="checkbox"
+                checked={useRye}
+                onChange={(e) => setUseRye(e.target.checked)}
+                className="mr-2"
+              />
+              Sisältää 20% ruisjauhoja
+            </label>
+            <label className="block">
+              <input
+                type="checkbox"
+                checked={useSeeds}
+                onChange={(e) => setUseSeeds(e.target.checked)}
+                className="mr-2"
+              />
+              Lisää siemeniä (15%)
+            </label>
+          </>
+        )}
+        {mode === 'pizza' && (
           <label className="block">
             <input
               type="checkbox"
-              checked={useRye}
-              onChange={() => setUseRye(!useRye)}
+              checked={useOil}
+              onChange={(e) => setUseOil(e.target.checked)}
               className="mr-2"
             />
-            Sisältää 20% ruisjauhoja
+            Lisää öljyä (3%)
           </label>
-          <label className="block">
-            <input
-              type="checkbox"
-              checked={useSeeds}
-              onChange={() => setUseSeeds(!useSeeds)}
-              className="mr-2"
-            />
-            Lisää siemeniä (15%)
-          </label>
-        </>
-      )}
-
-      {mode === 'pizza' && (
+        )}
         <label className="block">
           <input
             type="checkbox"
-            checked={useOil}
-            onChange={() => setUseOil(!useOil)}
+            checked={coldFermentation}
+            onChange={(e) => setColdFermentation(e.target.checked)}
             className="mr-2"
           />
-          Lisää öljyä (3%)
+          Kylmäkohotus
         </label>
-      )}
+      </div>
 
-      <label className="block mt-2">
-        <input
-          type="checkbox"
-          checked={coldFermentation}
-          onChange={() => setColdFermentation(!coldFermentation)}
-          className="mr-2"
-        />
-        Kylmäkohotus
-      </label>
-
-      <div className="flex gap-4 mt-4">
+      <div className="mt-4 flex gap-4">
         <button
           onClick={() => setShowRecipe(true)}
-          className="flex-1 bg-blue-600 text-white px-4 py-2 rounded"
+          className="bg-blue-600 text-white px-4 py-2 rounded"
         >
           Näytä resepti
         </button>
         <button
           onClick={resetAll}
-          className="flex-1 bg-gray-400 text-white px-4 py-2 rounded"
+          className="bg-gray-400 text-white px-4 py-2 rounded"
         >
           Tyhjennä
         </button>
