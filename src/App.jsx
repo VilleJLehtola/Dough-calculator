@@ -188,19 +188,18 @@ function AppContent() {
                         setMessage('');
                       }}
                     />
+                    {result && <ResultDisplay result={result} />}
                     {showRecipe && result && (
-  <>
-    <ResultDisplay result={result} />
-    <RecipeView
-      doughType={mode}
-      useSeeds={useSeeds}
-      coldFermentation={coldFermentation}
-      foldsDone={foldsDone}
-      setFoldsDone={setFoldsDone}
-      useOil={useOil}
-    />
-  </>
-
+                      <RecipeView
+                        doughType={mode}
+                        useSeeds={useSeeds}
+                        coldFermentation={coldFermentation}
+                        foldsDone={foldsDone}
+                        setFoldsDone={setFoldsDone}
+                        useOil={useOil}
+                      />
+                    )}
+                  </>
                 )}
                 {activeView === 'favorites' && (
                   <FavoritesList user={user} onLoadFavorite={() => setActiveView('calculator')} />
