@@ -1,4 +1,4 @@
-import Layout from '@/Layout';
+import Layout from '@/components/Layout';
 import FrontPage from '@/pages/Frontpage';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
