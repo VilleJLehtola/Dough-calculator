@@ -1,114 +1,70 @@
-/* styles.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Optional: Smooth transition for background and color */
+html,
 body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 0;
+  @apply transition-colors duration-500 ease-in-out;
 }
 
-/* Light + Dark shared container */
+/* Optional dark mode gradient background */
+body {
+  @apply bg-gradient-to-br from-gray-50 to-gray-200 dark:from-slate-900 dark:to-slate-800 text-gray-900 dark:text-gray-100;
+}
+
+/* Container for central content */
 .container {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 1rem;
+  @apply min-h-screen flex justify-center items-center p-4;
 }
 
+/* Card style */
 .card {
-  background-color: #fff;
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 420px;
-  text-align: center;
-  transition: background-color 0.4s ease, color 0.4s ease;
+  @apply bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-lg w-full max-w-md text-center transition-colors duration-500;
 }
 
+/* Mode toggle buttons */
 button.mode {
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 9999px;
-  margin: 0.25rem;
-  cursor: pointer;
-  font-weight: 600;
-  transition: background-color 0.3s ease;
+  @apply border-0 py-2 px-4 rounded-full m-1 cursor-pointer font-semibold transition-colors duration-300;
 }
 
 button.active {
-  background-color: #22c55e;
-  color: white;
+  @apply bg-green-500 text-white;
 }
 
 button.inactive {
-  background-color: #e5e7eb;
-  color: #374151;
+  @apply bg-gray-200 text-gray-700 dark:bg-slate-700 dark:text-gray-200;
 }
 
+/* Input styles */
 input {
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 1rem;
-  border-radius: 12px;
-  border: 1px solid #d1d5db;
-  margin-top: 0.5rem;
-  margin-bottom: 1rem;
-  outline: none;
-  transition: border-color 0.2s ease;
+  @apply w-full p-3 text-base rounded-xl border border-gray-300 dark:border-slate-600 mt-2 mb-4 outline-none transition-colors duration-200 bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500;
 }
 
-input:focus {
-  border-color: #60a5fa;
-}
-
+/* Output section */
 .output {
-  margin-top: 1.5rem;
-  font-size: 1.1rem;
+  @apply mt-6 text-lg;
 }
 
 .output span {
-  font-weight: bold;
+  @apply font-bold;
 }
 
+/* Subtext below input fields */
 .subtext {
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin-top: 0.25rem;
+  @apply text-sm text-gray-500 dark:text-gray-400 mt-1;
 }
 
-/* Smooth transition when switching dark/light mode */
-html, body {
-  transition: background-color 0.4s ease, color 0.4s ease;
+/* Animated toggle switch for dark mode (example utility class) */
+.toggle-switch {
+  @apply relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-300;
 }
-
-/* 🌙 Dark mode overrides */
-body.dark {
-  background: linear-gradient(145deg, #0f172a, #1e293b);
-  color: #f1f5f9;
+.toggle-switch input {
+  @apply sr-only;
 }
-
-body.dark .card {
-  background-color: #1e293b;
-  color: #f1f5f9;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+.toggle-slider {
+  @apply absolute left-1 top-1 bg-white dark:bg-slate-300 w-4 h-4 rounded-full transition-transform duration-300;
 }
-
-body.dark button.inactive {
-  background-color: #334155;
-  color: #f1f5f9;
-}
-
-body.dark button.active {
-  background-color: #16a34a;
-  color: white;
-}
-
-body.dark input {
-  background-color: #334155;
-  color: #f1f5f9;
-  border-color: #475569;
-}
-
-body.dark input::placeholder {
-  color: #94a3b8;
+input:checked + .toggle-slider {
+  @apply translate-x-5;
 }
