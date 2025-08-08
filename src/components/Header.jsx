@@ -1,9 +1,8 @@
-// src/components/Header.jsx
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
 
-export default function Header({ user, onLoginClick, toggleMobileMenu }) {
+export default function Header({ user, toggleMobileMenu }) {
   return (
     <header className="w-full flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       {/* Left side: Hamburger + Logo */}
@@ -26,9 +25,11 @@ export default function Header({ user, onLoginClick, toggleMobileMenu }) {
             Tervetuloa, {user.email}
           </span>
         ) : (
-          <Button onClick={onLoginClick} variant="outline" className="hidden md:block">
-            Kirjaudu
-          </Button>
+          <Link to="/login">
+            <Button variant="outline" className="hidden md:block">
+              Kirjaudu
+            </Button>
+          </Link>
         )}
       </div>
     </header>
