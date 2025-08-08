@@ -5,6 +5,7 @@ body {
   padding: 0;
 }
 
+/* Light + Dark shared container */
 .container {
   min-height: 100vh;
   display: flex;
@@ -21,6 +22,7 @@ body {
   width: 100%;
   max-width: 420px;
   text-align: center;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 button.mode {
@@ -73,7 +75,40 @@ input:focus {
   color: #6b7280;
   margin-top: 0.25rem;
 }
+
 /* Smooth transition when switching dark/light mode */
 html, body {
   transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* 🌙 Dark mode overrides */
+body.dark {
+  background: linear-gradient(145deg, #0f172a, #1e293b);
+  color: #f1f5f9;
+}
+
+body.dark .card {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+body.dark button.inactive {
+  background-color: #334155;
+  color: #f1f5f9;
+}
+
+body.dark button.active {
+  background-color: #16a34a;
+  color: white;
+}
+
+body.dark input {
+  background-color: #334155;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+body.dark input::placeholder {
+  color: #94a3b8;
 }
