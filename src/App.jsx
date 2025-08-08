@@ -1,11 +1,15 @@
+import Layout from '@/Layout';
+import FrontPage from '@/pages/Frontpage';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<h1>Frontpage is working</h1>} />
-      </Routes>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<FrontPage />} />
+        </Routes>
+      </Layout>
     </BrowserRouter>
   );
 }
