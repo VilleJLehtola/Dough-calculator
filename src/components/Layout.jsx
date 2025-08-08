@@ -1,41 +1,30 @@
-import Header from '@/components/Header';
+// src/components/DarkModeToggle.jsx
 import { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import Sidebar from '@/components/Sidebar';
 
-export default function Layout({ user, onLogout, children }) {
-  const [showSidebar, setShowSidebar] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const location = useLocation();
+export default function DarkModeToggle() {
+  const [enabled, setEnabled] = useState(() => {
+    return localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  useEffect(() => {
-    setShowSidebar(!isMobile);
-  }, [isMobile]);
-
-  const toggleSidebar = (force) => {
-    if (typeof force === 'boolean') {
-      setShowSidebar(force);
+    const html = document.documentElement;
+    if (enabled) {
+      html.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
     } else {
-      setShowSidebar((prev) => !prev);
+      html.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
     }
-  };
+  }, [enabled]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white to-[#f0f4ff] dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      <Header user={user} onLogout={onLogout} toggleSidebar={toggleSidebar} />
-      <div className="flex flex-1">
-        {showSidebar && !isMobile && <Sidebar />}
-        <main className="flex-1 p-6">{children}</main>
-      </div>
-    </div>
+    <label className="toggle-switch cursor-pointer ml-4 mb-4 md:ml-6 md:mb-6">
+      <input
+        type="checkbox"
+        checked={enabled}
+        onChange={() => setEnabled(!enabled)}
+      />
+      <span className="toggle-slider" />
+    </label>
   );
 }
