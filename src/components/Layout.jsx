@@ -1,30 +1,43 @@
-// src/components/DarkModeToggle.jsx
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import Header from './Header';
+import Sidebar from './Sidebar';
+import MobileMenu from './MobileMenu';
+import DarkModeToggle from './DarkModeToggle';
 
-export default function DarkModeToggle() {
-  const [enabled, setEnabled] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+const Layout = ({ children }) => {
+  const location = useLocation();
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const html = document.documentElement;
-    if (enabled) {
-      html.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      html.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [enabled]);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   return (
-    <label className="toggle-switch cursor-pointer ml-4 mb-4 md:ml-6 md:mb-6">
-      <input
-        type="checkbox"
-        checked={enabled}
-        onChange={() => setEnabled(!enabled)}
-      />
-      <span className="toggle-slider" />
-    </label>
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-slate-900 dark:to-slate-800 text-gray-900 dark:text-gray-100 transition-colors duration-500">
+      {/* Sidebar or MobileMenu */}
+      {isMobile ? <MobileMenu /> : <Sidebar />}
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col">
+        <Header />
+        <main className="flex-1 p-4">{children}</main>
+      </div>
+
+      {/* Toggle in bottom-left for desktop only */}
+      {!isMobile && (
+        <div className="fixed bottom-4 left-4 z-50">
+          <DarkModeToggle />
+        </div>
+      )}
+    </div>
   );
-}
+};
+
+export default Layout;
