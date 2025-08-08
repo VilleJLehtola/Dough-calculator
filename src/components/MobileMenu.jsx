@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, LogOut, LogIn } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
-import { Button } from '@/components/ui/button';
 
-const MobileMenu = ({ user, onLoginClick }) => {
+const MobileMenu = ({ user, onLoginClick, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const isDark = document.documentElement.classList.contains('dark');
 
@@ -51,19 +50,32 @@ const MobileMenu = ({ user, onLoginClick }) => {
             <DarkModeToggle />
           </div>
 
-          {/* Login button if not logged in */}
-          {!user && (
-            <Button
-              onClick={() => {
-                onLoginClick();
-                setIsOpen(false);
-              }}
-              className="mt-6 w-full"
-              variant="outline"
-            >
-              Kirjaudu
-            </Button>
-          )}
+          {/* Auth buttons */}
+          <div className="pt-6 border-t border-gray-300 dark:border-slate-700 mt-6">
+            {user ? (
+              <button
+                onClick={() => {
+                  onLogout();
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+              >
+                <LogOut className="w-4 h-4" />
+                Kirjaudu ulos
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  onLoginClick();
+                  setIsOpen(false);
+                }}
+                className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <LogIn className="w-4 h-4" />
+                Kirjaudu sisään
+              </button>
+            )}
+          </div>
         </nav>
       </div>
     </>
