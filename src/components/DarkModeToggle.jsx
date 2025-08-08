@@ -1,30 +1,29 @@
-// src/components/DarkModeToggle.jsx
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-export default function DarkModeToggle() {
-  const [enabled, setEnabled] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+const DarkModeToggle = () => {
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.classList.contains('dark')
+  );
 
   useEffect(() => {
-    const html = document.documentElement;
-    if (enabled) {
-      html.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
     } else {
-      html.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      root.classList.remove('dark');
     }
-  }, [enabled]);
+  }, [isDark]);
 
   return (
-    <label className="toggle-switch cursor-pointer ml-4 mb-4 md:ml-6 md:mb-6">
+    <label className="toggle-switch cursor-pointer">
       <input
         type="checkbox"
-        checked={enabled}
-        onChange={() => setEnabled(!enabled)}
+        checked={isDark}
+        onChange={() => setIsDark(!isDark)}
       />
-      <span className="toggle-slider" />
+      <span className="toggle-slider"></span>
     </label>
   );
-}
+};
+
+export default DarkModeToggle;
