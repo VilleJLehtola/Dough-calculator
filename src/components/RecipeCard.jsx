@@ -1,6 +1,7 @@
 // RecipeCard.jsx
 import { useEffect, useState } from "react";
-import supabase from "../supabase";
+import supabase from "../supabaseClient";
+
 
 export default function RecipeCard({ title, subtitle, image, recipeId }) {
   const [likes, setLikes] = useState(0);
