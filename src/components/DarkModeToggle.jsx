@@ -1,28 +1,49 @@
-import React, { useEffect, useState } from 'react';
+// src/components/DarkModeToggle.jsx
+import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const DarkModeToggle = () => {
   const [isDark, setIsDark] = useState(() =>
-    document.documentElement.classList.contains('dark')
+    localStorage.theme === "dark" ||
+    (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)
   );
 
   useEffect(() => {
-    const root = document.documentElement;
+    const html = document.documentElement;
     if (isDark) {
-      root.classList.add('dark');
+      html.classList.add("dark");
+      localStorage.theme = "dark";
     } else {
-      root.classList.remove('dark');
+      html.classList.remove("dark");
+      localStorage.theme = "light";
     }
   }, [isDark]);
 
   return (
-    <label className="toggle-switch cursor-pointer">
-      <input
-        type="checkbox"
-        checked={isDark}
-        onChange={() => setIsDark(!isDark)}
-      />
-      <span className="toggle-slider"></span>
-    </label>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => setIsDark(!isDark)}
+            className="toggle-switch"
+            aria-label="Toggle dark mode"
+          >
+            <input
+              type="checkbox"
+              checked={isDark}
+              onChange={() => setIsDark(!isDark)}
+              className="sr-only"
+            />
+            <span className="toggle-slider"></span>
+            <span className="ml-2">{isDark ? <Moon size={16} /> : <Sun size={16} />}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{isDark ? "Vaihda vaaleaan tilaan" : "Vaihda tummaan tilaan"}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
