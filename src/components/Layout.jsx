@@ -1,7 +1,7 @@
 import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar'; // ✅ make sure this is the updated Sidebar.jsx
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import Sidebar from './components/Sidebar';
 
 export default function Layout({ user, onLogout, children }) {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -30,12 +30,11 @@ export default function Layout({ user, onLogout, children }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-white to-[#f0f4ff] dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       <Header user={user} onLogout={onLogout} toggleSidebar={toggleSidebar} />
       <div className="flex flex-1">
-        {showSidebar && !isMobile && <Sidebar />} {/* ✅ replaces the old hardcoded sidebar */}
-
-        <main className="flex-1 p-4">{children}</main>
+        {showSidebar && !isMobile && <Sidebar />}
+        <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
   );
