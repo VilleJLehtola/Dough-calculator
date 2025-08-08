@@ -1,8 +1,9 @@
 function App() {
   return (
-    <>
-      <Header /> {/* try commenting this if it crashes */}
-      <Frontpage /> {/* try commenting this too */}
-    </>
+    <div>
+      <h1>Hello from App!</h1>
+    </div>
   );
 }
+
+export default App; // ✅ THIS IS CRITICAL
