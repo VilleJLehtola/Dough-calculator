@@ -85,5 +85,6 @@ const Sidebar = () => {
     </div>
   );
 };
+console.log("Sidebar loaded");
 
 export default Sidebar;
