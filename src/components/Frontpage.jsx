@@ -1,38 +1,38 @@
-// Frontpage.jsx
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import supabase from "../supabaseClient";
-import RecipeCard from "./RecipeCard";
+// src/pages/FrontPage.jsx
+import { useEffect, useState } from 'react';
+import { supabase } from '@/supabaseClient';
+import { useNavigate } from 'react-router-dom';
 
-export default function Frontpage() {
-  const [latestRecipes, setLatestRecipes] = useState([]);
+export default function FrontPage() {
+  const [recipes, setRecipes] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchLatest = async () => {
-      const { data } = await supabase
-        .from("recipes")
-        .select("*")
-        .order("created_at", { ascending: false })
+    const fetchRecipes = async () => {
+      const { data, error } = await supabase
+        .from('recipes')
+        .select('id, title, description')
+        .order('created_at', { ascending: false })
         .limit(6);
-      setLatestRecipes(data || []);
-    };
 
-    fetchLatest();
+      if (!error) setRecipes(data);
+    };
+    fetchRecipes();
   }, []);
 
   return (
-    <div className="space-y-10">
-      <h1 className="text-3xl font-bold">Latest Recipes</h1>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {latestRecipes.map((recipe) => (
-          <Link key={recipe.id} to={`/recipe/${recipe.id}`}>
-            <RecipeCard
-              title={recipe.title}
-              subtitle={recipe.description}
-              image={recipe.image_url}
-              recipeId={recipe.id}
-            />
-          </Link>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Uusimmat reseptit</h1>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {recipes.map((recipe) => (
+          <div
+            key={recipe.id}
+            className="p-4 border rounded-lg shadow hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+            onClick={() => navigate(`/recipe/${recipe.id}`)}
+          >
+            <h2 className="text-lg font-semibold">{recipe.title}</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-300">{recipe.description}</p>
+          </div>
         ))}
       </div>
     </div>
