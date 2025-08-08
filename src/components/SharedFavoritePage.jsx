@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@/supabaseClient';
+import supabase from '@/supabaseClient';
+
 
 import CalculatorForm from './CalculatorForm';
 import ResultDisplay from './ResultDisplay';
