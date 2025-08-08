@@ -1,10 +1,26 @@
-// Frontpage.jsx
-
+import { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import RecipeCard from "./RecipeCard";
+import supabase from "../supabase";
 
 export default function Frontpage() {
+  const [latestRecipes, setLatestRecipes] = useState([]);
+
+  useEffect(() => {
+    const fetchLatest = async () => {
+      const { data, error } = await supabase
+        .from("recipes")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(4);
+
+      if (!error) setLatestRecipes(data);
+    };
+
+    fetchLatest();
+  }, []);
+
   return (
     <div className="flex min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
       <Sidebar />
@@ -26,18 +42,18 @@ export default function Frontpage() {
             <p className="text-gray-500 dark:text-gray-400 mb-4">Latest admin added recipes</p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((id) => (
+              {latestRecipes.map((recipe) => (
                 <RecipeCard
-                  key={id}
-                  title={`Recipe ${id}`}
-                  subtitle="Description of recipe"
-                  image={`/img/recipe${id}.jpg`} // Replace with real image
+                  key={recipe.id}
+                  title={recipe.title || "Untitled"}
+                  subtitle={recipe.description || "No description"}
+                  image={recipe.image_url || "/placeholder.jpg"}
                 />
               ))}
             </div>
           </section>
 
-          {/* Most liked recipes */}
+          {/* Most liked recipes - placeholder */}
           <section>
             <h2 className="text-2xl font-bold">Most liked recipes</h2>
             <p className="text-gray-500 dark:text-gray-400 mb-4">Most liked community recipes</p>
@@ -48,7 +64,7 @@ export default function Frontpage() {
                   key={id}
                   title="Recipe sam1"
                   subtitle={`user ${id}`}
-                  image={`/img/user${id}.jpg`} // Replace with real image
+                  image={`/img/user${id}.jpg`}
                 />
               ))}
             </div>
