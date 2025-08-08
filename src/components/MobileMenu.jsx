@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Sun, Moon } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
+import { Button } from '@/components/ui/button';
 
-const MobileMenu = () => {
+const MobileMenu = ({ user, onLoginClick }) => {
   const [isOpen, setIsOpen] = useState(false);
   const isDark = document.documentElement.classList.contains('dark');
 
@@ -49,6 +50,20 @@ const MobileMenu = () => {
             <span className="text-sm">Dark mode</span>
             <DarkModeToggle />
           </div>
+
+          {/* Login button if not logged in */}
+          {!user && (
+            <Button
+              onClick={() => {
+                onLoginClick();
+                setIsOpen(false);
+              }}
+              className="mt-6 w-full"
+              variant="outline"
+            >
+              Kirjaudu
+            </Button>
+          )}
         </nav>
       </div>
     </>
