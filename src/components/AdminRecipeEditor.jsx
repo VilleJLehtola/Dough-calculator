@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import supabase from '../supabaseClient'; // ✅
 import { TitleAndTags } from './AdminRecipeEditor/TitleAndTags';
 import { FlourInputs } from './AdminRecipeEditor/FlourInputs';
 import { HydrationSettings } from './AdminRecipeEditor/HydrationSettings';
