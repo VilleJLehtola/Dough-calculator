@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Sun, Moon, LogOut, LogIn } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
 
-const MobileMenu = ({ user, onLoginClick, onLogout }) => {
-  const [isOpen, setIsOpen] = useState(false);
+export default function MobileMenu({ isOpen, setIsOpen, user, onLoginClick, onLogout }) {
   const isDark = document.documentElement.classList.contains('dark');
 
   return (
@@ -80,6 +79,4 @@ const MobileMenu = ({ user, onLoginClick, onLogout }) => {
       </div>
     </>
   );
-};
-
-export default MobileMenu;
+}
