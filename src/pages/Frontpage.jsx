@@ -1,37 +1,39 @@
-// src/pages/FrontPage.jsx
 import { useEffect, useState } from 'react';
-import supabase from '@/supabaseClient';
+import supabase from '@/supabase';
 import { useNavigate } from 'react-router-dom';
 
 export default function FrontPage() {
-  const [recipes, setRecipes] = useState([]);
+  const [latestRecipes, setLatestRecipes] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchRecipes = async () => {
       const { data, error } = await supabase
         .from('recipes')
-        .select('id, title, description')
+        .select('*')
         .order('created_at', { ascending: false })
-        .limit(6);
-
-      if (!error) setRecipes(data);
+        .limit(5);
+      if (!error) setLatestRecipes(data);
     };
     fetchRecipes();
   }, []);
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Uusimmat reseptit</h1>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {recipes.map((recipe) => (
+    <div className="max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">Uusimmat reseptit</h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">Viimeisimmät ylläpidon lisäämät reseptit</p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {latestRecipes.map((recipe) => (
           <div
             key={recipe.id}
-            className="p-4 border rounded-lg shadow hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer p-4"
             onClick={() => navigate(`/recipe/${recipe.id}`)}
           >
-            <h2 className="text-lg font-semibold">{recipe.title}</h2>
-            <p className="text-sm text-gray-600 dark:text-gray-300">{recipe.description}</p>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">
+              {recipe.name}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">{recipe.description}</p>
           </div>
         ))}
       </div>
