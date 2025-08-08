@@ -1,7 +1,7 @@
 import Header from '@/components/Header';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
+import Sidebar from '@/components/Sidebar';
 
 export default function Layout({ user, onLogout, children }) {
   const [showSidebar, setShowSidebar] = useState(true);
