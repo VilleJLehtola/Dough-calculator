@@ -1,4 +1,3 @@
-// src/components/Layout.jsx
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Header from './Header';
@@ -6,7 +5,7 @@ import Sidebar from './Sidebar';
 import MobileMenu from './MobileMenu';
 import DarkModeToggle from './DarkModeToggle';
 
-const Layout = ({ children, user }) => {
+const Layout = ({ children, user, onLoginClick, onLogout }) => {
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -28,13 +27,19 @@ const Layout = ({ children, user }) => {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-slate-900 dark:to-slate-800 text-gray-900 dark:text-gray-100 transition-colors duration-500">
       {isMobile ? (
-        <MobileMenu isOpen={isMobileMenuOpen} setIsOpen={setIsMobileMenuOpen} user={user} />
+        <MobileMenu
+          isOpen={isMobileMenuOpen}
+          setIsOpen={setIsMobileMenuOpen}
+          user={user}
+          onLoginClick={onLoginClick}
+          onLogout={onLogout}
+        />
       ) : (
-        <Sidebar user={user} />
+        <Sidebar user={user} onLogout={onLogout} />
       )}
 
       <div className="flex-1 flex flex-col">
-        <Header user={user} toggleMobileMenu={toggleMobileMenu} />
+        <Header user={user} toggleMobileMenu={toggleMobileMenu} onLoginClick={onLoginClick} />
         <main className="flex-1 p-4">{children}</main>
       </div>
 
