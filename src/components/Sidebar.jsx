@@ -5,11 +5,12 @@ import {
   List,
   Heart,
   User,
+  LogOut,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 
-export default function Sidebar() {
+export default function Sidebar({ user, onLogout }) {
   const { pathname } = useLocation();
 
   const linkClass = (path) =>
@@ -59,6 +60,18 @@ export default function Sidebar() {
           </Link>
         </nav>
       </div>
+
+      {user && (
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4">
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline px-2 mt-2"
+          >
+            <LogOut size={16} />
+            Kirjaudu ulos
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
