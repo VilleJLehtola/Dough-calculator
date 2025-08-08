@@ -1,6 +1,6 @@
 // src/pages/FrontPage.jsx
 import { useEffect, useState } from 'react';
-import { supabase } from '@/supabaseClient';
+import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 
 export default function FrontPage() {
