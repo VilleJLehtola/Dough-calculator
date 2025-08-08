@@ -18,7 +18,7 @@ export default function DarkModeToggle() {
   }, [enabled]);
 
   return (
-    <label className="toggle-switch cursor-pointer">
+    <label className="toggle-switch cursor-pointer ml-4 mb-4 md:ml-6 md:mb-6">
       <input
         type="checkbox"
         checked={enabled}
