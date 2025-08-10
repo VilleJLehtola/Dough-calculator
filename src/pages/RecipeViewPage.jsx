@@ -12,6 +12,14 @@ export default function RecipeViewPage() {
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Logged-in user (for "Edit" button)
+  const [uid, setUid] = useState(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUid(data?.user?.id ?? null);
+    });
+  }, []);
+
   // Accept multiple shapes for ingredients/steps
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
@@ -78,32 +86,32 @@ export default function RecipeViewPage() {
       // 2) Try child tables if they exist (legacy paths)
       let ing = [];
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('recipe_ingredients')
           .select('name, amount, bakers_pct, position')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
-        if (data?.length) ing = data;
+        if (!error && data?.length) ing = data;
       } catch (_) {}
 
       let st = [];
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('recipe_steps')
           .select('text, position, time')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
-        if (data?.length) st = data;
+        if (!error && data?.length) st = data;
       } catch (_) {}
 
       let img = [];
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('recipe_images')
           .select('url, position')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
-        if (data?.length) img = data;
+        if (!error && data?.length) img = data;
       } catch (_) {}
 
       // 3) Fallbacks to inline fields (new schema first)
@@ -207,8 +215,19 @@ export default function RecipeViewPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-4 sm:p-6">
-      {/* Title */}
-      <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
+      {/* Title + Edit */}
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
+
+        {uid && recipe?.author_id === uid && (
+          <Link
+            to={`/recipe/${recipe.id}/edit`}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+          >
+            Edit
+          </Link>
+        )}
+      </div>
 
       {/* Hero */}
       <div className="mt-4 relative rounded-xl overflow-hidden">
