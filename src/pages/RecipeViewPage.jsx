@@ -8,14 +8,24 @@ export default function RecipeViewPage() {
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
   const [steps, setSteps] = useState([]);
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState([]); // [{url}]
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Accept multiple shapes for ingredients/steps
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
-    if (Array.isArray(ingRaw)) return ingRaw;
+    // Already array of objects
+    if (Array.isArray(ingRaw) && ingRaw.every(x => typeof x === 'object')) return ingRaw;
+    // Array of strings
+    if (Array.isArray(ingRaw)) {
+      return ingRaw.map((line) => ({
+        name: String(line ?? '').trim(),
+        amount: '',
+        bakers_pct: '',
+      }));
+    }
+    // Delimited string
     if (typeof ingRaw === 'string') {
       return ingRaw
         .split('\n')
@@ -23,11 +33,7 @@ export default function RecipeViewPage() {
         .filter(Boolean)
         .map((line) => {
           const [name, amount, bakers] = line.split(';').map((s) => s?.trim());
-          return {
-            name: name || '',
-            amount: amount || '',
-            bakers_pct: bakers || '',
-          };
+          return { name: name || '', amount: amount || '', bakers_pct: bakers || '' };
         });
     }
     return [];
@@ -35,7 +41,11 @@ export default function RecipeViewPage() {
 
   const normalizeSteps = (raw) => {
     if (!raw) return [];
-    if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: t }));
+    // Array of objects (support {text, position, time})
+    if (Array.isArray(raw) && raw.every(x => typeof x === 'object')) return raw;
+    // Array of strings
+    if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
+    // Multi-line string
     if (typeof raw === 'string') {
       return raw
         .split('\n')
@@ -55,7 +65,7 @@ export default function RecipeViewPage() {
       // 1) Base recipe
       const { data: rcp, error: rErr } = await supabase
         .from('recipes')
-        .select('*')
+        .select('id,title,description,author_id,prep_time_minutes,servings,difficulty,cover_image,images,ingredients,steps,created_at')
         .eq('id', id)
         .single();
 
@@ -65,7 +75,7 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // 2) Try child tables if they exist
+      // 2) Try child tables if they exist (legacy paths)
       let ing = [];
       try {
         const { data } = await supabase
@@ -80,7 +90,7 @@ export default function RecipeViewPage() {
       try {
         const { data } = await supabase
           .from('recipe_steps')
-          .select('text, position')
+          .select('text, position, time')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
         if (data?.length) st = data;
@@ -96,15 +106,24 @@ export default function RecipeViewPage() {
         if (data?.length) img = data;
       } catch (_) {}
 
-      // 3) Fallbacks to inline fields
+      // 3) Fallbacks to inline fields (new schema first)
       if (!ing?.length) ing = normalizeIngredients(rcp.ingredients);
-      if (!st?.length) st = normalizeSteps(rcp.instructions || rcp.steps);
-      if (!img?.length && rcp.hero_image_url) img = [{ url: rcp.hero_image_url }];
+      if (!st?.length) st = normalizeSteps(rcp.steps || rcp.instructions);
+
+      // Images: prefer new json array (strings), then legacy table, then cover_image
+      let imgs = [];
+      if (Array.isArray(rcp.images) && rcp.images.length) {
+        imgs = rcp.images.map((u) => (typeof u === 'string' ? { url: u } : u));
+      } else if (img?.length) {
+        imgs = img;
+      } else if (rcp.cover_image) {
+        imgs = [{ url: rcp.cover_image }];
+      }
 
       // 4) Author lookup (optional)
       let profile = null;
       try {
-        const userId = rcp.user_id || rcp.author_id || rcp.created_by;
+        const userId = rcp.author_id || rcp.user_id || rcp.created_by;
         if (userId) {
           const { data: u } = await supabase
             .from('users')
@@ -119,7 +138,7 @@ export default function RecipeViewPage() {
         setRecipe(rcp);
         setIngredients(ing || []);
         setSteps(st || []);
-        setImages(img || []);
+        setImages(imgs || []);
         setAuthor(profile);
         setLoading(false);
       }
@@ -131,23 +150,36 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  const heroUrl = images?.[0]?.url || '';
+  const heroUrl = recipe?.cover_image || images?.[0]?.url || '';
   const title = recipe?.title || 'Resepti';
   const description = recipe?.description || '';
-  const servings = recipe?.servings;
-  const totalTime = recipe?.total_time || recipe?.bake_time || recipe?.time_total;
-  const difficulty = recipe?.difficulty;
+  const servings = recipe?.servings ?? null;
+  const totalTime =
+    recipe?.prep_time_minutes ??
+    recipe?.total_time ??
+    recipe?.bake_time ??
+    recipe?.time_total ??
+    null;
+  const difficulty = recipe?.difficulty ?? null;
 
   const hasAnyStats = !!(servings || totalTime || difficulty);
 
   const statChips = useMemo(
     () =>
       [
-        servings ? { icon: Users, label: `${servings} annosta` } : null,
-        totalTime ? { icon: Clock, label: `${totalTime} min` } : null,
+        servings != null ? { icon: Users, label: `${servings} annosta` } : null,
+        totalTime != null ? { icon: Clock, label: `${totalTime} min` } : null,
         difficulty ? { icon: ChefHat, label: difficulty } : null,
       ].filter(Boolean),
     [servings, totalTime, difficulty]
+  );
+
+  const sortedSteps = useMemo(
+    () =>
+      (steps || [])
+        .slice()
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    [steps]
   );
 
   if (loading) {
@@ -274,11 +306,18 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Instructions</h2>
           </div>
           <div className="p-4">
-            {steps?.length ? (
+            {sortedSteps.length ? (
               <ol className="space-y-2 list-decimal pl-5 marker:text-gray-500 dark:marker:text-gray-400">
-                {steps.map((s, i) => (
+                {sortedSteps.map((s, i) => (
                   <li key={i} className="text-gray-800 dark:text-gray-200">
-                    {s.text || s}
+                    <div className="flex items-start gap-2">
+                      <span className="flex-1">{s.text || s}</span>
+                      {s.time != null && s.time !== '' && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
+                          +{s.time} min
+                        </span>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ol>
@@ -288,6 +327,18 @@ export default function RecipeViewPage() {
           </div>
         </section>
       </div>
+
+      {/* Gallery */}
+      {images.length > 1 && (
+        <section className="mt-6 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Images</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {images.map((im, i) => (
+              <img key={i} src={im.url} alt="" className="w-full h-40 object-cover rounded-lg border" />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Back link */}
       <div className="mt-6">
