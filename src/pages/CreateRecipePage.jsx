@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
 
+const BUCKET = 'recipe-images'
+
 function newIngredient() {
   return { name: '', amount: '', isFlour: false } // bakers_pct is computed
 }
@@ -31,6 +33,7 @@ export default function CreateRecipePage() {
   const [recipeId, setRecipeId] = useState(null)
   const [uploaded, setUploaded] = useState([]) // [{ url, path }]
   const [hero, setHero] = useState(null)
+  const [userPickedHero, setUserPickedHero] = useState(false)
 
   // auth + draft id
   const [userId, setUserId] = useState(null)
@@ -88,10 +91,86 @@ export default function CreateRecipePage() {
   // handle images uploaded (works pre & post save)
   const handleImagesUploaded = async (files) => {
     if (!files?.length) return
-    setUploaded(prev => [...prev, ...files])
+    setUploaded(prev => {
+      const next = [...prev, ...files]
+      // set default hero only if user hasn't picked one yet
+      if (!userPickedHero && !hero && next[0]) setHero(next[0].url)
+      return next
+    })
     if (recipeId && !hero) {
       await supabase.from('recipes').update({ cover_image: files[0].url }).eq('id', recipeId)
       setHero(files[0].url)
+    }
+  }
+
+  // ---------- drag & drop ----------
+  const [dragIndex, setDragIndex] = useState(null)
+
+  const onDragStart = (idx) => () => setDragIndex(idx)
+  const onDragOver = (e) => e.preventDefault()
+  const onDrop = (idx) => async (e) => {
+    e.preventDefault()
+    if (dragIndex === null || dragIndex === idx) return
+    setUploaded(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(dragIndex, 1)
+      next.splice(idx, 0, moved)
+      return next
+    })
+    setDragIndex(null)
+
+    // If user hasn't explicitly chosen hero, keep hero = first image
+    if (!userPickedHero && uploaded[0]) {
+      const newFirst = uploaded[idx === 0 ? dragIndex : 0]?.url // quick recalculation after reorder
+      if (newFirst) setHero(newFirst)
+    }
+
+    // Persist order if already saved
+    if (recipeId) {
+      const urls = getImageUrlsAfterReorder(dragIndex, idx, uploaded)
+      await supabase.from('recipes').update({
+        images: urls,
+        cover_image: userPickedHero ? hero : urls[0] || null,
+      }).eq('id', recipeId)
+      if (!userPickedHero) setHero(urls[0] || null)
+    }
+  }
+
+  const getImageUrlsAfterReorder = (from, to, list) => {
+    const copy = [...list]
+    const [m] = copy.splice(from, 1)
+    copy.splice(to, 0, m)
+    return copy.map(f => f.url)
+  }
+
+  // ---------- delete image ----------
+  const deleteImage = async (idx) => {
+    const target = uploaded[idx]
+    if (!target) return
+
+    // 1) delete from storage (if we have a path)
+    if (target.path) {
+      await supabase.storage.from(BUCKET).remove([target.path])
+    }
+
+    // 2) update local list
+    const next = uploaded.filter((_, i) => i !== idx)
+    setUploaded(next)
+
+    // 3) adjust hero if needed
+    let nextHero = hero
+    if (hero === target.url) {
+      nextHero = userPickedHero ? (next[0]?.url || null) : (next[0]?.url || null)
+      setHero(nextHero)
+      setUserPickedHero(false) // since we changed it implicitly
+    }
+
+    // 4) persist to DB if saved
+    if (recipeId) {
+      await supabase.from('recipes').update({
+        images: next.map(f => f.url),
+        cover_image: nextHero || null,
+      }).eq('id', recipeId)
     }
   }
 
@@ -121,7 +200,7 @@ export default function CreateRecipePage() {
           time: s.time === '' ? null : Number(s.time),
         }))
 
-      // 1) Create the recipe (images/cover filled after moving drafts)
+      // 1) Create
       const basePayload = {
         title: title.trim(),
         description: description || null,
@@ -143,43 +222,41 @@ export default function CreateRecipePage() {
       if (insertErr) throw insertErr
 
       const newId = inserted.id
-      const urlMap = new Map()
-      const movedUrls = []
+      const newUploads = []
+      const finalUrls = []
 
-      // 2) Move drafts to recipes/{id}/ and compute final URLs
+      // 2) Move drafts -> recipes/{id}/ and collect final URLs + paths
       for (const f of uploaded) {
         if (!f?.path) continue
         if (f.path.startsWith('drafts/')) {
           const filename = f.path.split('/').pop()
           const destPath = `recipes/${newId}/${filename}`
-          const { error: moveErr } = await supabase
-            .storage.from('recipe-images')
-            .move(f.path, destPath)
+          const { error: moveErr } = await supabase.storage.from(BUCKET).move(f.path, destPath)
           if (moveErr) throw moveErr
-          const { data: pub } = supabase
-            .storage.from('recipe-images')
-            .getPublicUrl(destPath)
-          urlMap.set(f.url, pub.publicUrl)
-          movedUrls.push(pub.publicUrl)
+          const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(destPath)
+          newUploads.push({ url: pub.publicUrl, path: destPath })
+          finalUrls.push(pub.publicUrl)
         } else {
-          urlMap.set(f.url, f.url)
-          movedUrls.push(f.url)
+          newUploads.push({ url: f.url, path: f.path })
+          finalUrls.push(f.url)
         }
       }
 
-      // 3) Cover image = selected hero (mapped) or first
-      const mappedHero = hero ? (urlMap.get(hero) || hero) : (movedUrls[0] || null)
+      // 3) Cover image: user choice, else first
+      const chosen = userPickedHero && hero ? hero : (finalUrls[0] || null)
 
       // 4) Update recipe with images + cover
       const { error: updErr } = await supabase
         .from('recipes')
-        .update({ images: movedUrls, cover_image: mappedHero })
+        .update({ images: finalUrls, cover_image: chosen })
         .eq('id', newId)
       if (updErr) throw updErr
 
+      // 5) sync local
       setRecipeId(newId)
-      setHero(mappedHero)
-      setUploaded(prev => prev.map(f => ({ ...f, url: urlMap.get(f.url) || f.url })))
+      setUploaded(newUploads)
+      if (!userPickedHero) setHero(finalUrls[0] || null)
+
       nav(`/recipe/${newId}`)
     } catch (e) {
       console.error(e)
@@ -398,8 +475,8 @@ export default function CreateRecipePage() {
         </div>
       </section>
 
-      {/* Images + hero selector */}
-      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
+      {/* Images + hero selector + drag + delete */}
+      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Images</h2>
         </div>
@@ -412,22 +489,52 @@ export default function CreateRecipePage() {
         />
 
         {uploaded.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="font-semibold">Hero image</h3>
+          <>
+            <div className="space-y-2">
+              <h3 className="font-semibold">Hero image</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {uploaded.map((f) => (
+                  <label key={f.url} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="hero"
+                      checked={hero === f.url}
+                      onChange={() => { setHero(f.url); setUserPickedHero(true) }}
+                    />
+                    <span className="text-sm truncate">{new URL(f.url).pathname.split('/').pop()}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {uploaded.map((f) => (
-                <label key={f.url} className="flex flex-col items-center gap-2 cursor-pointer">
-                  <img src={f.url} alt="" className="h-24 w-full object-cover rounded-lg border" />
-                  <input
-                    type="radio"
-                    name="hero"
-                    checked={hero === f.url}
-                    onChange={() => setHero(f.url)}
-                  />
-                </label>
+              {uploaded.map((f, idx) => (
+                <div
+                  key={f.url}
+                  className="relative group rounded-lg overflow-hidden border"
+                  draggable
+                  onDragStart={onDragStart(idx)}
+                  onDragOver={onDragOver}
+                  onDrop={onDrop(idx)}
+                  title="Drag to reorder"
+                >
+                  <img src={f.url} alt="" className="h-28 w-full object-cover" />
+                  <div className="absolute top-1 left-1 px-1.5 py-0.5 text-xs rounded bg-black/60 text-white">
+                    {idx + 1}{hero === f.url ? ' • hero' : ''}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteImage(idx)}
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition px-2 py-1 text-xs rounded bg-red-600 text-white"
+                    title="Delete image"
+                  >
+                    Delete
+                  </button>
+                </div>
               ))}
             </div>
-          </div>
+            <p className="text-xs opacity-70">Tip: drag thumbnails to reorder. First image is used as hero unless you pick one above.</p>
+          </>
         )}
       </section>
     </div>
