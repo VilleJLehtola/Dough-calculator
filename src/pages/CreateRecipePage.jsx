@@ -1,7 +1,7 @@
 // src/pages/CreateRecipePage.jsx
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '@/supabaseClient'
+import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
 
 function newIngredient() {
@@ -19,7 +19,6 @@ export default function CreateRecipePage() {
   // basics
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [hero, setHero] = useState('')
   const [servings, setServings] = useState('')
   const [totalTime, setTotalTime] = useState('')
   const [difficulty, setDifficulty] = useState('')
@@ -28,13 +27,21 @@ export default function CreateRecipePage() {
   const [ingredients, setIngredients] = useState([newIngredient()])
   const [steps, setSteps] = useState([newStep(1)])
 
-  // uploads
+  // uploads / hero
   const [recipeId, setRecipeId] = useState(null)
-  const [uploadedUrls, setUploadedUrls] = useState([])
-  const [userId, setUserId] = useState(null)
+  const [uploaded, setUploaded] = useState([]) // [{ url, path }]
+  const [hero, setHero] = useState(null)
 
-  // fetch user once (lightweight; safe to call here)
-  React.useEffect(() => {
+  // auth + draft id
+  const [userId, setUserId] = useState(null)
+  const [draftId] = useState(() => {
+    // generate a stable id for this editor session
+    return (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  })
+
+  useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null))
   }, [])
 
@@ -55,13 +62,13 @@ export default function CreateRecipePage() {
     })
   }, [ingredients, totalFlour])
 
-  // ingredient ops
+  // ---------- ingredient ops ----------
   const updateIngredient = (i, k, v) =>
     setIngredients(prev => prev.map((row, idx) => (idx === i ? { ...row, [k]: v } : row)))
   const addIngredient = () => setIngredients(prev => [...prev, newIngredient()])
   const removeIngredient = (i) => setIngredients(prev => prev.filter((_, idx) => idx !== i))
 
-  // step ops
+  // ---------- step ops ----------
   const updateStepText = (i, v) =>
     setSteps(prev => prev.map((s, idx) => (idx === i ? { ...s, text: v } : s)))
   const updateStepTime = (i, v) =>
@@ -79,7 +86,18 @@ export default function CreateRecipePage() {
     })))
   }
 
-  // save recipe
+  // handle images uploaded (works pre & post save)
+  const handleImagesUploaded = async (files) => {
+    if (!files?.length) return
+    setUploaded(prev => [...prev, ...files])
+    // If recipe already exists and no hero set yet, set it now
+    if (recipeId && !hero) {
+      await supabase.from('recipes').update({ hero_image_url: files[0].url }).eq('id', recipeId)
+      setHero(files[0].url)
+    }
+  }
+
+  // ---------- save recipe ----------
   const handleSave = async () => {
     setError('')
     if (!title.trim()) {
@@ -102,13 +120,13 @@ export default function CreateRecipePage() {
         .map((s, idx) => ({
           position: idx + 1,
           text: s.text.trim(),
-          time: s.time === '' ? null : Number(s.time),
+          time: s.time === '' ? null : Number(s.time), // nullable
         }))
 
       const payload = {
         title: title.trim(),
         description: description || null,
-        hero_image_url: hero || null,
+        hero_image_url: hero || (uploaded[0]?.url ?? null),
         servings: servings ? Number(servings) : null,
         total_time: totalTime ? Number(totalTime) : null,
         difficulty: difficulty || null,
@@ -117,29 +135,42 @@ export default function CreateRecipePage() {
         user_id: userId || null,
       }
 
-      const { data, error: err } = await supabase
+      const { data, error: insertErr } = await supabase
         .from('recipes')
         .insert(payload)
         .select('id')
         .single()
 
-      if (err) throw err
-      setRecipeId(data.id)
+      if (insertErr) throw insertErr
+      const newId = data.id
+      setRecipeId(newId)
+
+      // Link any draft uploads to DB (those under drafts/)
+      const drafts = uploaded.filter(f => f.path?.startsWith('drafts/'))
+      if (drafts.length) {
+        // Optional: move storage objects to recipes/{id}/... (commented to keep it simple)
+        // await Promise.all(drafts.map(f => {
+        //   const dest = f.path.replace(/^drafts\/[^/]+\/[^/]+/, `recipes/${newId}`)
+        //   return supabase.storage.from('recipe-images').move(f.path, dest)
+        // }))
+        // Insert DB rows for images
+        const rows = drafts.map(f => ({ recipe_id: newId, url: f.url }))
+        const { error: imgsErr } = await supabase.from('recipe_images').insert(rows)
+        if (imgsErr) throw imgsErr
+      }
+
+      // Ensure hero set in DB if user picked one post-upload
+      if (!payload.hero_image_url && uploaded[0]?.url) {
+        await supabase.from('recipes').update({ hero_image_url: uploaded[0].url }).eq('id', newId)
+      }
+
+      // Done → go to recipe
+      nav(`/recipe/${newId}`)
     } catch (e) {
       console.error(e)
       setError(e.message || 'Save failed.')
     } finally {
       setSaving(false)
-    }
-  }
-
-  // when child uploader finishes
-  const handleImagesUploaded = async (urls) => {
-    if (!urls?.length) return
-    setUploadedUrls(prev => [...prev, ...urls])
-    if (!hero && urls[0]) {
-      await supabase.from('recipes').update({ hero_image_url: urls[0] }).eq('id', recipeId)
-      setHero(urls[0])
     }
   }
 
@@ -171,7 +202,7 @@ export default function CreateRecipePage() {
       )}
 
       {/* Basics */}
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-1">
         <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Title</label>
           <input
@@ -182,26 +213,16 @@ export default function CreateRecipePage() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">Hero image URL (optional)</label>
-          <input
-            value={hero}
-            onChange={(e) => setHero(e.target.value)}
+          <label className="text-sm text-gray-600 dark:text-gray-300">Short description</label>
+          <textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            placeholder="https://example.com/hero.jpg"
+            placeholder="Valkosipulinen pataleipä…"
           />
         </div>
       </section>
-
-      <div className="space-y-2">
-        <label className="text-sm text-gray-600 dark:text-gray-300">Short description</label>
-        <textarea
-          rows={3}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-          placeholder="Valkosipulinen pataleipä…"
-        />
-      </div>
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
@@ -358,27 +379,37 @@ export default function CreateRecipePage() {
         </div>
       </section>
 
-      {/* Images (uses your ImagesUploader) */}
+      {/* Images */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Images</h2>
         </div>
 
-        {!recipeId ? (
-          <p className="text-sm opacity-70">Save the recipe to enable uploads.</p>
-        ) : (
-          <>
-            <ImagesUploader
-              recipeId={recipeId}
-              userId={userId}
-              onUploaded={handleImagesUploaded}
-            />
-            {uploadedUrls.length > 0 && (
-              <div className="text-sm opacity-80 mt-2">
-                Uploaded: {uploadedUrls.length} image(s)
-              </div>
-            )}
-          </>
+        <ImagesUploader
+          recipeId={recipeId}      // null before save → draft mode
+          userId={userId}
+          draftId={draftId}
+          onUploaded={handleImagesUploaded}
+        />
+
+        {/* Hero selector (thumbnails) */}
+        {uploaded.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="font-semibold">Hero image</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {uploaded.map((f) => (
+                <label key={f.url} className="flex flex-col items-center gap-2 cursor-pointer">
+                  <img src={f.url} alt="" className="h-24 w-full object-cover rounded-lg border" />
+                  <input
+                    type="radio"
+                    name="hero"
+                    checked={hero === f.url}
+                    onChange={() => setHero(f.url)}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
         )}
       </section>
     </div>
