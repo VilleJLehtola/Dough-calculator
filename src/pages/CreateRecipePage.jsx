@@ -19,9 +19,7 @@ export default function CreateRecipePage() {
   // basics
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [servings, setServings] = useState('')
-  const [totalTime, setTotalTime] = useState('')
-  const [difficulty, setDifficulty] = useState('')
+  const [totalTime, setTotalTime] = useState('') // maps to prep_time_minutes
 
   // json fields
   const [ingredients, setIngredients] = useState([newIngredient()])
@@ -34,12 +32,11 @@ export default function CreateRecipePage() {
 
   // auth + draft id
   const [userId, setUserId] = useState(null)
-  const [draftId] = useState(() => {
-    // generate a stable id for this editor session
-    return (typeof crypto !== 'undefined' && crypto.randomUUID)
+  const [draftId] = useState(() =>
+    typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-  })
+  )
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null))
@@ -90,9 +87,8 @@ export default function CreateRecipePage() {
   const handleImagesUploaded = async (files) => {
     if (!files?.length) return
     setUploaded(prev => [...prev, ...files])
-    // If recipe already exists and no hero set yet, set it now
     if (recipeId && !hero) {
-      await supabase.from('recipes').update({ hero_image_url: files[0].url }).eq('id', recipeId)
+      await supabase.from('recipes').update({ cover_image: files[0].url }).eq('id', recipeId)
       setHero(files[0].url)
     }
   }
@@ -120,51 +116,66 @@ export default function CreateRecipePage() {
         .map((s, idx) => ({
           position: idx + 1,
           text: s.text.trim(),
-          time: s.time === '' ? null : Number(s.time), // nullable
+          time: s.time === '' ? null : Number(s.time),
         }))
 
-      const payload = {
+      // 1) Create the recipe (images/cover filled after moving drafts)
+      const basePayload = {
         title: title.trim(),
         description: description || null,
-        hero_image_url: hero || (uploaded[0]?.url ?? null),
-        servings: servings ? Number(servings) : null,
-        total_time: totalTime ? Number(totalTime) : null,
-        difficulty: difficulty || null,
+        author_id: userId || null,
+        prep_time_minutes: totalTime ? Number(totalTime) : null,
         ingredients: ing,
         steps: stp,
-        user_id: userId || null,
+        images: [],
+        cover_image: null,
       }
 
-      const { data, error: insertErr } = await supabase
+      const { data: inserted, error: insertErr } = await supabase
         .from('recipes')
-        .insert(payload)
+        .insert(basePayload)
         .select('id')
         .single()
-
       if (insertErr) throw insertErr
-      const newId = data.id
+
+      const newId = inserted.id
+      const urlMap = new Map()
+      const movedUrls = []
+
+      // 2) Move drafts to recipes/{id}/ and compute final URLs
+      for (const f of uploaded) {
+        if (!f?.path) continue
+        if (f.path.startsWith('drafts/')) {
+          const filename = f.path.split('/').pop()
+          const destPath = `recipes/${newId}/${filename}`
+          const { error: moveErr } = await supabase
+            .storage.from('recipe-images')
+            .move(f.path, destPath)
+          if (moveErr) throw moveErr
+          const { data: pub } = supabase
+            .storage.from('recipe-images')
+            .getPublicUrl(destPath)
+          urlMap.set(f.url, pub.publicUrl)
+          movedUrls.push(pub.publicUrl)
+        } else {
+          urlMap.set(f.url, f.url)
+          movedUrls.push(f.url)
+        }
+      }
+
+      // 3) Cover image = selected hero (mapped) or first
+      const mappedHero = hero ? (urlMap.get(hero) || hero) : (movedUrls[0] || null)
+
+      // 4) Update recipe with images + cover
+      const { error: updErr } = await supabase
+        .from('recipes')
+        .update({ images: movedUrls, cover_image: mappedHero })
+        .eq('id', newId)
+      if (updErr) throw updErr
+
       setRecipeId(newId)
-
-      // Link any draft uploads to DB (those under drafts/)
-      const drafts = uploaded.filter(f => f.path?.startsWith('drafts/'))
-      if (drafts.length) {
-        // Optional: move storage objects to recipes/{id}/... (commented to keep it simple)
-        // await Promise.all(drafts.map(f => {
-        //   const dest = f.path.replace(/^drafts\/[^/]+\/[^/]+/, `recipes/${newId}`)
-        //   return supabase.storage.from('recipe-images').move(f.path, dest)
-        // }))
-        // Insert DB rows for images
-        const rows = drafts.map(f => ({ recipe_id: newId, url: f.url }))
-        const { error: imgsErr } = await supabase.from('recipe_images').insert(rows)
-        if (imgsErr) throw imgsErr
-      }
-
-      // Ensure hero set in DB if user picked one post-upload
-      if (!payload.hero_image_url && uploaded[0]?.url) {
-        await supabase.from('recipes').update({ hero_image_url: uploaded[0].url }).eq('id', newId)
-      }
-
-      // Done → go to recipe
+      setHero(mappedHero)
+      setUploaded(prev => prev.map(f => ({ ...f, url: urlMap.get(f.url) || f.url })))
       nav(`/recipe/${newId}`)
     } catch (e) {
       console.error(e)
@@ -226,16 +237,6 @@ export default function CreateRecipePage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">Servings</label>
-          <input
-            type="number"
-            value={servings}
-            onChange={(e) => setServings(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            placeholder="e.g. 8"
-          />
-        </div>
-        <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Total time (min)</label>
           <input
             type="number"
@@ -243,15 +244,6 @@ export default function CreateRecipePage() {
             onChange={(e) => setTotalTime(e.target.value)}
             className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
             placeholder="e.g. 120"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">Difficulty</label>
-          <input
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            placeholder="easy / medium / hard"
           />
         </div>
       </section>
@@ -267,7 +259,7 @@ export default function CreateRecipePage() {
               title="Mark rows as flour if name contains 'jauho' or 'flour'"
               type="button"
             >
-              Auto‑mark flour
+              Auto-mark flour
             </button>
             <button
               onClick={addIngredient}
@@ -379,20 +371,19 @@ export default function CreateRecipePage() {
         </div>
       </section>
 
-      {/* Images */}
+      {/* Images + hero selector */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">Images</h2>
         </div>
 
         <ImagesUploader
-          recipeId={recipeId}      // null before save → draft mode
+          recipeId={recipeId}   // null before save → draft mode
           userId={userId}
           draftId={draftId}
           onUploaded={handleImagesUploaded}
         />
 
-        {/* Hero selector (thumbnails) */}
         {uploaded.length > 0 && (
           <div className="space-y-2">
             <h3 className="font-semibold">Hero image</h3>
