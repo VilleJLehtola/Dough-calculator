@@ -6,6 +6,7 @@ import {
   Heart,
   User,
   LogOut,
+  Plus,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
@@ -23,10 +24,15 @@ export default function Sidebar({ user, onLogout }) {
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6">
-      <div className="text-xl font-bold px-2 text-gray-800 dark:text-white">Everything dough</div>
+      <div className="text-xl font-bold px-2 text-gray-800 dark:text-white">
+        Everything dough
+      </div>
 
+      {/* Discover */}
       <div>
-        <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 px-2 mb-2">Discover</h3>
+        <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 px-2 mb-2">
+          Discover
+        </h3>
         <nav className="space-y-1">
           <Link to="/" className={linkClass('/')}>
             <Home size={18} />
@@ -43,8 +49,24 @@ export default function Sidebar({ user, onLogout }) {
         </nav>
       </div>
 
+      {/* Create */}
       <div>
-        <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 px-2 mb-2">Library</h3>
+        <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 px-2 mb-2">
+          Create
+        </h3>
+        <nav className="space-y-1">
+          <Link to="/create" className={linkClass('/create')}>
+            <Plus size={18} />
+            Create a recipe
+          </Link>
+        </nav>
+      </div>
+
+      {/* Library */}
+      <div>
+        <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 px-2 mb-2">
+          Library
+        </h3>
         <nav className="space-y-1">
           <Link to="/your-recipes" className={linkClass('/your-recipes')}>
             <List size={18} />
@@ -61,6 +83,7 @@ export default function Sidebar({ user, onLogout }) {
         </nav>
       </div>
 
+      {/* Logout (only when logged in) */}
       {user && (
         <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4">
           <button
