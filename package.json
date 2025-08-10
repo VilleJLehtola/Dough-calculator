@@ -22,7 +22,8 @@
     "react-slick": "^0.29.0",
     "lucide-react": "^0.291.0",
     "clsx": "^2.1.0",
-    "@radix-ui/react-tooltip": "^1.0.4"
+    "@radix-ui/react-tooltip": "^1.0.4",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "vite": "^4.5.0",
