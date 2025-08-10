@@ -12,13 +12,10 @@ export default function RecipeViewPage() {
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // --- Helpers to accept multiple shapes ---
+  // Accept multiple shapes for ingredients/steps
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
-    // If already in [{name, amount, bakers_pct}] form
     if (Array.isArray(ingRaw)) return ingRaw;
-
-    // If provided as newline text "name;amount;bakers"
     if (typeof ingRaw === 'string') {
       return ingRaw
         .split('\n')
@@ -36,11 +33,11 @@ export default function RecipeViewPage() {
     return [];
   };
 
-  const normalizeSteps = (stepsRaw) => {
-    if (!stepsRaw) return [];
-    if (Array.isArray(stepsRaw)) return stepsRaw.map((t, i) => ({ position: i + 1, text: t }));
-    if (typeof stepsRaw === 'string') {
-      return stepsRaw
+  const normalizeSteps = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: t }));
+    if (typeof raw === 'string') {
+      return raw
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean)
@@ -68,7 +65,7 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // 2) Try child tables (if they exist). If they error because tables don't exist, just ignore.
+      // 2) Try child tables if they exist
       let ing = [];
       try {
         const { data } = await supabase
@@ -99,17 +96,16 @@ export default function RecipeViewPage() {
         if (data?.length) img = data;
       } catch (_) {}
 
-      // 3) Fallback to inline JSON fields if child tables are empty
+      // 3) Fallbacks to inline fields
       if (!ing?.length) ing = normalizeIngredients(rcp.ingredients);
       if (!st?.length) st = normalizeSteps(rcp.instructions || rcp.steps);
       if (!img?.length && rcp.hero_image_url) img = [{ url: rcp.hero_image_url }];
 
-      // 4) Author (if you store user_id on recipes)
+      // 4) Author lookup (optional)
       let profile = null;
       try {
         const userId = rcp.user_id || rcp.author_id || rcp.created_by;
         if (userId) {
-          // You said you have a 'users' table you insert into on sign-up.
           const { data: u } = await supabase
             .from('users')
             .select('id, email, username, avatar_url')
@@ -184,19 +180,14 @@ export default function RecipeViewPage() {
 
       {/* Hero */}
       <div className="mt-4 relative rounded-xl overflow-hidden">
-        {/* Keep aspect ratio consistent */}
+        {/* Consistent aspect ratio */}
         <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800">
           {heroUrl ? (
-            <img
-              src={heroUrl}
-              alt={title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            <img src={heroUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
           ) : null}
         </div>
 
-        {/* Overlay author */}
+        {/* Overlay: author + description */}
         {(author?.username || author?.email || description) && (
           <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
             <div className="flex items-center gap-3">
@@ -208,25 +199,21 @@ export default function RecipeViewPage() {
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-xs">
-                  {((author?.username || author?.email || 'U') ?? 'U')
-                    .slice(0, 1)
-                    .toUpperCase()}
+                  {((author?.username || author?.email || 'U') ?? 'U').slice(0, 1).toUpperCase()}
                 </div>
               )}
               <div className="text-sm leading-tight">
                 <div className="font-semibold">
                   {author?.username || author?.email || 'Unknown author'}
                 </div>
-                {description ? (
-                  <div className="opacity-90 line-clamp-1">{description}</div>
-                ) : null}
+                {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Stats chips */}
+      {/* Stat chips */}
       {hasAnyStats && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {statChips.map(({ icon: Icon, label }, i) => (
@@ -264,9 +251,7 @@ export default function RecipeViewPage() {
                       key={idx}
                       className={idx % 2 ? 'bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent'}
                     >
-                      <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">
-                        {row.name ?? ''}
-                      </td>
+                      <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{row.name ?? ''}</td>
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200 text-right">
                         {row.amount ?? ''}
                       </td>
@@ -306,10 +291,7 @@ export default function RecipeViewPage() {
 
       {/* Back link */}
       <div className="mt-6">
-        <Link
-          to="/browse"
-          className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
+        <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
           ← Back to recipes
         </Link>
       </div>
