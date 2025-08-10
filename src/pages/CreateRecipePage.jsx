@@ -30,22 +30,40 @@ export default function CreateRecipePage() {
   const [steps, setSteps] = useState([newStep(1)])
 
   // uploads / hero
-  const [recipeId, setRecipeId] = useState(null)
-  const [uploaded, setUploaded] = useState([]) // [{ url, path }]
+  const [recipeId, setRecipeId] = useState(null) // draft id first, same id for final recipe
+  const [uploaded, setUploaded] = useState([])   // [{ url, path }]
   const [hero, setHero] = useState(null)
   const [userPickedHero, setUserPickedHero] = useState(false)
 
-  // auth + draft id
+  // auth, draft, saved flag
   const [userId, setUserId] = useState(null)
-  const [draftId] = useState(() =>
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
-  )
+  const [isSaved, setIsSaved] = useState(false)
 
+  // Ensure we’re logged in and have a draft id
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null))
-  }, [])
+    let cancelled = false
+    async function boot() {
+      const { data: userRes } = await supabase.auth.getUser()
+      const uid = userRes?.user?.id ?? null
+      if (!cancelled) setUserId(uid)
+
+      if (!uid || recipeId) return
+
+      const { data, error } = await supabase
+        .from('recipe_drafts')
+        .insert({ author_id: uid })
+        .select('id')
+        .single()
+
+      if (error) {
+        console.error('Draft create failed', error)
+        return
+      }
+      if (!cancelled && data?.id) setRecipeId(data.id)
+    }
+    boot()
+    return () => { cancelled = true }
+  }, [recipeId])
 
   // ---------- Baker’s % ----------
   const totalFlour = useMemo(() => {
@@ -88,85 +106,66 @@ export default function CreateRecipePage() {
     })))
   }
 
-  // handle images uploaded (works pre & post save)
+  // handle images uploaded
   const handleImagesUploaded = async (files) => {
     if (!files?.length) return
     setUploaded(prev => {
       const next = [...prev, ...files]
-      // set default hero only if user hasn't picked one yet
       if (!userPickedHero && !hero && next[0]) setHero(next[0].url)
       return next
     })
-    if (recipeId && !hero) {
-      await supabase.from('recipes').update({ cover_image: files[0].url }).eq('id', recipeId)
-      setHero(files[0].url)
+    // if already saved, also persist to DB
+    if (isSaved) {
+      const urls = [...uploaded, ...files].map(f => f.url)
+      const chosen = userPickedHero ? hero : (urls[0] || null)
+      await supabase.from('recipes').update({ images: urls, cover_image: chosen }).eq('id', recipeId)
+      if (!userPickedHero) setHero(chosen)
     }
   }
 
   // ---------- drag & drop ----------
   const [dragIndex, setDragIndex] = useState(null)
-
   const onDragStart = (idx) => () => setDragIndex(idx)
   const onDragOver = (e) => e.preventDefault()
   const onDrop = (idx) => async (e) => {
     e.preventDefault()
     if (dragIndex === null || dragIndex === idx) return
-    setUploaded(prev => {
-      const next = [...prev]
-      const [moved] = next.splice(dragIndex, 1)
-      next.splice(idx, 0, moved)
-      return next
-    })
+    const next = [...uploaded]
+    const [moved] = next.splice(dragIndex, 1)
+    next.splice(idx, 0, moved)
+    setUploaded(next)
     setDragIndex(null)
 
-    // If user hasn't explicitly chosen hero, keep hero = first image
-    if (!userPickedHero && uploaded[0]) {
-      const newFirst = uploaded[idx === 0 ? dragIndex : 0]?.url // quick recalculation after reorder
-      if (newFirst) setHero(newFirst)
-    }
+    if (!userPickedHero && next[0]) setHero(next[0].url)
 
-    // Persist order if already saved
-    if (recipeId) {
-      const urls = getImageUrlsAfterReorder(dragIndex, idx, uploaded)
+    if (isSaved) {
+      const urls = next.map(f => f.url)
       await supabase.from('recipes').update({
         images: urls,
-        cover_image: userPickedHero ? hero : urls[0] || null,
+        cover_image: userPickedHero ? hero : (urls[0] || null),
       }).eq('id', recipeId)
       if (!userPickedHero) setHero(urls[0] || null)
     }
-  }
-
-  const getImageUrlsAfterReorder = (from, to, list) => {
-    const copy = [...list]
-    const [m] = copy.splice(from, 1)
-    copy.splice(to, 0, m)
-    return copy.map(f => f.url)
   }
 
   // ---------- delete image ----------
   const deleteImage = async (idx) => {
     const target = uploaded[idx]
     if (!target) return
-
-    // 1) delete from storage (if we have a path)
     if (target.path) {
       await supabase.storage.from(BUCKET).remove([target.path])
     }
-
-    // 2) update local list
     const next = uploaded.filter((_, i) => i !== idx)
     setUploaded(next)
 
-    // 3) adjust hero if needed
     let nextHero = hero
     if (hero === target.url) {
       nextHero = userPickedHero ? (next[0]?.url || null) : (next[0]?.url || null)
       setHero(nextHero)
-      setUserPickedHero(false) // since we changed it implicitly
+      setUserPickedHero(false)
     }
 
-    // 4) persist to DB if saved
-    if (recipeId) {
+    if (isSaved) {
       await supabase.from('recipes').update({
         images: next.map(f => f.url),
         cover_image: nextHero || null,
@@ -174,13 +173,22 @@ export default function CreateRecipePage() {
     }
   }
 
-  // ---------- save recipe ----------
+  // ---------- save recipe (no storage move; we reuse draft id) ----------
   const handleSave = async () => {
     setError('')
     if (!title.trim()) {
       setError('Title is required.')
       return
     }
+    if (!userId) {
+      setError('Please sign in before saving.')
+      return
+    }
+    if (!recipeId) {
+      setError('Draft not ready yet. Try again in a moment.')
+      return
+    }
+
     setSaving(true)
     try {
       const ing = withBakersPct
@@ -200,64 +208,31 @@ export default function CreateRecipePage() {
           time: s.time === '' ? null : Number(s.time),
         }))
 
-      // 1) Create
-      const basePayload = {
-        title: title.trim(),
-        description: description || null,
-        author_id: userId || null,
-        prep_time_minutes: totalTime ? Number(totalTime) : null,
-        servings: servings ? Number(servings) : null,
-        difficulty: difficulty || null,
-        ingredients: ing,
-        steps: stp,
-        images: [],
-        cover_image: null,
-      }
+      const urls = uploaded.map(f => f.url)
+      const chosen = userPickedHero ? (hero || urls[0] || null) : (urls[0] || null)
 
-      const { data: inserted, error: insertErr } = await supabase
+      const { error: insertErr } = await supabase
         .from('recipes')
-        .insert(basePayload)
-        .select('id')
-        .single()
+        .insert({
+          id: recipeId, // promote draft id
+          title: title.trim(),
+          description: description || null,
+          author_id: userId || null,
+          prep_time_minutes: totalTime ? Number(totalTime) : null,
+          servings: servings ? Number(servings) : null,
+          difficulty: difficulty || null,
+          ingredients: ing,
+          steps: stp,
+          images: urls,
+          cover_image: chosen,
+        })
       if (insertErr) throw insertErr
 
-      const newId = inserted.id
-      const newUploads = []
-      const finalUrls = []
+      // delete the draft row (tidy)
+      await supabase.from('recipe_drafts').delete().eq('id', recipeId)
 
-      // 2) Move drafts -> recipes/{id}/ and collect final URLs + paths
-      for (const f of uploaded) {
-        if (!f?.path) continue
-        if (f.path.startsWith('drafts/')) {
-          const filename = f.path.split('/').pop()
-          const destPath = `recipes/${newId}/${filename}`
-          const { error: moveErr } = await supabase.storage.from(BUCKET).move(f.path, destPath)
-          if (moveErr) throw moveErr
-          const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(destPath)
-          newUploads.push({ url: pub.publicUrl, path: destPath })
-          finalUrls.push(pub.publicUrl)
-        } else {
-          newUploads.push({ url: f.url, path: f.path })
-          finalUrls.push(f.url)
-        }
-      }
-
-      // 3) Cover image: user choice, else first
-      const chosen = userPickedHero && hero ? hero : (finalUrls[0] || null)
-
-      // 4) Update recipe with images + cover
-      const { error: updErr } = await supabase
-        .from('recipes')
-        .update({ images: finalUrls, cover_image: chosen })
-        .eq('id', newId)
-      if (updErr) throw updErr
-
-      // 5) sync local
-      setRecipeId(newId)
-      setUploaded(newUploads)
-      if (!userPickedHero) setHero(finalUrls[0] || null)
-
-      nav(`/recipe/${newId}`)
+      setIsSaved(true)
+      nav(`/recipe/${recipeId}`)
     } catch (e) {
       console.error(e)
       setError(e.message || 'Save failed.')
@@ -282,7 +257,7 @@ export default function CreateRecipePage() {
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {saving ? 'Saving…' : recipeId ? 'Saved' : 'Save recipe'}
+            {saving ? 'Saving…' : isSaved ? 'Saved' : 'Save recipe'}
           </button>
         </div>
       </div>
@@ -481,12 +456,22 @@ export default function CreateRecipePage() {
           <h2 className="font-semibold">Images</h2>
         </div>
 
-        <ImagesUploader
-          recipeId={recipeId}   // null before save → draft mode
-          userId={userId}
-          draftId={draftId}
-          onUploaded={handleImagesUploaded}
-        />
+        {!userId && (
+          <p className="text-sm opacity-80">Sign in to upload images.</p>
+        )}
+
+        {userId && !recipeId && (
+          <p className="text-sm opacity-80">Setting up your draft…</p>
+        )}
+
+        {userId && recipeId && (
+          <ImagesUploader
+            recipeId={recipeId}   // uploads directly to recipes/{draftId}/...
+            userId={userId}
+            draftId={recipeId}
+            onUploaded={handleImagesUploaded}
+          />
+        )}
 
         {uploaded.length > 0 && (
           <>
