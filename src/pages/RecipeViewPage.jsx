@@ -1,14 +1,122 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat } from 'lucide-react';
+
+/* ---------------------- Small, dependency-free carousel ---------------------- */
+function HeroCarousel({ items = [], title = '', overlay = null }) {
+  const urls = (items || [])
+    .map((im) => (typeof im === 'string' ? im : im?.url))
+    .filter(Boolean);
+
+  const [idx, setIdx] = useState(0);
+  const touchStartX = useRef(null);
+  const touchDeltaX = useRef(0);
+
+  useEffect(() => {
+    if (idx >= urls.length) setIdx(0);
+  }, [urls.length, idx]);
+
+  if (!urls.length) return null;
+
+  const go = (n) => setIdx((prev) => (prev + n + urls.length) % urls.length);
+  const onKey = (e) => {
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+  };
+
+  const onTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  };
+  const onTouchMove = (e) => {
+    if (touchStartX.current == null) return;
+    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+  };
+  const onTouchEnd = () => {
+    const dx = touchDeltaX.current;
+    touchStartX.current = null;
+    touchDeltaX.current = 0;
+    if (Math.abs(dx) > 40) go(dx > 0 ? -1 : 1);
+  };
+
+  return (
+    <div
+      className="mt-4 relative rounded-xl overflow-hidden"
+      tabIndex={0}
+      onKeyDown={onKey}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      aria-roledescription="carousel"
+      aria-label="Recipe images"
+    >
+      {/* Aspect box */}
+      <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative">
+        {urls.map((src, i) => (
+          <img
+            key={src + i}
+            src={src}
+            alt={title}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+              i === idx ? 'opacity-100' : 'opacity-0'
+            }`}
+            aria-hidden={i !== idx}
+          />
+        ))}
+
+        {/* Overlay (author + description) */}
+        {overlay}
+
+        {/* Prev / Next */}
+        {urls.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/45 text-white px-2 py-2 hover:bg-black/60 focus:outline-none"
+              aria-label="Previous image"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              onClick={() => go(1)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/45 text-white px-2 py-2 hover:bg-black/60 focus:outline-none"
+              aria-label="Next image"
+            >
+              ›
+            </button>
+          </>
+        )}
+
+        {/* Dots */}
+        {urls.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+            {urls.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => setIdx(i)}
+                className={`h-2 w-2 rounded-full transition ${
+                  i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'
+                }`}
+                aria-label={`Go to slide ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+/* ---------------------------------------------------------------------------- */
 
 export default function RecipeViewPage() {
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
   const [steps, setSteps] = useState([]);
-  const [images, setImages] = useState([]); // [{url}]
+  const [images, setImages] = useState([]); // [{url}] or strings
   const [author, setAuthor] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,9 +131,7 @@ export default function RecipeViewPage() {
   // Accept multiple shapes for ingredients/steps
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
-    // Already array of objects
-    if (Array.isArray(ingRaw) && ingRaw.every(x => typeof x === 'object')) return ingRaw;
-    // Array of strings
+    if (Array.isArray(ingRaw) && ingRaw.every((x) => typeof x === 'object')) return ingRaw;
     if (Array.isArray(ingRaw)) {
       return ingRaw.map((line) => ({
         name: String(line ?? '').trim(),
@@ -33,7 +139,6 @@ export default function RecipeViewPage() {
         bakers_pct: '',
       }));
     }
-    // Delimited string
     if (typeof ingRaw === 'string') {
       return ingRaw
         .split('\n')
@@ -49,11 +154,8 @@ export default function RecipeViewPage() {
 
   const normalizeSteps = (raw) => {
     if (!raw) return [];
-    // Array of objects (support {text, position, time})
-    if (Array.isArray(raw) && raw.every(x => typeof x === 'object')) return raw;
-    // Array of strings
+    if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) return raw;
     if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
-    // Multi-line string
     if (typeof raw === 'string') {
       return raw
         .split('\n')
@@ -73,7 +175,9 @@ export default function RecipeViewPage() {
       // 1) Base recipe
       const { data: rcp, error: rErr } = await supabase
         .from('recipes')
-        .select('id,title,description,author_id,prep_time_minutes,servings,difficulty,cover_image,images,ingredients,steps,created_at')
+        .select(
+          'id,title,description,author_id,prep_time_minutes,servings,difficulty,cover_image,images,ingredients,steps,created_at'
+        )
         .eq('id', id)
         .single();
 
@@ -83,36 +187,36 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // 2) Try child tables if they exist (legacy paths)
+      // 2) Try legacy child tables
       let ing = [];
-      try {
+      {
         const { data, error } = await supabase
           .from('recipe_ingredients')
           .select('name, amount, bakers_pct, position')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
         if (!error && data?.length) ing = data;
-      } catch (_) {}
+      }
 
       let st = [];
-      try {
+      {
         const { data, error } = await supabase
           .from('recipe_steps')
           .select('text, position, time')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
         if (!error && data?.length) st = data;
-      } catch (_) {}
+      }
 
       let img = [];
-      try {
+      {
         const { data, error } = await supabase
           .from('recipe_images')
           .select('url, position')
           .eq('recipe_id', id)
           .order('position', { ascending: true });
         if (!error && data?.length) img = data;
-      } catch (_) {}
+      }
 
       // 3) Fallbacks to inline fields (new schema first)
       if (!ing?.length) ing = normalizeIngredients(rcp.ingredients);
@@ -158,7 +262,6 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  const heroUrl = recipe?.cover_image || images?.[0]?.url || '';
   const title = recipe?.title || 'Resepti';
   const description = recipe?.description || '';
   const servings = recipe?.servings ?? null;
@@ -229,40 +332,36 @@ export default function RecipeViewPage() {
         )}
       </div>
 
-      {/* Hero */}
-      <div className="mt-4 relative rounded-xl overflow-hidden">
-        {/* Consistent aspect ratio */}
-        <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800">
-          {heroUrl ? (
-            <img src={heroUrl} alt={title} className="w-full h-full object-cover" loading="lazy" />
-          ) : null}
-        </div>
-
-        {/* Overlay: author + description */}
-        {(author?.username || author?.email || description) && (
-          <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
-            <div className="flex items-center gap-3">
-              {author?.avatar_url ? (
-                <img
-                  src={author.avatar_url}
-                  alt={author.username || author.email}
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-xs">
-                  {((author?.username || author?.email || 'U') ?? 'U').slice(0, 1).toUpperCase()}
+      {/* HERO CAROUSEL */}
+      <HeroCarousel
+        title={title}
+        items={images}
+        overlay={
+          (author?.username || author?.email || description) && (
+            <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                {author?.avatar_url ? (
+                  <img
+                    src={author.avatar_url}
+                    alt={author.username || author.email}
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-xs">
+                    {((author?.username || author?.email || 'U') ?? 'U').slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+                <div className="text-sm leading-tight">
+                  <div className="font-semibold">
+                    {author?.username || author?.email || 'Unknown author'}
+                  </div>
+                  {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
                 </div>
-              )}
-              <div className="text-sm leading-tight">
-                <div className="font-semibold">
-                  {author?.username || author?.email || 'Unknown author'}
-                </div>
-                {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )
+        }
+      />
 
       {/* Stat chips */}
       {hasAnyStats && (
@@ -347,14 +446,15 @@ export default function RecipeViewPage() {
         </section>
       </div>
 
-      {/* Gallery */}
+      {/* Gallery (keep, even with carousel) */}
       {images.length > 1 && (
         <section className="mt-6 space-y-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Images</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {images.map((im, i) => (
-              <img key={i} src={im.url} alt="" className="w-full h-40 object-cover rounded-lg border" />
-            ))}
+            {images.map((im, i) => {
+              const src = typeof im === 'string' ? im : im.url;
+              return <img key={i} src={src} alt="" className="w-full h-40 object-cover rounded-lg border" />;
+            })}
           </div>
         </section>
       )}
