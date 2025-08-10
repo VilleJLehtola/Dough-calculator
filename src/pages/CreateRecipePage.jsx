@@ -19,7 +19,9 @@ export default function CreateRecipePage() {
   // basics
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [totalTime, setTotalTime] = useState('') // maps to prep_time_minutes
+  const [totalTime, setTotalTime] = useState('') // -> prep_time_minutes
+  const [servings, setServings] = useState('')
+  const [difficulty, setDifficulty] = useState('') // easy | medium | hard
 
   // json fields
   const [ingredients, setIngredients] = useState([newIngredient()])
@@ -125,6 +127,8 @@ export default function CreateRecipePage() {
         description: description || null,
         author_id: userId || null,
         prep_time_minutes: totalTime ? Number(totalTime) : null,
+        servings: servings ? Number(servings) : null,
+        difficulty: difficulty || null,
         ingredients: ing,
         steps: stp,
         images: [],
@@ -237,6 +241,16 @@ export default function CreateRecipePage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
+          <label className="text-sm text-gray-600 dark:text-gray-300">Servings</label>
+          <input
+            type="number"
+            value={servings}
+            onChange={(e) => setServings(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
+            placeholder="e.g. 8"
+          />
+        </div>
+        <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Total time (min)</label>
           <input
             type="number"
@@ -245,6 +259,19 @@ export default function CreateRecipePage() {
             className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
             placeholder="e.g. 120"
           />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm text-gray-600 dark:text-gray-300">Difficulty</label>
+          <select
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
+          >
+            <option value="">– select –</option>
+            <option value="easy">easy</option>
+            <option value="medium">medium</option>
+            <option value="hard">hard</option>
+          </select>
         </div>
       </section>
 
