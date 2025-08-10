@@ -25,7 +25,7 @@ export default function Sidebar({ user, onLogout }) {
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6">
       <div className="text-xl font-bold px-2 text-gray-800 dark:text-white">
-        Everything dough
+          
       </div>
 
       {/* Discover */}
