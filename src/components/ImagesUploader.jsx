@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { supabase } from '@/supabaseClient'
 import { v4 as uuidv4 } from 'uuid'
 
 export default function ImagesUploader({ recipeId, userId, onUploaded }) {
