@@ -7,29 +7,37 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRecipes = async () => {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select(`
-          id,
-          title,
-          description,
-          recipe_images (
-            url
-          )
-        `)
-        .order('created_at', { ascending: false });
+    async function load() {
+      setLoading(true);
+      // Try to fetch with optional relation; if it errors, fall back
+      let list = [];
+      try {
+        const { data, error } = await supabase
+          .from('recipes')
+          .select(`
+            id,
+            title,
+            description,
+            hero_image_url,
+            created_at,
+            recipe_images ( url )
+          `)
+          .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching recipes:', error.message);
-      } else {
-        setRecipes(data);
+        if (error) throw error;
+        list = data || [];
+      } catch (e) {
+        console.warn('Browse: relation fetch failed, falling back.', e?.message);
+        const { data } = await supabase
+          .from('recipes')
+          .select('id, title, description, hero_image_url, created_at')
+          .order('created_at', { ascending: false });
+        list = data || [];
       }
-
+      setRecipes(list);
       setLoading(false);
-    };
-
-    fetchRecipes();
+    }
+    load();
   }, []);
 
   return (
@@ -42,25 +50,35 @@ export default function BrowsePage() {
         <p className="text-gray-600 dark:text-gray-300">Ei reseptejä löytynyt.</p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((recipe) => (
-            <Link
-              to={`/recipe/${recipe.id}`}
-              key={recipe.id}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition"
-            >
-              {recipe.recipe_images?.[0]?.url && (
-                <img
-                  src={recipe.recipe_images[0].url}
-                  alt={recipe.title}
-                  className="w-full h-40 object-cover"
-                />
-              )}
-              <div className="p-4">
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white">{recipe.title}</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{recipe.description}</p>
-              </div>
-            </Link>
-          ))}
+          {recipes.map((r) => {
+            const thumb = r.recipe_images?.[0]?.url || r.hero_image_url || '';
+            return (
+              <Link
+                to={`/recipe/${r.id}`}
+                key={r.id}
+                className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition"
+              >
+                {thumb ? (
+                  <img
+                    src={thumb}
+                    alt={r.title}
+                    className="w-full h-40 object-cover group-hover:opacity-95 transition"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-40 bg-gray-100 dark:bg-gray-700" />
+                )}
+                <div className="p-4">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white line-clamp-1">
+                    {r.title}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                    {r.description || '—'}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
