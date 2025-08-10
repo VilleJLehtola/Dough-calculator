@@ -128,7 +128,6 @@ export default function RecipeViewPage() {
     });
   }, []);
 
-  // Accept multiple shapes for ingredients/steps
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
     if (Array.isArray(ingRaw) && ingRaw.every((x) => typeof x === 'object')) return ingRaw;
@@ -172,7 +171,6 @@ export default function RecipeViewPage() {
     async function load() {
       setLoading(true);
 
-      // 1) Base recipe
       const { data: rcp, error: rErr } = await supabase
         .from('recipes')
         .select(
@@ -187,7 +185,7 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // 2) Try legacy child tables
+      // Legacy tables (best-effort only)
       let ing = [];
       {
         const { data, error } = await supabase
@@ -218,11 +216,10 @@ export default function RecipeViewPage() {
         if (!error && data?.length) img = data;
       }
 
-      // 3) Fallbacks to inline fields (new schema first)
+      // Fallbacks to inline fields (new schema first)
       if (!ing?.length) ing = normalizeIngredients(rcp.ingredients);
       if (!st?.length) st = normalizeSteps(rcp.steps || rcp.instructions);
 
-      // Images: prefer new json array (strings), then legacy table, then cover_image
       let imgs = [];
       if (Array.isArray(rcp.images) && rcp.images.length) {
         imgs = rcp.images.map((u) => (typeof u === 'string' ? { url: u } : u));
@@ -232,7 +229,7 @@ export default function RecipeViewPage() {
         imgs = [{ url: rcp.cover_image }];
       }
 
-      // 4) Author lookup (optional)
+      // Author (optional)
       let profile = null;
       try {
         const userId = rcp.author_id || rcp.user_id || rcp.created_by;
@@ -445,19 +442,6 @@ export default function RecipeViewPage() {
           </div>
         </section>
       </div>
-
-      {/* Gallery (keep, even with carousel) */}
-      {images.length > 1 && (
-        <section className="mt-6 space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Images</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {images.map((im, i) => {
-              const src = typeof im === 'string' ? im : im.url;
-              return <img key={i} src={src} alt="" className="w-full h-40 object-cover rounded-lg border" />;
-            })}
-          </div>
-        </section>
-      )}
 
       {/* Back link */}
       <div className="mt-6">
