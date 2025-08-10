@@ -13,6 +13,19 @@ function newStep(i = 1) {
   return { position: i, text: '', time: '' } // time optional ('' -> null on save)
 }
 
+// List files in storage and return [{url, path}]
+async function listFolderUrls(folder) {
+  const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 })
+  if (error || !files?.length) return []
+  return files
+    .filter(f => !f.name.startsWith('.'))
+    .map(f => {
+      const path = `${folder}/${f.name}`
+      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path)
+      return { url: pub.publicUrl, path }
+    })
+}
+
 export default function CreateRecipePage() {
   const nav = useNavigate()
   const [saving, setSaving] = useState(false)
@@ -30,16 +43,16 @@ export default function CreateRecipePage() {
   const [steps, setSteps] = useState([newStep(1)])
 
   // uploads / hero
-  const [recipeId, setRecipeId] = useState(null) // draft id first, same id for final recipe
-  const [uploaded, setUploaded] = useState([])   // [{ url, path }]
+  const [recipeId, setRecipeId] = useState(null)  // draft id first, same id for final recipe
+  const [uploaded, setUploaded] = useState([])    // [{ url, path }]
   const [hero, setHero] = useState(null)
   const [userPickedHero, setUserPickedHero] = useState(false)
 
-  // auth, draft, saved flag
+  // auth & saved flag
   const [userId, setUserId] = useState(null)
   const [isSaved, setIsSaved] = useState(false)
 
-  // Ensure we’re logged in and have a draft id
+  // Ensure login & create a draft id
   useEffect(() => {
     let cancelled = false
     async function boot() {
@@ -59,11 +72,27 @@ export default function CreateRecipePage() {
         console.error('Draft create failed', error)
         return
       }
-      if (!cancelled && data?.id) setRecipeId(data.id)
+      if (!cancelled && data?.id) {
+        setRecipeId(data.id)
+      }
     }
     boot()
     return () => { cancelled = true }
   }, [recipeId])
+
+  // Hydrate any existing files from Storage when we get a draft/recipe id
+  useEffect(() => {
+    if (!userId || !recipeId) return
+    let cancelled = false
+    ;(async () => {
+      const existing = await listFolderUrls(`recipes/${recipeId}`)
+      if (!cancelled && existing.length) {
+        setUploaded(existing)
+        if (!hero) setHero(existing[0].url)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [userId, recipeId]) // eslint-disable-line
 
   // ---------- Baker’s % ----------
   const totalFlour = useMemo(() => {
@@ -114,7 +143,7 @@ export default function CreateRecipePage() {
       if (!userPickedHero && !hero && next[0]) setHero(next[0].url)
       return next
     })
-    // if already saved, also persist to DB
+    // if already saved, persist to DB
     if (isSaved) {
       const urls = [...uploaded, ...files].map(f => f.url)
       const chosen = userPickedHero ? hero : (urls[0] || null)
@@ -160,7 +189,7 @@ export default function CreateRecipePage() {
 
     let nextHero = hero
     if (hero === target.url) {
-      nextHero = userPickedHero ? (next[0]?.url || null) : (next[0]?.url || null)
+      nextHero = next[0]?.url || null
       setHero(nextHero)
       setUserPickedHero(false)
     }
@@ -173,7 +202,7 @@ export default function CreateRecipePage() {
     }
   }
 
-  // ---------- save recipe (no storage move; we reuse draft id) ----------
+  // ---------- save recipe (no storage move; reuse draft id) ----------
   const handleSave = async () => {
     setError('')
     if (!title.trim()) {
@@ -208,7 +237,14 @@ export default function CreateRecipePage() {
           time: s.time === '' ? null : Number(s.time),
         }))
 
-      const urls = uploaded.map(f => f.url)
+      // If memory lost uploads (page refresh), hydrate from storage
+      let effectiveUploaded = uploaded
+      if (effectiveUploaded.length === 0 && recipeId) {
+        effectiveUploaded = await listFolderUrls(`recipes/${recipeId}`)
+        if (effectiveUploaded.length) setUploaded(effectiveUploaded)
+      }
+
+      const urls = effectiveUploaded.map(f => f.url)
       const chosen = userPickedHero ? (hero || urls[0] || null) : (urls[0] || null)
 
       const { error: insertErr } = await supabase
@@ -456,13 +492,8 @@ export default function CreateRecipePage() {
           <h2 className="font-semibold">Images</h2>
         </div>
 
-        {!userId && (
-          <p className="text-sm opacity-80">Sign in to upload images.</p>
-        )}
-
-        {userId && !recipeId && (
-          <p className="text-sm opacity-80">Setting up your draft…</p>
-        )}
+        {!userId && <p className="text-sm opacity-80">Sign in to upload images.</p>}
+        {userId && !recipeId && <p className="text-sm opacity-80">Setting up your draft…</p>}
 
         {userId && recipeId && (
           <ImagesUploader
@@ -486,7 +517,9 @@ export default function CreateRecipePage() {
                       checked={hero === f.url}
                       onChange={() => { setHero(f.url); setUserPickedHero(true) }}
                     />
-                    <span className="text-sm truncate">{new URL(f.url).pathname.split('/').pop()}</span>
+                    <span className="text-sm truncate">
+                      {(() => { try { return new URL(f.url).pathname.split('/').pop() } catch { return 'image' } })()}
+                    </span>
                   </label>
                 ))}
               </div>
