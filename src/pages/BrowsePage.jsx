@@ -30,7 +30,7 @@ export default function BrowsePage() {
         console.warn('Browse: relation fetch failed, falling back.', e?.message);
         const { data } = await supabase
           .from('recipes')
-          .select('id, title, description, hero_image_url, created_at')
+          .select('id,title,description,cover_image,images,created_at')
           .order('created_at', { ascending: false });
         list = data || [];
       }
