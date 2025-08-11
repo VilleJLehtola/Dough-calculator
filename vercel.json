@@ -1,8 +1,18 @@
 {
+  "version": 2,
+  "framework": "vite",
+  "buildCommand": "vite build",
+  "outputDirectory": "dist",
+
+  // make sure node functions use the Node runtime
+  "functions": {
+    "api/**.ts": { "runtime": "nodejs" },
+    "api/**.js": { "runtime": "nodejs" }
+  },
+
+  // ⬇️ keep API paths intact, then SPA fallback
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/"
-    }
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/" }
   ]
 }
