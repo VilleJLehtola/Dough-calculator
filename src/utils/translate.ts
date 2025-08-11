@@ -1,6 +1,4 @@
-// =============================================
-// File: /src/utils/translate.ts  (Client Helper)
-// =============================================
+// /src/utils/translate.ts
 export type TranslateResponse = { translatedText: string | string[]; provider: 'azure' | 'deepl' };
 
 export async function translateText(q: string | string[], source: string, target: string) {
@@ -15,7 +13,6 @@ export async function translateText(q: string | string[], source: string, target
 }
 
 export async function translateArray(texts: string[], source: string, target: string) {
-  // single roundtrip for arrays
   const r = await fetch('/api/translate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
