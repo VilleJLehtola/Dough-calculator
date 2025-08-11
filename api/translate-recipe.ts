@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-export const config = { runtime: 'nodejs' }; // <-- important
+export const config = { runtime: 'nodejs' }; // Vercel: valid values are "edge" | "experimental-edge" | "nodejs"
 
 type Step = { position?: number; text?: string; time?: number | null } | string;
 type Ingredient = { name?: string; amount?: string; bakers_pct?: string } | string;
@@ -75,6 +75,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // Safety: if translator URL is not configured, fail fast and DO NOT cache
+  if (!LT_URL) {
+    res.status(503).json({ error: 'translator_not_configured' });
+    return;
+  }
+
   try {
     const { recipeId, targetLang } = (req.body || {}) as {
       recipeId?: string;
@@ -84,8 +90,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(400).json({ error: 'recipeId and targetLang are required' });
       return;
     }
+    if (targetLang === 'auto') {
+      res.status(400).json({ error: 'targetLang cannot be "auto"' });
+      return;
+    }
 
-    // Admin client for read/write cache (service role)
+    // Admin client (service role) for read/write cache
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
@@ -118,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       )
       .digest('hex');
 
-    // 3) Cache lookup (exact content hash)
+    // 3) Cache lookup
     const { data: cached } = await admin
       .from('recipe_translations')
       .select('title,description,ingredients,steps')
@@ -132,7 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    // 4) Translate (or echo if no provider)
+    // 4) Translate
     const [tTitle, tDesc, tIngNames, tStepTexts] = await Promise.all([
       translateOne(String(rcp.title || ''), targetLang),
       translateOne(String(rcp.description || ''), targetLang),
@@ -149,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       text: tStepTexts[i] ?? row.text,
     }));
 
-    // 5) Upsert into cache (unique on recipe_id,lang,content_hash)
+    // 5) Upsert cache (unique on recipe_id,lang,content_hash)
     await admin.from('recipe_translations').upsert(
       {
         recipe_id: recipeId,
