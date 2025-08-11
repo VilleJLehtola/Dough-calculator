@@ -128,7 +128,7 @@ export default function RecipeViewPage() {
     });
   }, []);
 
-  // UI language coming from sidebar flag switcher (localStorage + custom event)
+  // UI language (listen to storage + custom 'langchange' event from LanguageSwitcher)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
   useEffect(() => {
     const onStorage = (e) => {
@@ -287,7 +287,6 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // Try Vercel serverless function
       try {
         const resp = await fetch('/api/translate-recipe', {
           method: 'POST',
@@ -298,11 +297,8 @@ export default function RecipeViewPage() {
           setT(await resp.json());
           return;
         }
-      } catch {
-        /* fall through */
-      }
+      } catch {}
 
-      // Fallback to Supabase Edge Function named 'translate-recipe'
       try {
         const { data, error } = await supabase.functions.invoke('translate-recipe', {
           body: { recipeId: id, targetLang: uiLang },
@@ -311,11 +307,9 @@ export default function RecipeViewPage() {
           setT(data);
           return;
         }
-      } catch {
-        /* ignore */
-      }
+      } catch {}
 
-      setT(null); // fail open to original content
+      setT(null); // fail open
     })();
   }, [id, uiLang]);
 
@@ -392,7 +386,7 @@ export default function RecipeViewPage() {
         )}
       </div>
 
-      {/* HERO CAROUSEL + overlay */}
+      {/* HERO CAROUSEL */}
       <HeroCarousel
         title={title}
         items={images}
