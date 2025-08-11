@@ -128,6 +128,17 @@ export default function RecipeViewPage() {
     });
   }, []);
 
+  // UI language coming from sidebar flag switcher (localStorage)
+  const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
+  useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Accept multiple shapes for ingredients/steps
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
     if (Array.isArray(ingRaw) && ingRaw.every((x) => typeof x === 'object')) return ingRaw;
@@ -259,8 +270,35 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  const title = recipe?.title || 'Resepti';
-  const description = recipe?.description || '';
+  // Live translation fetch (from Vercel function)
+  const [t, setT] = useState(null);
+  useEffect(() => {
+    (async () => {
+      if (!id) return;
+      if (uiLang === 'auto') {
+        setT(null);
+        return;
+      }
+      try {
+        const resp = await fetch('/api/translate-recipe', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ recipeId: id, targetLang: uiLang }),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          setT(data);
+        } else {
+          setT(null); // fail open to original
+        }
+      } catch {
+        setT(null);
+      }
+    })();
+  }, [id, uiLang]);
+
+  const title = t?.title ?? recipe?.title ?? 'Resepti';
+  const description = t?.description ?? recipe?.description ?? '';
   const servings = recipe?.servings ?? null;
   const totalTime =
     recipe?.prep_time_minutes ??
@@ -282,12 +320,15 @@ export default function RecipeViewPage() {
     [servings, totalTime, difficulty]
   );
 
+  const ingredientsToRender = t?.ingredients ?? ingredients;
+  const stepsToRender = t?.steps ?? steps;
+
   const sortedSteps = useMemo(
     () =>
-      (steps || [])
+      (stepsToRender || [])
         .slice()
         .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-    [steps]
+    [stepsToRender]
   );
 
   if (loading) {
@@ -383,7 +424,7 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ingredients</h2>
           </div>
           <div className="p-4 overflow-x-auto">
-            {ingredients?.length ? (
+            {ingredientsToRender?.length ? (
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500 dark:text-gray-400">
@@ -393,7 +434,7 @@ export default function RecipeViewPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {ingredients.map((row, idx) => (
+                  {ingredientsToRender.map((row, idx) => (
                     <tr
                       key={idx}
                       className={idx % 2 ? 'bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent'}
