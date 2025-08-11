@@ -51,6 +51,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
       aria-roledescription="carousel"
       aria-label="Recipe images"
     >
+      {/* Aspect box */}
       <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative">
         {urls.map((src, i) => (
           <img
@@ -63,7 +64,11 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
             aria-hidden={i !== idx}
           />
         ))}
+
+        {/* Overlay (author + description) */}
         {overlay}
+
+        {/* Prev / Next */}
         {urls.length > 1 && (
           <>
             <button
@@ -84,6 +89,8 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
             </button>
           </>
         )}
+
+        {/* Dots */}
         {urls.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
             {urls.map((_, i) => (
@@ -183,6 +190,7 @@ export default function RecipeViewPage() {
     return [];
   };
 
+  // Load recipe + legacy fallbacks
   useEffect(() => {
     let isMounted = true;
 
@@ -203,7 +211,7 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // Legacy tables (best-effort only)
+      // Legacy tables (best-effort only; ignore 404s)
       let ing = [];
       {
         const { data, error } = await supabase
@@ -289,8 +297,11 @@ export default function RecipeViewPage() {
       raw.data ||
       raw;
 
-    // pull possible fields
-    const pick = (...keys) => keys.find((k) => src?.[k] != null) && src[keys.find((k) => src?.[k] != null)];
+    // getter
+    const pick = (...keys) => {
+      const k = keys.find((kk) => src?.[kk] != null);
+      return k ? src[k] : undefined;
+    };
 
     let title =
       pick('title', 'title_en', 'title_en_us') ||
@@ -313,13 +324,15 @@ export default function RecipeViewPage() {
       src?.fi?.steps;
 
     // normalize shapes
-    if (typeof ing === 'string') ing = ing.split('\n').filter(Boolean).map((n) => ({ name: n, amount: '', bakers_pct: '' }));
+    if (typeof ing === 'string')
+      ing = ing.split('\n').filter(Boolean).map((n) => ({ name: n, amount: '', bakers_pct: '' }));
     if (Array.isArray(ing) && ing.every((x) => typeof x === 'string')) {
       ing = ing.map((n) => ({ name: String(n), amount: '', bakers_pct: '' }));
     }
     if (!Array.isArray(ing)) ing = undefined;
 
-    if (typeof st === 'string') st = st.split('\n').filter(Boolean).map((t, i) => ({ position: i + 1, text: t }));
+    if (typeof st === 'string')
+      st = st.split('\n').filter(Boolean).map((t, i) => ({ position: i + 1, text: t }));
     if (Array.isArray(st) && st.every((x) => typeof x === 'string')) {
       st = st.map((t, i) => ({ position: i + 1, text: t }));
     }
@@ -341,7 +354,7 @@ export default function RecipeViewPage() {
     };
   };
 
-  // Live translation fetch (Vercel function first, Supabase Edge Function fallback)
+  // Live translation via Vercel function ONLY (cleaner logs & no CORS spam)
   const [t, setT] = useState(null);
   useEffect(() => {
     (async () => {
@@ -362,27 +375,15 @@ export default function RecipeViewPage() {
           console.log('[translate] vercel response', json);
           const coerced = coerceTranslation(json);
           setT(coerced);
-          return;
+        } else {
+          const msg = await resp.text();
+          console.warn('[translate] 500 body:', msg);
+          setT(null);
         }
       } catch (e) {
         console.warn('[translate] vercel error', e);
+        setT(null);
       }
-
-      try {
-        const { data, error } = await supabase.functions.invoke('translate-recipe', {
-          body: { recipeId: id, targetLang: uiLang },
-        });
-        if (!error) {
-          console.log('[translate] supabase response', data);
-          const coerced = coerceTranslation(data);
-          setT(coerced);
-          return;
-        }
-      } catch (e) {
-        console.warn('[translate] supabase error', e);
-      }
-
-      setT(null); // fail open to original
     })();
   }, [id, uiLang]);
 
