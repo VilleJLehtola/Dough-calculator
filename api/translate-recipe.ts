@@ -1,106 +1,196 @@
-// api/translate-recipe.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import crypto from 'node:crypto'
-import { createClient } from '@supabase/supabase-js'
+// Vercel Edge/Node API route
+// Translates a recipe to targetLang using free providers (LibreTranslate with MyMemory fallback)
+// Caches per (recipe_id, lang, content_hash) in Supabase.
 
-/**
- * ENV (add in Vercel Project Settings -> Environment Variables):
- * - SUPABASE_URL
- * - SUPABASE_SERVICE_ROLE_KEY  (Serverless only, NEVER expose to client)
- * - LT_ENDPOINT=https://libretranslate.com  (or your self-hosted URL)
- * - LT_API_KEY (optional for some instances)
- */
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const LT_ENDPOINT = (process.env.LT_ENDPOINT || 'https://libretranslate.com').replace(/\/$/, '')
-const LT_API_KEY = process.env.LT_API_KEY || undefined
+// You can replace with your own self-hosted LibreTranslate endpoint for higher limits
+const LIBRE_ENDPOINTS = [
+  'https://translate.astian.org/translate',
+  'https://libretranslate.com/translate', // often throttled
+];
 
-async function detectLT(q: string) {
-  if (!q) return 'auto'
-  const r = await fetch(`${LT_ENDPOINT}/detect`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ q })
-  })
-  const arr = await r.json().catch(() => [])
-  return Array.isArray(arr) && arr[0]?.language ? arr[0].language : 'auto'
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+  auth: { persistSession: false },
+});
+
+// ---------- helpers ----------
+const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
+
+function normalizeIngredients(raw: any): { name: string; amount?: string; bakers_pct?: string }[] {
+  if (!raw) return [];
+  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) return raw;
+  if (Array.isArray(raw)) return raw.map((t) => ({ name: String(t ?? '') }));
+  if (typeof raw === 'string')
+    return raw
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((name) => ({ name }));
+  return [];
 }
 
-async function translateLT(q: string, source: string, target: string) {
-  if (!q) return q
-  const r = await fetch(`${LT_ENDPOINT}/translate`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ q, source, target, format: 'text', api_key: LT_API_KEY })
-  })
-  const data = await r.json().catch(() => ({}))
-  return data?.translatedText ?? q
+function normalizeSteps(raw: any): { position: number; text: string; time?: number | null }[] {
+  if (!raw) return [];
+  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
+    return raw.map((s, i) => ({
+      position: s.position ?? i + 1,
+      text: s.text ?? s.content ?? s.description ?? String(s ?? ''),
+      time: s.time ?? s.minutes ?? null,
+    }));
+  }
+  if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
+  if (typeof raw === 'string')
+    return raw
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((text, i) => ({ position: i + 1, text }));
+  return [];
+}
+
+// try LibreTranslate first; if it fails, fall back to MyMemory
+async function translateText(text: string, target: string): Promise<string> {
+  const q = text ?? '';
+  if (!q) return q;
+
+  // 1) LibreTranslate
+  for (const base of LIBRE_ENDPOINTS) {
+    try {
+      const r = await fetch(base, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ q, source: 'auto', target, format: 'text' }),
+      });
+      if (r.ok) {
+        const j = (await r.json()) as { translatedText?: string };
+        if (j?.translatedText) return j.translatedText;
+      }
+    } catch {
+      // continue
+    }
+  }
+
+  // 2) MyMemory (very free, but noisy)
+  try {
+    const pair = `auto|${encodeURIComponent(target)}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${pair}`;
+    const r = await fetch(url);
+    if (r.ok) {
+      const j = await r.json();
+      const out = j?.responseData?.translatedText as string | undefined;
+      if (out) return out;
+    }
+  } catch {
+    // ignore
+  }
+
+  // last resort: original
+  return q;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST' });
+
   try {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-    const { recipeId, targetLang } = req.body || {}
-    if (!recipeId || !targetLang) return res.status(400).json({ error: 'Missing params' })
+    const { recipeId, targetLang } = req.body as { recipeId?: string; targetLang?: string };
+    if (!recipeId || !targetLang) return res.status(400).json({ error: 'recipeId + targetLang required' });
 
-    // 1) Load source
-    const { data: r, error } = await supabase
+    // 1) load recipe
+    const { data: rcp, error } = await supabase
       .from('recipes')
-      .select('id,title,description,ingredients,steps')
+      .select('id, title, description, ingredients, steps')
       .eq('id', recipeId)
-      .single()
-    if (error || !r) return res.status(404).json({ error: 'Recipe not found' })
+      .single();
 
-    // 2) Hash of the parts we translate (title, description, ingredient names, step texts)
-    const pack = JSON.stringify({
-      t: r.title || '',
-      d: r.description || '',
-      i: (r.ingredients || []).map((x: any) => x?.name || ''),
-      s: (r.steps || []).map((x: any) => x?.text || ''),
-    })
-    const content_hash = crypto.createHash('sha256').update(pack).digest('hex')
+    if (error || !rcp) return res.status(404).json({ error: 'Recipe not found' });
 
-    // 3) Cache hit?
+    const ing = normalizeIngredients(rcp.ingredients);
+    const st = normalizeSteps(rcp.steps);
+    const canonical = JSON.stringify({
+      t: rcp.title ?? '',
+      d: rcp.description ?? '',
+      ing: ing.map((i) => i.name),
+      st: st.map((s) => s.text),
+    });
+    const content_hash = sha256(canonical);
+
+    // 2) cache hit?
     const { data: cached } = await supabase
       .from('recipe_translations')
-      .select('*')
+      .select('title, description, ingredients, steps, content_hash')
       .eq('recipe_id', recipeId)
       .eq('lang', targetLang)
-      .eq('content_hash', content_hash)
-      .maybeSingle()
-    if (cached) return res.status(200).json(cached)
+      .single()
+      .catch(() => ({ data: null as any }));
 
-    // 4) Detect + translate via LibreTranslate
-    const sample = [r.title, r.description].filter(Boolean).join('\n').slice(0, 400)
-    const srcLang = sample ? await detectLT(sample) : 'auto'
+    if (cached && cached.content_hash === content_hash) {
+      return res.status(200).json({
+        recipe_id: recipeId,
+        lang: targetLang,
+        content_hash,
+        title: cached.title,
+        description: cached.description,
+        ingredients: cached.ingredients,
+        steps: cached.steps,
+        source: 'cache',
+      });
+    }
 
-    const title = await translateLT(r.title || '', srcLang, targetLang)
-    const description = await translateLT(r.description || '', srcLang, targetLang)
+    // 3) translate
+    const [title, description] = await Promise.all([
+      translateText(rcp.title ?? '', targetLang),
+      translateText(rcp.description ?? '', targetLang),
+    ]);
 
-    const ingredients = await Promise.all(
-      (r.ingredients || []).map(async (ing: any) => ({
-        ...ing,
-        name: await translateLT(ing?.name || '', srcLang, targetLang),
-      }))
-    )
+    const ingredients = [];
+    for (const i of ing) {
+      ingredients.push({
+        ...i,
+        name: await translateText(i.name ?? '', targetLang),
+      });
+    }
 
-    const steps = await Promise.all(
-      (r.steps || []).map(async (st: any) => ({
-        ...st,
-        text: await translateLT(st?.text || '', srcLang, targetLang),
-      }))
-    )
+    const steps = [];
+    for (const s of st) {
+      steps.push({
+        position: s.position,
+        time: s.time ?? null,
+        text: await translateText(s.text ?? '', targetLang),
+      });
+    }
 
-    const payload = { recipe_id: recipeId, lang: targetLang, content_hash, title, description, ingredients, steps }
-    await supabase.from('recipe_translations').upsert(payload)
+    // 4) upsert cache
+    await supabase.from('recipe_translations').upsert(
+      {
+        recipe_id: recipeId,
+        lang: targetLang,
+        content_hash,
+        title,
+        description,
+        ingredients,
+        steps,
+      },
+      { onConflict: 'recipe_id,lang' }
+    );
 
-    return res.status(200).json(payload)
+    // 5) return
+    return res.status(200).json({
+      recipe_id: recipeId,
+      lang: targetLang,
+      content_hash,
+      title,
+      description,
+      ingredients,
+      steps,
+      source: 'live',
+    });
   } catch (e: any) {
-    console.error(e)
-    return res.status(500).json({ error: 'Server error' })
+    return res.status(500).json({ error: e?.message || 'translate failed' });
   }
 }
