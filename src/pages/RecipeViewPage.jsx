@@ -51,7 +51,6 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
       aria-roledescription="carousel"
       aria-label="Recipe images"
     >
-      {/* Aspect box */}
       <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative">
         {urls.map((src, i) => (
           <img
@@ -64,11 +63,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
             aria-hidden={i !== idx}
           />
         ))}
-
-        {/* Overlay (author + description) */}
         {overlay}
-
-        {/* Prev / Next */}
         {urls.length > 1 && (
           <>
             <button
@@ -89,8 +84,6 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
             </button>
           </>
         )}
-
-        {/* Dots */}
         {urls.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
             {urls.map((_, i) => (
@@ -128,15 +121,13 @@ export default function RecipeViewPage() {
     });
   }, []);
 
-  // UI language (listen to storage + custom 'langchange' event from LanguageSwitcher)
+  // UI language from sidebar (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
     };
-    const onLangChange = (e) => {
-      setUiLang(e.detail || localStorage.getItem('lang') || 'auto');
-    };
+    const onLangChange = (e) => setUiLang(e.detail || localStorage.getItem('lang') || 'auto');
     window.addEventListener('storage', onStorage);
     window.addEventListener('langchange', onLangChange);
     return () => {
@@ -172,7 +163,6 @@ export default function RecipeViewPage() {
   const normalizeSteps = (raw) => {
     if (!raw) return [];
     if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
-      // Support weird shapes like {content:"..."} or {description:"..."}
       return raw.map((s, i) => ({
         position: s.position ?? i + 1,
         text: s.text ?? s.content ?? s.description ?? String(s ?? ''),
@@ -190,7 +180,6 @@ export default function RecipeViewPage() {
     return [];
   };
 
-  // Load recipe + legacy fallbacks
   useEffect(() => {
     let isMounted = true;
 
@@ -211,7 +200,7 @@ export default function RecipeViewPage() {
         return;
       }
 
-      // Legacy tables (best-effort only; ignore 404s)
+      // Legacy tables (ignored if missing)
       let ing = [];
       {
         const { data, error } = await supabase
@@ -285,76 +274,7 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // --- translation helpers ---
-  const coerceTranslation = (raw) => {
-    if (!raw) return null;
-    // common wrappers from different endpoints
-    let src =
-      raw.translated ||
-      raw.translation ||
-      raw.result ||
-      raw.data?.translated ||
-      raw.data ||
-      raw;
-
-    // getter
-    const pick = (...keys) => {
-      const k = keys.find((kk) => src?.[kk] != null);
-      return k ? src[k] : undefined;
-    };
-
-    let title =
-      pick('title', 'title_en', 'title_en_us') ||
-      src?.en?.title ||
-      src?.fi?.title;
-
-    let description =
-      pick('description', 'description_en') ||
-      src?.en?.description ||
-      src?.fi?.description;
-
-    let ing =
-      pick('ingredients', 'ingredients_en') ||
-      src?.en?.ingredients ||
-      src?.fi?.ingredients;
-
-    let st =
-      pick('steps', 'steps_en', 'instructions') ||
-      src?.en?.steps ||
-      src?.fi?.steps;
-
-    // normalize shapes
-    if (typeof ing === 'string')
-      ing = ing.split('\n').filter(Boolean).map((n) => ({ name: n, amount: '', bakers_pct: '' }));
-    if (Array.isArray(ing) && ing.every((x) => typeof x === 'string')) {
-      ing = ing.map((n) => ({ name: String(n), amount: '', bakers_pct: '' }));
-    }
-    if (!Array.isArray(ing)) ing = undefined;
-
-    if (typeof st === 'string')
-      st = st.split('\n').filter(Boolean).map((t, i) => ({ position: i + 1, text: t }));
-    if (Array.isArray(st) && st.every((x) => typeof x === 'string')) {
-      st = st.map((t, i) => ({ position: i + 1, text: t }));
-    }
-    if (Array.isArray(st) && st.every((x) => typeof x === 'object')) {
-      st = st.map((s, i) => ({
-        position: s.position ?? i + 1,
-        text: s.text ?? s.content ?? s.description ?? '',
-        time: s.time ?? s.minutes ?? null,
-      }));
-    } else if (!Array.isArray(st)) {
-      st = undefined;
-    }
-
-    return {
-      title: title ?? undefined,
-      description: description ?? undefined,
-      ingredients: ing,
-      steps: st,
-    };
-  };
-
-  // Live translation via Vercel function ONLY (cleaner logs & no CORS spam)
+  // Translation: call our API when uiLang != 'auto'
   const [t, setT] = useState(null);
   useEffect(() => {
     (async () => {
@@ -363,7 +283,6 @@ export default function RecipeViewPage() {
         setT(null);
         return;
       }
-
       try {
         const resp = await fetch('/api/translate-recipe', {
           method: 'POST',
@@ -371,17 +290,17 @@ export default function RecipeViewPage() {
           body: JSON.stringify({ recipeId: id, targetLang: uiLang }),
         });
         if (resp.ok) {
-          const json = await resp.json();
-          console.log('[translate] vercel response', json);
-          const coerced = coerceTranslation(json);
-          setT(coerced);
+          const data = await resp.json();
+          setT({
+            title: data.title ?? undefined,
+            description: data.description ?? undefined,
+            ingredients: Array.isArray(data.ingredients) ? data.ingredients : undefined,
+            steps: Array.isArray(data.steps) ? data.steps : undefined,
+          });
         } else {
-          const msg = await resp.text();
-          console.warn('[translate] 500 body:', msg);
-          setT(null);
+          setT(null); // fail open
         }
-      } catch (e) {
-        console.warn('[translate] vercel error', e);
+      } catch {
         setT(null);
       }
     })();
