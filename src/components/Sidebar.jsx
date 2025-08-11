@@ -10,22 +10,30 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Sidebar({ user, onLogout }) {
   const { pathname } = useLocation();
 
+  const isActive = (path) =>
+    pathname === path || pathname.startsWith(path + '/');
+
   const linkClass = (path) =>
     clsx(
       'flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-blue-100 dark:hover:bg-gray-700 transition-all',
-      pathname === path
+      isActive(path)
         ? 'bg-blue-100 text-blue-600 dark:bg-gray-700 dark:text-blue-400'
         : 'text-gray-700 dark:text-gray-300'
     );
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6">
-      <div className="text-xl font-bold px-2 text-gray-800 dark:text-white">
-          
+    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6 flex flex-col">
+      {/* Brand + language flags */}
+      <div className="px-2 flex items-center justify-between">
+        <Link to="/" className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
+          Everything Dough
+        </Link>
+        <LanguageSwitcher />
       </div>
 
       {/* Discover */}
@@ -63,7 +71,7 @@ export default function Sidebar({ user, onLogout }) {
       </div>
 
       {/* Library */}
-      <div>
+      <div className="flex-1">
         <h3 className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 px-2 mb-2">
           Library
         </h3>
@@ -85,7 +93,7 @@ export default function Sidebar({ user, onLogout }) {
 
       {/* Logout (only when logged in) */}
       {user && (
-        <div className="pt-4 border-t border-gray-200 dark:border-gray-800 mt-4">
+        <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
           <button
             onClick={onLogout}
             className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline px-2 mt-2"
