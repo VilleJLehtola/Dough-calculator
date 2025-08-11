@@ -128,14 +128,21 @@ export default function RecipeViewPage() {
     });
   }, []);
 
-  // UI language coming from sidebar flag switcher (localStorage)
+  // UI language coming from sidebar flag switcher (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
     };
+    const onLangChange = (e) => {
+      setUiLang(e.detail || localStorage.getItem('lang') || 'auto');
+    };
     window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener('langchange', onLangChange);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('langchange', onLangChange);
+    };
   }, []);
 
   // Accept multiple shapes for ingredients/steps
@@ -270,7 +277,7 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // Live translation fetch (from Vercel function)
+  // Live translation fetch (Vercel function first, Supabase Edge Function fallback)
   const [t, setT] = useState(null);
   useEffect(() => {
     (async () => {
@@ -279,6 +286,8 @@ export default function RecipeViewPage() {
         setT(null);
         return;
       }
+
+      // Try Vercel serverless function
       try {
         const resp = await fetch('/api/translate-recipe', {
           method: 'POST',
@@ -286,14 +295,27 @@ export default function RecipeViewPage() {
           body: JSON.stringify({ recipeId: id, targetLang: uiLang }),
         });
         if (resp.ok) {
-          const data = await resp.json();
-          setT(data);
-        } else {
-          setT(null); // fail open to original
+          setT(await resp.json());
+          return;
         }
       } catch {
-        setT(null);
+        /* fall through */
       }
+
+      // Fallback to Supabase Edge Function named 'translate-recipe'
+      try {
+        const { data, error } = await supabase.functions.invoke('translate-recipe', {
+          body: { recipeId: id, targetLang: uiLang },
+        });
+        if (!error) {
+          setT(data);
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
+
+      setT(null); // fail open to original content
     })();
   }, [id, uiLang]);
 
@@ -370,7 +392,7 @@ export default function RecipeViewPage() {
         )}
       </div>
 
-      {/* HERO CAROUSEL */}
+      {/* HERO CAROUSEL + overlay */}
       <HeroCarousel
         title={title}
         items={images}
