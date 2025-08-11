@@ -1,62 +1,59 @@
-// Vercel Edge/Node API route
-// Translates a recipe to targetLang using free providers (LibreTranslate with MyMemory fallback)
-// Caches per (recipe_id, lang, content_hash) in Supabase.
+// Force Node (not Edge) on Vercel
+export const config = { runtime: 'nodejs18.x' };
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+// ---- ENV ----
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SERVICE_KEY   = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// You can replace with your own self-hosted LibreTranslate endpoint for higher limits
-const LIBRE_ENDPOINTS = [
-  'https://translate.astian.org/translate',
-  'https://libretranslate.com/translate', // often throttled
-];
+if (!SUPABASE_URL) console.error('[translate] Missing NEXT_PUBLIC_SUPABASE_URL');
+if (!SERVICE_KEY)   console.error('[translate] Missing SUPABASE_SERVICE_ROLE_KEY');
 
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false },
-});
+const supabase = createClient(SUPABASE_URL!, SERVICE_KEY!, { auth: { persistSession: false } });
 
-// ---------- helpers ----------
-const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
-
-function normalizeIngredients(raw: any): { name: string; amount?: string; bakers_pct?: string }[] {
-  if (!raw) return [];
-  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) return raw;
-  if (Array.isArray(raw)) return raw.map((t) => ({ name: String(t ?? '') }));
-  if (typeof raw === 'string')
-    return raw
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((name) => ({ name }));
-  return [];
+// Small, dependency-free hash (FNV-1a) so we don’t depend on Node crypto
+function hash(text: string) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return ('0000000' + h.toString(16)).slice(-8);
 }
 
-function normalizeSteps(raw: any): { position: number; text: string; time?: number | null }[] {
-  if (!raw) return [];
-  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
-    return raw.map((s, i) => ({
+// Normalizers
+const normalizeIngredients = (raw: any) => {
+  if (!raw) return [] as { name: string; amount?: string; bakers_pct?: string }[];
+  if (Array.isArray(raw) && raw.every(o => typeof o === 'object')) return raw;
+  if (Array.isArray(raw)) return raw.map(t => ({ name: String(t ?? '') }));
+  if (typeof raw === 'string')
+    return raw.split('\n').map(s => s.trim()).filter(Boolean).map(name => ({ name }));
+  return [];
+};
+
+const normalizeSteps = (raw: any) => {
+  if (!raw) return [] as { position: number; text: string; time?: number | null }[];
+  if (Array.isArray(raw) && raw.every(o => typeof o === 'object'))
+    return raw.map((s: any, i: number) => ({
       position: s.position ?? i + 1,
       text: s.text ?? s.content ?? s.description ?? String(s ?? ''),
       time: s.time ?? s.minutes ?? null,
     }));
-  }
-  if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
+  if (Array.isArray(raw)) return raw.map((t: any, i: number) => ({ position: i + 1, text: String(t ?? '') }));
   if (typeof raw === 'string')
-    return raw
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((text, i) => ({ position: i + 1, text }));
+    return raw.split('\n').map(s => s.trim()).filter(Boolean).map((text, i) => ({ position: i + 1, text }));
   return [];
-}
+};
 
-// try LibreTranslate first; if it fails, fall back to MyMemory
-async function translateText(text: string, target: string): Promise<string> {
-  const q = text ?? '';
+// Free providers
+const LIBRE_ENDPOINTS = [
+  'https://translate.astian.org/translate',
+  'https://libretranslate.com/translate',
+];
+
+async function translateText(q: string, target: string) {
   if (!q) return q;
 
   // 1) LibreTranslate
@@ -68,129 +65,123 @@ async function translateText(text: string, target: string): Promise<string> {
         body: JSON.stringify({ q, source: 'auto', target, format: 'text' }),
       });
       if (r.ok) {
-        const j = (await r.json()) as { translatedText?: string };
+        const j: any = await r.json();
         if (j?.translatedText) return j.translatedText;
       }
-    } catch {
-      // continue
-    }
+    } catch {}
   }
 
-  // 2) MyMemory (very free, but noisy)
+  // 2) MyMemory
   try {
-    const pair = `auto|${encodeURIComponent(target)}`;
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${pair}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=auto|${encodeURIComponent(target)}`;
     const r = await fetch(url);
     if (r.ok) {
-      const j = await r.json();
+      const j: any = await r.json();
       const out = j?.responseData?.translatedText as string | undefined;
       if (out) return out;
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
-  // last resort: original
   return q;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST' });
-
   try {
+    if (req.method === 'OPTIONS') {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'content-type');
+      return res.status(204).end();
+    }
+
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Use POST' });
+
     const { recipeId, targetLang } = req.body as { recipeId?: string; targetLang?: string };
     if (!recipeId || !targetLang) return res.status(400).json({ error: 'recipeId + targetLang required' });
 
-    // 1) load recipe
-    const { data: rcp, error } = await supabase
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      return res.status(500).json({ error: 'Server env not configured (URL/KEY)' });
+    }
+
+    // Load recipe
+    const { data: rcp, error: rErr } = await supabase
       .from('recipes')
-      .select('id, title, description, ingredients, steps')
+      .select('id,title,description,ingredients,steps')
       .eq('id', recipeId)
       .single();
 
-    if (error || !rcp) return res.status(404).json({ error: 'Recipe not found' });
+    if (rErr || !rcp) return res.status(404).json({ error: 'Recipe not found', detail: rErr?.message });
 
     const ing = normalizeIngredients(rcp.ingredients);
-    const st = normalizeSteps(rcp.steps);
+    const st  = normalizeSteps(rcp.steps);
+
     const canonical = JSON.stringify({
       t: rcp.title ?? '',
       d: rcp.description ?? '',
-      ing: ing.map((i) => i.name),
-      st: st.map((s) => s.text),
+      ing: ing.map(i => i.name),
+      st:  st.map(s => s.text),
     });
-    const content_hash = sha256(canonical);
+    const content_hash = hash(canonical);
 
-    // 2) cache hit?
+    // Cache hit?
     const { data: cached } = await supabase
       .from('recipe_translations')
-      .select('title, description, ingredients, steps, content_hash')
+      .select('title,description,ingredients,steps,content_hash')
       .eq('recipe_id', recipeId)
       .eq('lang', targetLang)
-      .single()
-      .catch(() => ({ data: null as any }));
+      .maybeSingle();
 
     if (cached && cached.content_hash === content_hash) {
-      return res.status(200).json({
-        recipe_id: recipeId,
-        lang: targetLang,
-        content_hash,
-        title: cached.title,
-        description: cached.description,
-        ingredients: cached.ingredients,
-        steps: cached.steps,
-        source: 'cache',
-      });
+      return res.status(200).json({ recipe_id: recipeId, lang: targetLang, content_hash, ...cached, source: 'cache' });
     }
 
-    // 3) translate
-    const [title, description] = await Promise.all([
+    // Translate
+    const [titleTr, descTr] = await Promise.all([
       translateText(rcp.title ?? '', targetLang),
       translateText(rcp.description ?? '', targetLang),
     ]);
 
-    const ingredients = [];
+    const ingredientsTr = [];
     for (const i of ing) {
-      ingredients.push({
-        ...i,
-        name: await translateText(i.name ?? '', targetLang),
-      });
+      ingredientsTr.push({ ...i, name: await translateText(i.name ?? '', targetLang) });
     }
 
-    const steps = [];
+    const stepsTr = [];
     for (const s of st) {
-      steps.push({
-        position: s.position,
-        time: s.time ?? null,
-        text: await translateText(s.text ?? '', targetLang),
-      });
+      stepsTr.push({ position: s.position, time: s.time ?? null, text: await translateText(s.text ?? '', targetLang) });
     }
 
-    // 4) upsert cache
-    await supabase.from('recipe_translations').upsert(
+    // Upsert cache
+    const { error: upErr } = await supabase.from('recipe_translations').upsert(
       {
         recipe_id: recipeId,
         lang: targetLang,
         content_hash,
-        title,
-        description,
-        ingredients,
-        steps,
+        title: titleTr,
+        description: descTr,
+        ingredients: ingredientsTr,
+        steps: stepsTr,
       },
       { onConflict: 'recipe_id,lang' }
     );
+    if (upErr) {
+      console.error('[translate] upsert error', upErr);
+    }
 
-    // 5) return
+    // CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).json({
       recipe_id: recipeId,
       lang: targetLang,
       content_hash,
-      title,
-      description,
-      ingredients,
-      steps,
+      title: titleTr,
+      description: descTr,
+      ingredients: ingredientsTr,
+      steps: stepsTr,
       source: 'live',
     });
   } catch (e: any) {
+    console.error('[translate] fatal', e);
     return res.status(500).json({ error: e?.message || 'translate failed' });
   }
 }
