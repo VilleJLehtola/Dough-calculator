@@ -96,7 +96,7 @@ export default function Sidebar({ user, onLogout }) {
 
       {/* Footer pinned to bottom */}
       <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800 flex flex-col gap-2">
-        {/* <ThemeToggle />  place your theme toggle here; ensure it isn't absolute/fixed */}
+        {/* <ThemeToggle />  place your theme toggle here (make sure it isn't position: absolute/fixed) */}
         {user && (
           <button
             onClick={onLogout}
