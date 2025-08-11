@@ -82,7 +82,7 @@ export default function Sidebar({ user, onLogout }) {
             <List size={18} />
             Your recipes
           </Link>
-          <Link to="/Favorites" className={linkClass('/suosikit')}>
+          <Link to="/Favorites" className={linkClass('/favorites')}>
             <Heart size={18} />
             Favorites
           </Link>
