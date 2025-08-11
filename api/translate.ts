@@ -1,6 +1,4 @@
-// =============================================
-// File: /api/translate.ts  (Vercel Serverless API)
-// =============================================
+// /api/translate.ts
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const AZ_KEY = process.env.AZURE_TRANSLATOR_KEY || '';
@@ -12,13 +10,13 @@ const DEEPL_BASE = (process.env.DEEPL_BASE_URL || 'https://api-free.deepl.com').
 
 function cors(res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS,GET');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 }
 
-// --- Azure Translator ---
 async function translateViaAzure(qs: string[], source: string | undefined, target: string) {
   if (!AZ_KEY || !AZ_ENDPOINT) throw new Error('azure-missing-config');
+
   const params = new URLSearchParams({ 'api-version': '3.0', to: target });
   if (source) params.append('from', source);
   const url = `${AZ_ENDPOINT}/translate?${params.toString()}`;
@@ -32,15 +30,16 @@ async function translateViaAzure(qs: string[], source: string | undefined, targe
   const body = JSON.stringify(qs.map((t) => ({ Text: t })));
   const r = await fetch(url, { method: 'POST', headers, body });
   if (!r.ok) throw new Error(`azure-${r.status}`);
+
   const data: any[] = await r.json();
   const out = data.map((item: any) => item?.translations?.[0]?.text).filter(Boolean);
   if (out.length !== qs.length) throw new Error('azure-empty');
   return out as string[];
 }
 
-// --- DeepL ---
 async function translateViaDeepL(qs: string[], source: string | undefined, target: string) {
   if (!DEEPL_KEY) throw new Error('deepl-missing-config');
+
   const url = `${DEEPL_BASE}/v2/translate`;
   const form = new URLSearchParams();
   form.append('auth_key', DEEPL_KEY);
@@ -48,8 +47,13 @@ async function translateViaDeepL(qs: string[], source: string | undefined, targe
   if (source) form.append('source_lang', source.toUpperCase());
   for (const t of qs) form.append('text', t);
 
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: form });
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form,
+  });
   if (!r.ok) throw new Error(`deepl-${r.status}`);
+
   const data: any = await r.json();
   const out = (data?.translations || []).map((t: any) => t?.text).filter(Boolean);
   if (out.length !== qs.length) throw new Error('deepl-empty');
@@ -66,20 +70,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { q, source = '', target } = (req.body || {}) as { q: string | string[]; source?: string; target: string };
+    const { q, source = '', target } = (req.body || {}) as {
+      q: string | string[];
+      source?: string;
+      target: string;
+    };
     if (!q || !target) return res.status(400).json({ error: 'Missing q or target' });
 
     const qs = Array.isArray(q) ? q : [q];
 
-    // Try Azure first, then DeepL
+    // Try Azure first → fallback to DeepL
     try {
       const out = await translateViaAzure(qs, source || undefined, target);
-      const result = Array.isArray(q) ? out : out[0];
-      return res.status(200).json({ translatedText: result, provider: 'azure' });
-    } catch (_e) {
+      return res.status(200).json({ translatedText: Array.isArray(q) ? out : out[0], provider: 'azure' });
+    } catch {
       const out = await translateViaDeepL(qs, source || undefined, target);
-      const result = Array.isArray(q) ? out : out[0];
-      return res.status(200).json({ translatedText: result, provider: 'deepl' });
+      return res.status(200).json({ translatedText: Array.isArray(q) ? out : out[0], provider: 'deepl' });
     }
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'translate-failed' });
