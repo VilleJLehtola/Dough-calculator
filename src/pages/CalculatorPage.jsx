@@ -4,9 +4,9 @@ import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
 
 export default function CalculatorPage() {
-  const [inputMode, setInputMode] = useState('flour'); // 'flour' or 'water'
+  const [inputMode, setInputMode] = useState('flour');
   const [amount, setAmount] = useState(500);
-  const [mode, setMode] = useState('bread'); // 'bread' or 'pizza'
+  const [mode, setMode] = useState('bread');
   const [hydration, setHydration] = useState(70);
   const [saltPct, setSaltPct] = useState(2);
   const [starterPct, setStarterPct] = useState(20);
@@ -31,8 +31,8 @@ export default function CalculatorPage() {
   const totalWeight = round1(whiteFlour + ryeFlour + baseWater + starter.weight + seeds + oil + salt);
 
   const presets = [
-    { label: 'Neapolitan', mode: 'pizza', hydration: 63, salt: 2.8, oil: false, cold: true },
-    { label: 'New York', mode: 'pizza', hydration: 65, salt: 2.5, oil: true, cold: true },
+    { label: 'Neapolitan', mode: 'pizza', hydration: 63, salt: 2.8, oil: false, rye: false },
+    { label: 'New York', mode: 'pizza', hydration: 65, salt: 2.5, oil: true, rye: false },
     { label: 'Ciabatta', mode: 'bread', hydration: 80, salt: 2, oil: false, rye: false },
     { label: 'Focaccia', mode: 'bread', hydration: 75, salt: 2.5, oil: true, rye: false },
     { label: 'Sourdough', mode: 'bread', hydration: 70, salt: 2, oil: false, rye: true },
@@ -47,55 +47,60 @@ export default function CalculatorPage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      <img src="https://btozmkrowcrjzvxxhlbn.supabase.co/storage/v1/object/public/recipe-images/hero.jpg" alt="Hero" className="rounded-xl mb-6" />
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="bg-gray-900 rounded-xl overflow-hidden shadow-lg">
+        <img src="https://btozmkrowcrjzvxxhlbn.supabase.co/storage/v1/object/public/recipe-images/hero.jpg" alt="Recipe Hero" className="w-full h-64 object-cover" />
+        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Recipe Presets">
+              {presets.map((p) => (
+                <ToggleButton key={p.label} active={false} onClick={() => applyPreset(p)} aria-label={`Apply ${p.label} preset`}>
+                  {p.label}
+                </ToggleButton>
+              ))}
+            </div>
 
-      <div className="flex gap-2 mb-4">
-        {presets.map((p) => (
-          <ToggleButton key={p.label} active={false} onClick={() => applyPreset(p)}>
-            {p.label}
-          </ToggleButton>
-        ))}
-      </div>
+            <div className="flex gap-2 mb-4" role="group" aria-label="Input Mode">
+              <ToggleButton active={inputMode === 'flour'} onClick={() => setInputMode('flour')} aria-pressed={inputMode === 'flour'}>Flour</ToggleButton>
+              <ToggleButton active={inputMode === 'water'} onClick={() => setInputMode('water')} aria-pressed={inputMode === 'water'}>Water</ToggleButton>
+            </div>
 
-      <div className="flex gap-2 mb-4">
-        <ToggleButton active={inputMode === 'flour'} onClick={() => setInputMode('flour')}>Flour</ToggleButton>
-        <ToggleButton active={inputMode === 'water'} onClick={() => setInputMode('water')}>Water</ToggleButton>
-      </div>
+            <InputField id="amount" label={`Amount (${inputMode})`} suffix="g" value={amount} onChange={setAmount} min={1} />
+            <InputField id="hydration" label="Hydration" suffix="%" value={hydration} onChange={(v) => setHydration(clamp(v, 55, 100))} min={55} max={100} />
+            <InputField id="salt" label="Salt" suffix="%" value={saltPct} onChange={setSaltPct} min={1} max={5} />
+            <InputField id="starter" label="Starter" suffix="%" value={starterPct} onChange={setStarterPct} min={5} max={50} />
 
-      <InputField id="amount" label={`Amount (${inputMode})`} suffix="g" value={amount} onChange={setAmount} min={1} />
-      <InputField id="hydration" label="Hydration" suffix="%" value={hydration} onChange={(v) => setHydration(clamp(v, 55, 100))} min={55} max={100} />
-      <InputField id="salt" label="Salt" suffix="%" value={saltPct} onChange={setSaltPct} min={1} max={5} />
-      <InputField id="starter" label="Starter" suffix="%" value={starterPct} onChange={setStarterPct} min={5} max={50} />
+            {mode === 'bread' && (
+              <>
+                <ToggleButton active={ryeOn} onClick={() => setRyeOn(!ryeOn)}>Rye</ToggleButton>
+                {ryeOn && <InputField id="ryePct" label="Rye %" suffix="%" value={ryePct} onChange={setRyePct} min={5} max={100} />}
+                <ToggleButton active={seedsOn} onClick={() => setSeedsOn(!seedsOn)}>Seeds</ToggleButton>
+                {seedsOn && <InputField id="seedsPct" label="Seeds %" suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} />}
+              </>
+            )}
 
-      {mode === 'bread' && (
-        <>
-          <ToggleButton active={ryeOn} onClick={() => setRyeOn(!ryeOn)}>Rye</ToggleButton>
-          {ryeOn && <InputField id="ryePct" label="Rye %" suffix="%" value={ryePct} onChange={setRyePct} min={5} max={100} />}
-          <ToggleButton active={seedsOn} onClick={() => setSeedsOn(!seedsOn)}>Seeds</ToggleButton>
-          {seedsOn && <InputField id="seedsPct" label="Seeds %" suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} />}
-        </>
-      )}
+            {mode === 'pizza' && (
+              <>
+                <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>Oil</ToggleButton>
+                <ToggleButton active={garlicOn} onClick={() => setGarlicOn(!garlicOn)}>Garlic</ToggleButton>
+              </>
+            )}
+          </div>
 
-      {mode === 'pizza' && (
-        <>
-          <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>Oil</ToggleButton>
-          <ToggleButton active={garlicOn} onClick={() => setGarlicOn(!garlicOn)}>Garlic</ToggleButton>
-        </>
-      )}
-
-      <div className="mt-6 p-4 bg-gray-800 rounded-xl text-white">
-        <h2 className="text-lg font-bold mb-2">Ingredients</h2>
-        <ul className="space-y-1">
-          <li>{round1(whiteFlour)}g White Flour</li>
-          {ryeFlour > 0 && <li>{round1(ryeFlour)}g Rye Flour</li>}
-          <li>{round1(baseWater)}g Water</li>
-          <li>{starter.weight}g Starter ({starter.flour}g flour / {starter.water}g water)</li>
-          <li>{salt}g Salt</li>
-          {oil > 0 && <li>{round1(oil)}g Oil</li>}
-          {seeds > 0 && <li>{round1(seeds)}g Seeds</li>}
-        </ul>
-        <p className="mt-4">Total dough weight: {totalWeight}g</p>
+          <div className="bg-gray-800 rounded-xl p-4 text-white" aria-live="polite">
+            <h2 className="text-lg font-bold mb-2">Ingredients</h2>
+            <ul className="space-y-1">
+              <li>{round1(whiteFlour)}g White Flour</li>
+              {ryeFlour > 0 && <li>{round1(ryeFlour)}g Rye Flour</li>}
+              <li>{round1(baseWater)}g Water</li>
+              <li>{starter.weight}g Starter ({starter.flour}g flour / {starter.water}g water)</li>
+              <li>{salt}g Salt</li>
+              {oil > 0 && <li>{round1(oil)}g Oil</li>}
+              {seeds > 0 && <li>{round1(seeds)}g Seeds</li>}
+            </ul>
+            <p className="mt-4">Total dough weight: {totalWeight}g</p>
+          </div>
+        </div>
       </div>
     </div>
   );
