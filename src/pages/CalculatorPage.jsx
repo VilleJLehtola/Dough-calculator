@@ -24,77 +24,123 @@ function gPct(base, pct) {
 // ---------- Page ----------
 export default function CalculatorPage() {
   // Core inputs
-  const [inputMode, setInputMode] = useState("flour"); // 'flour' | 'water'
-  const [amount, setAmount] = useState(500); // flour(g) or water(ml), depending on inputMode
+  const [inputMode, setInputMode] = useState("flour"); // 'flour' | 'water' (interpreted as TOTAL FLOUR)
+  const [amount, setAmount] = useState(500); // flour total (g) or water total (ml), depending on inputMode
   const [mode, setMode] = useState("bread"); // 'bread' | 'pizza'
 
-  const [hydration, setHydration] = useState(70); // %
-  const [saltPct, setSaltPct] = useState(2); // % of flour
+  // Baker's % (overall, INCLUDING starter)
+  const [hydration, setHydration] = useState(70); // % overall hydration
+  const [saltPct, setSaltPct] = useState(2); // % of total flour
+  const [starterPct, setStarterPct] = useState(20); // % of total flour, assumed 100% hydration starter
 
   // Bread toggles
   const [useRye, setUseRye] = useState(false);
-  const [ryePct, setRyePct] = useState(20); // % of total flour when useRye
+  const [ryePct, setRyePct] = useState(20); // % of total flour
   const [useSeeds, setUseSeeds] = useState(false);
-  const [seedsPct, setSeedsPct] = useState(15); // fixed choices 5/10/15/20
-  const [extraIngredients, setExtraIngredients] = useState(""); // free text (not added to grams)
+  const [seedsPct, setSeedsPct] = useState(15); // 5/10/15/20
+  const [extraIngredients, setExtraIngredients] = useState("");
 
   // Pizza toggles
   const [useOil, setUseOil] = useState(false); // 7% of flour when true
   const OIL_PCT = 7;
-  const [useGarlic, setUseGarlic] = useState(false); // for recipe text only
+  const [useGarlic, setUseGarlic] = useState(false);
 
-  const [coldFerment, setColdFerment] = useState(false); // recipe note only
+  const [coldFerment, setColdFerment] = useState(false);
 
-  // Derived calculations
+  // Quick presets
+  const applyPreset = (key) => {
+    if (key === "quick-bread") {
+      setMode("bread");
+      setHydration(70);
+      setSaltPct(2);
+      setStarterPct(20);
+      setUseRye(false);
+      setUseSeeds(false);
+      setColdFerment(false);
+    } else if (key === "rustic-bread") {
+      setMode("bread");
+      setHydration(75);
+      setSaltPct(2.2);
+      setStarterPct(20);
+      setUseRye(true); setRyePct(20);
+      setUseSeeds(true); setSeedsPct(15);
+      setColdFerment(true);
+    } else if (key === "neapolitan") {
+      setMode("pizza");
+      setHydration(63);
+      setSaltPct(2.8);
+      setStarterPct(20);
+      setUseOil(false);
+      setColdFerment(true);
+    } else if (key === "pan-pizza") {
+      setMode("pizza");
+      setHydration(70);
+      setSaltPct(2.2);
+      setStarterPct(20);
+      setUseOil(true);
+      setColdFerment(false);
+    }
+  };
+
+  // Derived calculations (overall numbers include starter flour & water)
   const result = useMemo(() => {
-    const H = clamp(hydration, 55, 100) / 100; // enforce min 55% hydration
+    const h = clamp(hydration, 55, 100) / 100; // overall hydration target
+    const sp = clamp(starterPct, 0, 100) / 100; // starter % of total flour (by weight)
 
-    let flour = 0;
-    let water = 0;
+    let flourTotal = 0; // total flour in dough (incl. starter flour)
+    let waterTotal = 0; // total water in dough (incl. starter water)
 
     if (inputMode === "flour") {
-      flour = Number(amount) || 0;
-      water = flour * H;
+      flourTotal = Number(amount) || 0; // interpret as TOTAL flour
+      waterTotal = flourTotal * h;      // interpret hydration overall
     } else {
-      water = Number(amount) || 0;
-      flour = H > 0 ? water / H : 0;
+      waterTotal = Number(amount) || 0; // interpret as TOTAL water
+      flourTotal = h > 0 ? waterTotal / h : 0;
     }
 
-    const salt = gPct(flour, saltPct || 0);
-    const oil = mode === "pizza" && useOil ? gPct(flour, OIL_PCT) : 0;
+    // Starter assumed 100% hydration
+    const starterWeight = flourTotal * sp; // total starter weight
+    const starterFlour = starterWeight / 2;
+    const starterWater = starterWeight / 2;
 
-    // Bread specifics
-    let rye = 0;
-    if (mode === "bread" && useRye) {
-      rye = gPct(flour, clamp(ryePct || 0, 0, 100));
-    }
-    const whiteFlour = round1(flour - rye);
+    // Base (to add) flour/water besides starter
+    const baseFlour = Math.max(flourTotal - starterFlour, 0);
+    const baseWater = Math.max(waterTotal - starterWater, 0);
 
-    let seeds = 0;
-    if (mode === "bread" && useSeeds) {
-      const allowed = [5, 10, 15, 20];
-      const pct = allowed.includes(seedsPct) ? seedsPct : 15;
-      seeds = gPct(flour, pct);
-    }
+    // Salt & oil based on total flour
+    const salt = gPct(flourTotal, saltPct || 0);
+    const oil = mode === "pizza" && useOil ? gPct(flourTotal, OIL_PCT) : 0;
+
+    // Flour kinds
+    const rye = mode === "bread" && useRye ? gPct(flourTotal, clamp(ryePct || 0, 0, 100)) : 0;
+    const whiteFlour = Math.max(flourTotal - rye, 0); // bread: AP base; pizza: Tipo 00
+
+    // Seeds
+    const seeds = mode === "bread" && useSeeds ? gPct(flourTotal, [5,10,15,20].includes(seedsPct) ? seedsPct : 15) : 0;
 
     const totals = {
-      flourTotal: round1(flour),
-      water: round1(water),
+      flourTotal: round1(flourTotal),
+      waterTotal: round1(waterTotal),
+      baseFlour: round1(baseFlour),
+      baseWater: round1(baseWater),
       salt: round1(salt),
       oil: round1(oil),
       rye: round1(rye),
       whiteFlour: round1(whiteFlour),
       seeds: round1(seeds),
+      starterWeight: round1(starterWeight),
+      starterFlour: round1(starterFlour),
+      starterWater: round1(starterWater),
     };
 
     const totalWeight = round1(
-      totals.flourTotal + totals.water + totals.salt + totals.oil + totals.seeds
+      totals.baseFlour + totals.baseWater + totals.starterWeight + totals.salt + totals.oil + totals.seeds
     );
 
     const folds = [30, 30, 45, 60];
 
     return { ...totals, totalWeight, folds };
-  }, [amount, inputMode, hydration, saltPct, mode, useOil, useRye, ryePct, useSeeds, seedsPct]);
+  }, [amount, inputMode, hydration, saltPct, starterPct, mode, useOil, useRye, ryePct, useSeeds, seedsPct]);
 
   const isBread = mode === "bread";
   const isPizza = mode === "pizza";
@@ -147,46 +193,33 @@ export default function CalculatorPage() {
       >
         {/* Left: Controls */}
         <section className="rounded-2xl border border-gray-700 bg-gray-900/60 p-4 md:p-6">
-          <h2 className="mb-4 text-lg font-medium text-white">Asetukset</h2>
-
-          {/* Input mode */}
-          <div className="mb-4 flex gap-2">
-            <Toggle active={inputMode === "flour"} onClick={() => setInputMode("flour")}>
-              JAUHO (g)
-            </Toggle>
-            <Toggle active={inputMode === "water"} onClick={() => setInputMode("water")}>
-              VESI (ml)
-            </Toggle>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Toggle active={inputMode === "flour"} onClick={() => setInputMode("flour")}>JAUHO (g)</Toggle>
+            <Toggle active={inputMode === "water"} onClick={() => setInputMode("water")}>VESI (ml)</Toggle>
+            <div className="ml-auto flex gap-2">
+              <Toggle active={false} onClick={() => applyPreset(isBread ? "quick-bread" : "neapolitan")}>Pikaresepti</Toggle>
+              <Toggle active={false} onClick={() => applyPreset(isBread ? "rustic-bread" : "pan-pizza")}>Resepti 2</Toggle>
+            </div>
           </div>
 
           <div className="mb-6 grid grid-cols-1 gap-4">
             {inputMode === "flour" ? (
-              <Input label="Jauho" suffix="g" value={amount} onChange={setAmount} min={1} step={1} />
+              <Input label="Jauho yhteensä" suffix="g" value={amount} onChange={setAmount} min={1} step={1} />
             ) : (
-              <Input label="Vesi" suffix="ml" value={amount} onChange={setAmount} min={1} step={1} />
+              <Input label="Vesi yhteensä" suffix="ml" value={amount} onChange={setAmount} min={1} step={1} />
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Hydraatio"
-                suffix="%"
-                value={hydration}
-                onChange={(v) => setHydration(clamp(v, 55, 100))}
-                min={55}
-                max={100}
-              />
+            <div className="grid grid-cols-3 gap-4">
+              <Input label="Hydraatio (kokonais)" suffix="%" value={hydration} onChange={(v) => setHydration(clamp(v, 55, 100))} min={55} max={100} />
               <Input label="Suola" suffix="%" value={saltPct} onChange={setSaltPct} min={0} max={5} step={0.1} />
+              <Input label="Juuri" suffix="% (100% hydr.)" value={starterPct} onChange={setStarterPct} min={0} max={50} step={1} />
             </div>
           </div>
 
           {/* Mode toggle */}
           <div className="mb-4 flex gap-2">
-            <Toggle active={isBread} onClick={() => setMode("bread")}>
-              🥖 Leipä
-            </Toggle>
-            <Toggle active={isPizza} onClick={() => setMode("pizza")}>
-              🍕 Pizza
-            </Toggle>
+            <Toggle active={isBread} onClick={() => setMode("bread")}>🥖 Leipä</Toggle>
+            <Toggle active={isPizza} onClick={() => setMode("pizza")}>🍕 Pizza</Toggle>
           </div>
 
           {/* Conditional toggles */}
@@ -196,24 +229,14 @@ export default function CalculatorPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Toggle active={useRye} onClick={() => setUseRye((v) => !v)}>Ruis</Toggle>
                 <Toggle active={useSeeds} onClick={() => setUseSeeds((v) => !v)}>Siemenet</Toggle>
-                <Toggle active={!!extraIngredients} onClick={() => setExtraIngredients((t) => (t ? "" : ""))}>
-                  Lisäainekset
-                </Toggle>
+                <Toggle active={!!extraIngredients} onClick={() => setExtraIngredients((t) => (t ? "" : ""))}>Lisäainekset</Toggle>
               </div>
 
-              {/* Rye % */}
               <div className="grid grid-cols-2 gap-4">
                 <Input label="Ruis" suffix="% jauhomäärästä" value={ryePct} onChange={setRyePct} min={0} max={100} disabled={!useRye} />
-
-                {/* Seeds selector */}
                 <label className="flex flex-col gap-1">
                   <span className="text-sm text-gray-300">Siemenet</span>
-                  <select
-                    className="rounded-xl border border-gray-700 bg-gray-800/60 px-3 py-2 text-white disabled:opacity-50"
-                    value={seedsPct}
-                    onChange={(e) => setSeedsPct(Number(e.target.value))}
-                    disabled={!useSeeds}
-                  >
+                  <select className="rounded-xl border border-gray-700 bg-gray-800/60 px-3 py-2 text-white disabled:opacity-50" value={seedsPct} onChange={(e) => setSeedsPct(Number(e.target.value))} disabled={!useSeeds}>
                     {[5, 10, 15, 20].map((p) => (
                       <option key={p} value={p}>{p}% jauhomäärästä</option>
                     ))}
@@ -221,15 +244,9 @@ export default function CalculatorPage() {
                 </label>
               </div>
 
-              {/* Extra ingredients */}
               <label className="flex flex-col gap-1">
                 <span className="text-sm text-gray-300">Lisäainekset (vapaa teksti)</span>
-                <textarea
-                  className="min-h-[88px] rounded-xl border border-gray-700 bg-gray-800/60 px-3 py-2 text-white placeholder-gray-500"
-                  placeholder="Esim. pähkinät, hunaja..."
-                  value={extraIngredients}
-                  onChange={(e) => setExtraIngredients(e.target.value)}
-                />
+                <textarea className="min-h-[88px] rounded-xl border border-gray-700 bg-gray-800/60 px-3 py-2 text-white placeholder-gray-500" placeholder="Esim. pähkinät, hunaja..." value={extraIngredients} onChange={(e) => setExtraIngredients(e.target.value)} />
               </label>
             </div>
           )}
@@ -244,7 +261,6 @@ export default function CalculatorPage() {
             </div>
           )}
 
-          {/* Other */}
           <div className="mt-6 flex items-center gap-2">
             <Toggle active={coldFerment} onClick={() => setColdFerment((v) => !v)}>Kylmäkohotus</Toggle>
           </div>
@@ -258,21 +274,21 @@ export default function CalculatorPage() {
             <div className="text-gray-300">Jauhot yhteensä</div>
             <div className="text-white font-medium text-right">{result.flourTotal} g</div>
 
-            {isBread && (
+            <div className="text-gray-300">{isPizza ? "Tipo 00 -jauho" : "Vehnäjauho (yleis)"}</div>
+            <div className="text-white text-right">{result.whiteFlour} g</div>
+
+            {isBread && useRye && (
               <>
-                <div className="text-gray-300">\u2514 Valkoinen jauho</div>
-                <div className="text-white text-right">{result.whiteFlour} g</div>
-                {useRye && (
-                  <>
-                    <div className="text-gray-300">\u2514 Ruis</div>
-                    <div className="text-white text-right">{result.rye} g</div>
-                  </>
-                )}
+                <div className="text-gray-300">Ruisjauho</div>
+                <div className="text-white text-right">{result.rye} g</div>
               </>
             )}
 
-            <div className="text-gray-300">Vesi</div>
-            <div className="text-white text-right">{result.water} g</div>
+            <div className="text-gray-300">Vesi lisättävä</div>
+            <div className="text-white text-right">{result.baseWater} g</div>
+
+            <div className="text-gray-300">Juuri (100% hydr.)</div>
+            <div className="text-white text-right">{result.starterWeight} g</div>
 
             <div className="text-gray-300">Suola</div>
             <div className="text-white text-right">{result.salt} g</div>
@@ -300,18 +316,18 @@ export default function CalculatorPage() {
           {/* Quick recipe */}
           <h3 className="mt-6 mb-2 text-lg font-medium text-white">Pikaohje</h3>
           <ol className="list-decimal pl-5 space-y-2 text-gray-200 text-sm">
-            <li>Sekoita jauhot ({isBread ? `${result.whiteFlour} g` : `${result.flourTotal} g`}{isBread && useRye ? ` + ruis ${result.rye} g` : ""}) ja vesi ({result.water} g). Anna autolyysi 20–30 min.</li>
+            <li>Sekoita {isPizza ? "Tipo 00" : "vehnäjauho"} ({result.whiteFlour} g{isBread && useRye ? ` + ruis ${result.rye} g` : ""}) ja vesi ({result.baseWater} g). Lisää koko juuri ({result.starterWeight} g). Anna autolyysi 20–30 min.</li>
             <li>Lisää suola ({result.salt} g){isPizza && useOil ? ` ja öljy (${result.oil} g)` : ""}{isBread && useSeeds ? ` sekä siemenet (${result.seeds} g)` : ""}. Sekoita tasaiseksi.</li>
             <li>Venytä ja taita {result.folds.length} kertaa: {result.folds.join(" / ")} min välein.</li>
             {coldFerment ? (
-              <li>Kylmäkohotus: laita taikina jääkaappiin viimeisen taiton jälkeen 12–48 h, sen jälkeen muotoile ja kohota huoneenlämmössä 1–2 h.</li>
+              <li>Kylmäkohotus: jääkaappiin viimeisen taiton jälkeen 12–48 h. Sen jälkeen temperoi 1–2 h.</li>
             ) : (
-              <li>Kohota huoneenlämmössä kunnes taikina on selvästi noussut (noin 2–4 h), sitten muotoile.</li>
+              <li>Kohota huoneenlämmössä 2–4 h, kunnes taikina on selvästi noussut, sitten muotoile.</li>
             )}
             {isPizza ? (
-              <li>Jaa taikina palloiksi, lepää 30–60 min. {useGarlic ? "Vinkki: valkosipuli pizzakastikkeeseen tai öljyyn." : ""}</li>
+              <li>Jaa taikina palloiksi, levähdys 30–60 min. {useGarlic ? "Vinkki: lisää valkosipulia kastikkeeseen tai öljyyn." : ""}</li>
             ) : (
-              <li>Siirrä taikina vuokaan tai muotoile limpuiksi, kohota, ja paista 230–250°C. Höyry alkuun parantaa kuorta.</li>
+              <li>Muotoile limpuiksi/vuokaan ja paista 230–250°C. Höyry alkuun parantaa kuorta.</li>
             )}
           </ol>
 
