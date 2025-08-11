@@ -3,78 +3,60 @@ import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 
 export default function BrowsePage() {
-  const [recipes, setRecipes] = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
+    (async () => {
       setLoading(true);
-      // Try to fetch with optional relation; if it errors, fall back
-      let list = [];
-      try {
-        const { data, error } = await supabase
-          .from('recipes')
-          .select(`
-            id,
-            title,
-            description,
-            hero_image_url,
-            created_at,
-            recipe_images ( url )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        list = data || [];
-      } catch (e) {
-        console.warn('Browse: relation fetch failed, falling back.', e?.message);
-        const { data } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at')
-          .order('created_at', { ascending: false });
-        list = data || [];
-      }
-      setRecipes(list);
+      // Use new schema columns only
+      const { data } = await supabase
+        .from('recipes')
+        .select('id,title,description,cover_image,images,created_at')
+        .order('created_at', { ascending: false })
+        .limit(24);
+      setRows(data || []);
       setLoading(false);
-    }
-    load();
+    })();
   }, []);
 
+  const heroFor = (r) => {
+    if (r.cover_image) return r.cover_image;
+    if (Array.isArray(r.images) && r.images.length) {
+      const first = r.images[0];
+      return typeof first === 'string' ? first : first?.url;
+    }
+    return null;
+  };
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Reseptikirjasto</h1>
+    <div className="max-w-6xl mx-auto p-4 sm:p-6">
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Browse</h1>
 
       {loading ? (
-        <p className="text-gray-600 dark:text-gray-300">Ladataan reseptejä...</p>
-      ) : recipes.length === 0 ? (
-        <p className="text-gray-600 dark:text-gray-300">Ei reseptejä löytynyt.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-48 rounded-xl bg-gray-200 dark:bg-gray-800 animate-pulse" />
+          ))}
+        </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {recipes.map((r) => {
-            const thumb = r.recipe_images?.[0]?.url || r.hero_image_url || '';
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          {rows.map((r) => {
+            const hero = heroFor(r);
             return (
               <Link
-                to={`/recipe/${r.id}`}
                 key={r.id}
-                className="group bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition"
+                to={`/recipe/${r.id}`}
+                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow"
               >
-                {thumb ? (
-                  <img
-                    src={thumb}
-                    alt={r.title}
-                    className="w-full h-40 object-cover group-hover:opacity-95 transition"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-40 bg-gray-100 dark:bg-gray-700" />
-                )}
-                <div className="p-4">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white line-clamp-1">
-                    {r.title}
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                    {r.description || '—'}
-                  </p>
+                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+                  {hero ? <img src={hero} alt={r.title} className="w-full h-full object-cover" /> : null}
+                </div>
+                <div className="p-3">
+                  <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">{r.title}</div>
+                  {r.description ? (
+                    <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{r.description}</div>
+                  ) : null}
                 </div>
               </Link>
             );
