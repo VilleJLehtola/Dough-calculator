@@ -1,8 +1,9 @@
-// src/pages/CreateRecipePage.jsx
+// /src/pages/CreateRecipePage.jsx
 import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
+import { translateText, translateArray } from '@/utils/translate'
 
 const BUCKET = 'recipe-images'
 
@@ -202,7 +203,7 @@ export default function CreateRecipePage() {
     }
   }
 
-  // ---------- save recipe (no storage move; reuse draft id) ----------
+  // ---------- save recipe (then auto‑translate) ----------
   const handleSave = async () => {
     setError('')
     if (!title.trim()) {
@@ -264,10 +265,31 @@ export default function CreateRecipePage() {
         })
       if (insertErr) throw insertErr
 
-      // delete the draft row (tidy)
+      // tidy draft
       await supabase.from('recipe_drafts').delete().eq('id', recipeId)
 
       setIsSaved(true)
+
+      // ---- kick off translation in background (fi -> en) ----
+      ;(async () => {
+        try {
+          const title_en = await translateText(title.trim(), 'fi', 'en')
+          const description_en = description ? await translateText(description, 'fi', 'en') : null
+          const steps_en = stp.length ? await translateArray(stp.map(s => s.text), 'fi', 'en') : []
+
+          await supabase.from('recipe_translations').upsert({
+            recipe_id: recipeId,
+            lang: 'en',
+            title: title_en,
+            description: description_en,
+            instructions: steps_en,
+            ingredients: ing, // same structure; translate names later if needed
+          }, { onConflict: 'recipe_id,lang' })
+        } catch (e) {
+          console.warn('auto-translate failed', e)
+        }
+      })()
+
       nav(`/recipe/${recipeId}`)
     } catch (e) {
       console.error(e)
@@ -497,7 +519,7 @@ export default function CreateRecipePage() {
 
         {userId && recipeId && (
           <ImagesUploader
-            recipeId={recipeId}   // uploads directly to recipes/{draftId}/...
+            recipeId={recipeId}
             userId={userId}
             draftId={recipeId}
             onUploaded={handleImagesUploaded}
