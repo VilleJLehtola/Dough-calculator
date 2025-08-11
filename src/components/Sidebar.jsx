@@ -25,7 +25,8 @@ export default function Sidebar({ user, onLogout }) {
     );
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6 flex flex-col">
+    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800
+                      p-4 space-y-6 flex flex-col min-h-screen">
       {/* Brand */}
       <div className="px-2">
         <Link to="/" className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -33,7 +34,7 @@ export default function Sidebar({ user, onLogout }) {
         </Link>
       </div>
 
-      {/* Language flags on their own row */}
+      {/* Language flags */}
       <div className="px-2">
         <LanguageSwitcher />
       </div>
@@ -93,9 +94,9 @@ export default function Sidebar({ user, onLogout }) {
         </nav>
       </div>
 
-      {/* Footer: put dark-mode toggle (if you have one) above logout; spaced vertically */}
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-        {/* <ThemeToggle />  // if you have a theme toggle component, place it here */}
+      {/* Footer pinned to bottom */}
+      <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800 flex flex-col gap-2">
+        {/* <ThemeToggle />  place your theme toggle here; ensure it isn't absolute/fixed */}
         {user && (
           <button
             onClick={onLogout}
