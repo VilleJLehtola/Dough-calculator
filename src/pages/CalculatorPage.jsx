@@ -73,7 +73,7 @@ export default function CalculatorPage() {
             {mode === 'bread' && (
               <>
                 <ToggleButton active={ryeOn} onClick={() => setRyeOn(!ryeOn)}>Rye</ToggleButton>
-                {ryeOn && <InputField id="ryePct" label="Rye %" suffix="%" value={ryePct} onChange={setRyePct} min={5} max={100} />}
+                {ryeOn && <InputField id="ryePct" label="Rye %" suffix="%" value={ryePct} onChange={setRyePct} min={5} max={100} />} 
                 <ToggleButton active={seedsOn} onClick={() => setSeedsOn(!seedsOn)}>Seeds</ToggleButton>
                 {seedsOn && <InputField id="seedsPct" label="Seeds %" suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} />}
               </>
@@ -99,6 +99,15 @@ export default function CalculatorPage() {
               {seeds > 0 && <li>{round1(seeds)}g Seeds</li>}
             </ul>
             <p className="mt-4">Total dough weight: {totalWeight}g</p>
+
+            <div className="mt-6">
+              <h3 className="text-md font-semibold mb-2">Quick Recipe</h3>
+              <p className="text-sm text-gray-300">
+                Mix flour{ryeOn ? ' (including rye)' : ''}, water, starter, and salt. {seedsOn && 'Add seeds after last fold. '} 
+                {oilOn && 'Add oil during mixing. '} 
+                Perform folds every 30–45 minutes as needed, then bulk ferment until doubled. Shape and proof before baking.
+              </p>
+            </div>
           </div>
         </div>
       </div>
