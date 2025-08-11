@@ -14,9 +14,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Sidebar({ user, onLogout }) {
   const { pathname } = useLocation();
-
-  const isActive = (path) =>
-    pathname === path || pathname.startsWith(path + '/');
+  const isActive = (path) => pathname === path || pathname.startsWith(path + '/');
 
   const linkClass = (path) =>
     clsx(
@@ -28,11 +26,15 @@ export default function Sidebar({ user, onLogout }) {
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6 flex flex-col">
-      {/* Brand + language flags */}
-      <div className="px-2 flex items-center justify-between">
+      {/* Brand */}
+      <div className="px-2">
         <Link to="/" className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
           Everything Dough
         </Link>
+      </div>
+
+      {/* Language flags on their own row */}
+      <div className="px-2">
         <LanguageSwitcher />
       </div>
 
@@ -91,18 +93,19 @@ export default function Sidebar({ user, onLogout }) {
         </nav>
       </div>
 
-      {/* Logout (only when logged in) */}
-      {user && (
-        <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+      {/* Footer: put dark-mode toggle (if you have one) above logout; spaced vertically */}
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+        {/* <ThemeToggle />  // if you have a theme toggle component, place it here */}
+        {user && (
           <button
             onClick={onLogout}
-            className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline px-2 mt-2"
+            className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline px-2"
           >
             <LogOut size={16} />
             Kirjaudu ulos
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </aside>
   );
 }
