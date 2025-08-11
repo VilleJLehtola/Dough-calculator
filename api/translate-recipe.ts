@@ -1,8 +1,6 @@
 // api/translate-recipe.ts
 import type { VercelRequest, VercelResponse } from 'vercel'
 
-export const config = { runtime: 'nodejs' }  // <— not "nodejs18.x"
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'method_not_allowed' })
