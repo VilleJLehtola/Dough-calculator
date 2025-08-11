@@ -51,7 +51,6 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
       aria-roledescription="carousel"
       aria-label="Recipe images"
     >
-      {/* Aspect box */}
       <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative">
         {urls.map((src, i) => (
           <img
@@ -64,11 +63,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
             aria-hidden={i !== idx}
           />
         ))}
-
-        {/* Overlay (author + description) */}
         {overlay}
-
-        {/* Prev / Next */}
         {urls.length > 1 && (
           <>
             <button
@@ -89,8 +84,6 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
             </button>
           </>
         )}
-
-        {/* Dots */}
         {urls.length > 1 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
             {urls.map((_, i) => (
@@ -145,7 +138,7 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Accept multiple shapes for ingredients/steps
+  // Normalizers
   const normalizeIngredients = (ingRaw) => {
     if (!ingRaw) return [];
     if (Array.isArray(ingRaw) && ingRaw.every((x) => typeof x === 'object')) return ingRaw;
@@ -171,7 +164,14 @@ export default function RecipeViewPage() {
 
   const normalizeSteps = (raw) => {
     if (!raw) return [];
-    if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) return raw;
+    if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
+      // Support weird shapes like {content:"..."} or {description:"..."}
+      return raw.map((s, i) => ({
+        position: s.position ?? i + 1,
+        text: s.text ?? s.content ?? s.description ?? String(s ?? ''),
+        time: s.time ?? s.minutes ?? null,
+      }));
+    }
     if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
     if (typeof raw === 'string') {
       return raw
@@ -277,6 +277,70 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
+  // --- translation helpers ---
+  const coerceTranslation = (raw) => {
+    if (!raw) return null;
+    // common wrappers from different endpoints
+    let src =
+      raw.translated ||
+      raw.translation ||
+      raw.result ||
+      raw.data?.translated ||
+      raw.data ||
+      raw;
+
+    // pull possible fields
+    const pick = (...keys) => keys.find((k) => src?.[k] != null) && src[keys.find((k) => src?.[k] != null)];
+
+    let title =
+      pick('title', 'title_en', 'title_en_us') ||
+      src?.en?.title ||
+      src?.fi?.title;
+
+    let description =
+      pick('description', 'description_en') ||
+      src?.en?.description ||
+      src?.fi?.description;
+
+    let ing =
+      pick('ingredients', 'ingredients_en') ||
+      src?.en?.ingredients ||
+      src?.fi?.ingredients;
+
+    let st =
+      pick('steps', 'steps_en', 'instructions') ||
+      src?.en?.steps ||
+      src?.fi?.steps;
+
+    // normalize shapes
+    if (typeof ing === 'string') ing = ing.split('\n').filter(Boolean).map((n) => ({ name: n, amount: '', bakers_pct: '' }));
+    if (Array.isArray(ing) && ing.every((x) => typeof x === 'string')) {
+      ing = ing.map((n) => ({ name: String(n), amount: '', bakers_pct: '' }));
+    }
+    if (!Array.isArray(ing)) ing = undefined;
+
+    if (typeof st === 'string') st = st.split('\n').filter(Boolean).map((t, i) => ({ position: i + 1, text: t }));
+    if (Array.isArray(st) && st.every((x) => typeof x === 'string')) {
+      st = st.map((t, i) => ({ position: i + 1, text: t }));
+    }
+    if (Array.isArray(st) && st.every((x) => typeof x === 'object')) {
+      st = st.map((s, i) => ({
+        position: s.position ?? i + 1,
+        text: s.text ?? s.content ?? s.description ?? '',
+        time: s.time ?? s.minutes ?? null,
+      }));
+    } else if (!Array.isArray(st)) {
+      st = undefined;
+    }
+
+    return {
+      title: title ?? undefined,
+      description: description ?? undefined,
+      ingredients: ing,
+      steps: st,
+    };
+  };
+
   // Live translation fetch (Vercel function first, Supabase Edge Function fallback)
   const [t, setT] = useState(null);
   useEffect(() => {
@@ -294,22 +358,31 @@ export default function RecipeViewPage() {
           body: JSON.stringify({ recipeId: id, targetLang: uiLang }),
         });
         if (resp.ok) {
-          setT(await resp.json());
+          const json = await resp.json();
+          console.log('[translate] vercel response', json);
+          const coerced = coerceTranslation(json);
+          setT(coerced);
           return;
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[translate] vercel error', e);
+      }
 
       try {
         const { data, error } = await supabase.functions.invoke('translate-recipe', {
           body: { recipeId: id, targetLang: uiLang },
         });
         if (!error) {
-          setT(data);
+          console.log('[translate] supabase response', data);
+          const coerced = coerceTranslation(data);
+          setT(coerced);
           return;
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[translate] supabase error', e);
+      }
 
-      setT(null); // fail open
+      setT(null); // fail open to original
     })();
   }, [id, uiLang]);
 
@@ -386,7 +459,7 @@ export default function RecipeViewPage() {
         )}
       </div>
 
-      {/* HERO CAROUSEL */}
+      {/* HERO CAROUSEL with overlay */}
       <HeroCarousel
         title={title}
         items={images}
