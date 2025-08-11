@@ -3,21 +3,56 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 
-export const config = { runtime: 'nodejs' }; // <-- fix
+export const config = { runtime: 'nodejs' }; // <-- important
 
 type Step = { position?: number; text?: string; time?: number | null } | string;
-type Ingredient =
-  | { name?: string; amount?: string; bakers_pct?: string }
-  | string;
+type Ingredient = { name?: string; amount?: string; bakers_pct?: string } | string;
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const LT_URL = process.env.LIBRETRANSLATE_URL || ''; // e.g. https://libretranslate.de
 
-async function translateOne(q: string, target: string): Promise<string> {
+/* ------------------------- normalizers (same as UI) ------------------------ */
+function normIngredients(raw: any) {
+  if (!raw) return [] as { name: string; amount?: string; bakers_pct?: string }[];
+  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) return raw;
+  if (Array.isArray(raw)) return raw.map((s: Ingredient) => ({ name: String(s ?? '') }));
+  if (typeof raw === 'string') {
+    return raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((name) => ({ name }));
+  }
+  return [];
+}
+
+function normSteps(raw: any) {
+  if (!raw) return [] as { position: number; text: string; time?: number | null }[];
+  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
+    return raw.map((s: any, i: number) => ({
+      position: s.position ?? i + 1,
+      text: s.text ?? s.content ?? s.description ?? '',
+      time: s.time ?? s.minutes ?? null,
+    }));
+  }
+  if (Array.isArray(raw))
+    return raw.map((s: Step, i: number) => ({ position: i + 1, text: String(s ?? '') }));
+  if (typeof raw === 'string') {
+    return raw
+      .split('\n')
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((text, i) => ({ position: i + 1, text }));
+  }
+  return [];
+}
+
+/* -------------------------- translation provider -------------------------- */
+async function translateOne(q: string, target: string) {
   if (!q || !LT_URL || target === 'auto') return q;
   try {
     const r = await fetch(`${LT_URL}/translate`, {
@@ -33,42 +68,7 @@ async function translateOne(q: string, target: string): Promise<string> {
   }
 }
 
-function normIngredients(raw: any): { name: string; amount?: string; bakers_pct?: string }[] {
-  if (!raw) return [];
-  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) return raw;
-  if (Array.isArray(raw)) return raw.map((s: Ingredient) => ({ name: String(s ?? '') }));
-  if (typeof raw === 'string') {
-    return raw
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((name) => ({ name }));
-  }
-  return [];
-}
-
-function normSteps(raw: any): { position: number; text: string; time?: number | null }[] {
-  if (!raw) return [];
-  if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
-    return raw.map((s: any, i: number) => ({
-      position: s.position ?? i + 1,
-      text: s.text ?? s.content ?? s.description ?? '',
-      time: s.time ?? s.minutes ?? null,
-    }));
-  }
-  if (Array.isArray(raw)) {
-    return raw.map((s: Step, i: number) => ({ position: i + 1, text: String(s ?? '') }));
-  }
-  if (typeof raw === 'string') {
-    return raw
-      .split('\n')
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .map((text, i) => ({ position: i + 1, text }));
-  }
-  return [];
-}
-
+/* --------------------------------- handler -------------------------------- */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
@@ -85,8 +85,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: rcp, error } = await supabase
+    // Admin client for read/write cache (service role)
+    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+
+    // 1) Fetch recipe
+    const { data: rcp, error } = await admin
       .from('recipes')
       .select('id,title,description,ingredients,steps')
       .eq('id', recipeId)
@@ -97,10 +102,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    // 2) Normalize + hash content
     const ing = normIngredients(rcp.ingredients);
     const st = normSteps(rcp.steps);
 
-    // Translate fields (title, description, ingredient names, step texts)
+    const contentHash = crypto
+      .createHash('sha256')
+      .update(
+        JSON.stringify({
+          t: rcp.title ?? '',
+          d: rcp.description ?? '',
+          ing,
+          st,
+        })
+      )
+      .digest('hex');
+
+    // 3) Cache lookup (exact content hash)
+    const { data: cached } = await admin
+      .from('recipe_translations')
+      .select('title,description,ingredients,steps')
+      .eq('recipe_id', recipeId)
+      .eq('lang', targetLang)
+      .eq('content_hash', contentHash)
+      .maybeSingle();
+
+    if (cached) {
+      res.status(200).json({ cached: true, ...cached });
+      return;
+    }
+
+    // 4) Translate (or echo if no provider)
     const [tTitle, tDesc, tIngNames, tStepTexts] = await Promise.all([
       translateOne(String(rcp.title || ''), targetLang),
       translateOne(String(rcp.description || ''), targetLang),
@@ -112,29 +144,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...row,
       name: tIngNames[i] ?? row.name,
     }));
-
     const translatedSteps = st.map((row, i) => ({
       ...row,
       text: tStepTexts[i] ?? row.text,
     }));
 
-    const contentHash = crypto
-      .createHash('sha256')
-      .update(
-        JSON.stringify({
-          t: rcp.title,
-          d: rcp.description,
-          ing,
-          st,
-          lang: targetLang,
-        })
-      )
-      .digest('hex');
+    // 5) Upsert into cache (unique on recipe_id,lang,content_hash)
+    await admin.from('recipe_translations').upsert(
+      {
+        recipe_id: recipeId,
+        lang: targetLang,
+        content_hash: contentHash,
+        title: tTitle,
+        description: tDesc,
+        ingredients: translatedIngredients,
+        steps: translatedSteps,
+      },
+      { onConflict: 'recipe_id,lang,content_hash' }
+    );
 
     res.status(200).json({
-      recipe_id: recipeId,
-      lang: targetLang,
-      content_hash: contentHash,
+      cached: false,
       title: tTitle,
       description: tDesc,
       ingredients: translatedIngredients,
