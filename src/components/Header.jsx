@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function Header({ user, toggleMobileMenu }) {
+  const { t } = useTranslation();
   return (
-    <header className="w-full flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+    <header className="w-full flex items-center justify-between ...border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       {/* Left side: Hamburger + Logo */}
       <div className="flex items-center gap-4">
         {/* Mobile menu toggle */}
@@ -14,20 +16,20 @@ export default function Header({ user, toggleMobileMenu }) {
 
         {/* Logo */}
         <Link to="/" className="text-xl font-bold text-gray-900 dark:text-white">
-          Everything Dough
+          {t('brand')}
         </Link>
       </div>
 
-      {/* Right side: Login (desktop only) or user email */}
-      <div className="flex items-center gap-4">
+      {/* Right side: Auth */}
+      <div className="flex items-center gap-3">
         {user ? (
           <span className="text-sm text-gray-800 dark:text-gray-200">
-            Tervetuloa, {user.email}
+            {t('welcome_user', { email: user.email })}
           </span>
         ) : (
           <Link to="/login">
             <Button variant="outline" className="hidden md:block">
-              Kirjaudu
+              {t('login')}
             </Button>
           </Link>
         )}
