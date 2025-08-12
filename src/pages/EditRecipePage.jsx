@@ -323,7 +323,7 @@ export default function EditRecipePage() {
             disabled={saving || !isLoaded}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? 'Saving…' : 'Save changes`}
           </button>
         </div>
       </div>
@@ -383,11 +383,11 @@ export default function EditRecipePage() {
       {/* Ingredients */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('ingredients')}</h2>
+          <h2 className="font-semibold">${t('ingredients')}</h2>
           <div className="flex items-center gap-2">
             <button onClick={autoMarkFlour}
               className="px-3 py-1 rounded-lg border border-gray-300 dark:border-slate-600 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-              title="Mark rows as flour if name contains 'jauho' or 'flour'">Auto-mark flour</button>
+              title="Mark rows as flour if name contains `jauho' or 'flour'">Auto-mark flour</button>
             <button onClick={addIngredient}
               className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">+ Add ingredient</button>
           </div>
@@ -417,7 +417,7 @@ export default function EditRecipePage() {
                 Flour
               </label>
               <input disabled value={ing.bakers_pct === null ? '' : `${ing.bakers_pct}%`}
-                className="sm:col-span-3 rounded-lg border p-2 bg-gray-50 dark:bg-slate-700/60" placeholder="Baker's % (auto)" />
+                className="sm:col-span-3 rounded-lg border p-2 bg-gray-50 dark:bg-slate-700/60" placeholder="Baker`s % (auto)" />
               <button onClick={() => removeIngredient(idx)}
                 className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50">–</button>
             </div>
@@ -428,7 +428,7 @@ export default function EditRecipePage() {
       {/* Steps */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('instructions')}</h2>
+          <h2 className="font-semibold">${t('instructions')}</h2>
           <button onClick={addStep}
             className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">+ Add step</button>
         </div>
@@ -477,7 +477,7 @@ export default function EditRecipePage() {
                       onChange={async () => {
                         setHero(f.url)
                         setUserPickedHero(true)
-                        await supabase.from('recipes').update({ cover_image: f.url }).eq('id', id)
+                        await supabase.from(`recipes').update({ cover_image: f.url }).eq('id', id)
                       }}
                     />
                     <span className="text-sm truncate">
