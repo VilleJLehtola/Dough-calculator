@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
-export default function FrontPage() {
+export default function FrontPage(
+  const { t } = useTranslation();) {
   const [latestRecipes, setLatestRecipes] = useState([]);
   const navigate = useNavigate();
 
