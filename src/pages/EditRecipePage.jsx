@@ -1,4 +1,4 @@
-// src/pages/EditRecipePage.jsx
+// /src/pages/EditRecipePage.jsx
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import supabase from '@/supabaseClient'
@@ -6,10 +6,10 @@ import ImagesUploader from '@/components/ImagesUploader'
 import { translateText, translateArray, detectLanguage } from '@/utils/translate'
 
 const BUCKET = 'recipe-images'
-const TARGET_LANGS = ['en', 'sv'] // JS-only, no TS syntax
+const TARGET_LANGS = ['en', 'sv'] // translate into these (excluding detected source)
 
 function newIngredient() {
-  return { name: '', amount: '', isFlour: false } // bakers_pct computed
+  return { name: '', amount: '', isFlour: false } // bakers_pct is computed
 }
 function newStep(i = 1) {
   return { position: i, text: '', time: '' }
@@ -64,9 +64,8 @@ export default function EditRecipePage() {
   const [hero, setHero] = useState(null)
   const [userPickedHero, setUserPickedHero] = useState(false)
 
-  // i18n / flags
+  // flags
   const [isLoaded, setIsLoaded] = useState(false)
-  const [originalLang, setOriginalLang] = useState('auto') // 'auto' | 'fi' | 'en' | 'sv' | ...
   const [translating, setTranslating] = useState(false)
 
   useEffect(() => {
@@ -108,16 +107,6 @@ export default function EditRecipePage() {
       setHero(r.cover_image || imgs[0]?.url || null)
 
       setIsLoaded(true)
-
-      // prefill original language (best-effort, non-blocking)
-      try {
-        const sample = [r.title ?? '', r.description ?? '', ...(r.steps?.map(s => s.text) ?? [])]
-          .filter(Boolean).join('\n')
-        if (sample) {
-          const guessed = await detectLanguage(sample)
-          if (alive && guessed) setOriginalLang(guessed)
-        }
-      } catch {}
     })()
     return () => { alive = false }
   }, [id])
@@ -220,7 +209,7 @@ export default function EditRecipePage() {
     }).eq('id', id)
   }
 
-  // save (UPDATE)
+  // save (UPDATE) + translations (awaited so chip is visible and rows are written)
   const handleSave = async () => {
     setError('')
     if (!title.trim()) { setError('Title is required.'); return }
@@ -269,62 +258,59 @@ export default function EditRecipePage() {
       const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id)
       if (updErr) throw updErr
 
-      // Auto-translate (detect source, skip existing, translate ingredients & steps)
+      // ---------- TRANSLATION ----------
       setTranslating(true)
-      ;(async () => {
-        try {
-          // 1) Determine source lang
-          let src = originalLang
-          if (src === 'auto') {
-            const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map(s => s.text) ?? [])]
-              .filter(Boolean).join('\n')
-            src = await detectLanguage(sample) || 'fi'
-          }
+      try {
+        // Detect source language from current content (fallback to 'fi')
+        const sample = [
+          updatedRecipe.title ?? '',
+          updatedRecipe.description ?? '',
+          ...(updatedRecipe.steps?.map(s => s.text) ?? []),
+        ].filter(Boolean).join('\n')
+        let src = await detectLanguage(sample)
+        if (!src) src = 'fi'
 
-          // 2) Which targets to generate (exclude source)
-          const targets = TARGET_LANGS.filter(l => l !== src)
+        // Targets to generate, excluding the source
+        const targets = TARGET_LANGS.filter(l => l !== src)
 
-          // 3) Skip if already translated
-          const { data: existingRows } = await supabase
-            .from('recipe_translations')
-            .select('lang')
-            .eq('recipe_id', id)
-          const existing = new Set((existingRows ?? []).map(r => r.lang))
-          const missingTargets = targets.filter(t => !existing.has(t))
-          if (missingTargets.length === 0) return
+        // Skip targets that already exist
+        const { data: existingRows } = await supabase
+          .from('recipe_translations')
+          .select('lang')
+          .eq('recipe_id', id)
+        const existing = new Set((existingRows ?? []).map(r => r.lang))
+        const missingTargets = targets.filter(t => !existing.has(t))
 
-          // Prepare arrays
-          const stepTexts = updatedRecipe.steps?.map(s => s.text) ?? []
-          const ingredientNames = updatedRecipe.ingredients?.map(i => i.name) ?? []
+        // Prepare arrays
+        const stepTexts = updatedRecipe.steps?.map(s => s.text) ?? []
+        const ingredientNames = updatedRecipe.ingredients?.map(i => i.name) ?? []
 
-          for (const tgt of missingTargets) {
-            const title_t = await translateText(updatedRecipe.title, src, tgt)
-            const description_t = updatedRecipe.description ? await translateText(updatedRecipe.description, src, tgt) : null
-            const steps_t = stepTexts.length ? await translateArray(stepTexts, src, tgt) : []
-            const ingNames_t = ingredientNames.length ? await translateArray(ingredientNames, src, tgt) : []
+        for (const tgt of missingTargets) {
+          const title_t = await translateText(updatedRecipe.title, src, tgt)
+          const description_t = updatedRecipe.description ? await translateText(updatedRecipe.description, src, tgt) : null
+          const steps_t = stepTexts.length ? await translateArray(stepTexts, src, tgt) : []
+          const ingNames_t = ingredientNames.length ? await translateArray(ingredientNames, src, tgt) : []
 
-            // Rebuild ingredients with translated names
-            const ingredients_t = (updatedRecipe.ingredients ?? []).map((it, idx) => ({
-              ...it,
-              name: ingNames_t[idx] ?? it.name,
-            }))
+          // Rebuild ingredients with translated names (keep numeric data)
+          const ingredients_t = (updatedRecipe.ingredients ?? []).map((it, idx) => ({
+            ...it,
+            name: ingNames_t[idx] ?? it.name,
+          }))
 
-            const { error: upErr } = await supabase.from('recipe_translations').upsert({
-              recipe_id: id,
-              lang: tgt,
-              title: title_t,
-              description: description_t,
-              instructions: steps_t,
-              ingredients: ingredients_t,
-            }, { onConflict: 'recipe_id,lang' })
-            if (upErr) console.warn('translation upsert failed', tgt, upErr)
-          }
-        } catch (e) {
-          console.warn('edit translate failed', e)
-        } finally {
-          setTranslating(false)
+          await supabase.from('recipe_translations').upsert({
+            recipe_id: id,
+            lang: tgt,
+            title: title_t,
+            description: description_t,
+            instructions: steps_t,
+            ingredients: ingredients_t,
+          }, { onConflict: 'recipe_id,lang' })
         }
-      })()
+      } catch (e) {
+        console.warn('edit translate failed', e)
+      } finally {
+        setTranslating(false)
+      }
 
       nav(`/recipe/${id}`)
     } catch (e) {
@@ -339,10 +325,14 @@ export default function EditRecipePage() {
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit recipe</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex gap-2 items-center">
           {translating && (
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" title="Generating translations in background">
-              <span className="w-2 h-2 rounded-full bg-current animate-pulse" /> Translating…
+            <span
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+              title="Generating translations in background"
+            >
+              <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+              Translating…
             </span>
           )}
           <Link
@@ -390,7 +380,7 @@ export default function EditRecipePage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Servings</label>
           <input type="number" value={servings} onChange={(e) => setServings(e.target.value)}
@@ -409,20 +399,6 @@ export default function EditRecipePage() {
             <option value="easy">easy</option>
             <option value="medium">medium</option>
             <option value="hard">hard</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">Original language</label>
-          <select
-            value={originalLang}
-            onChange={(e) => setOriginalLang(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            title="Used for auto-translation. 'Auto' will detect from content."
-          >
-            <option value="auto">Auto detect</option>
-            <option value="fi">Finnish (fi)</option>
-            <option value="en">English (en)</option>
-            <option value="sv">Swedish (sv)</option>
           </select>
         </div>
       </section>
