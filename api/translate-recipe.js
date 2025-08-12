@@ -1,51 +1,40 @@
 // /api/translate-recipe.js
-// Serverless translation with DeepL primary and Azure fallback.
-// - Fetches base recipe
-// - Translates title/description/steps/ingredient names
-// - Upserts into recipe_translations (instructions + ingredients)
-// - Caches by optional content_hash if the column exists
-//
-// Env needed (set in Vercel Project → Settings → Environment Variables):
+import { createClient } from '@supabase/supabase-js'
+
+// --- Required env (Vercel Project -> Settings -> Environment Variables) ---
 //   SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY
 //
 // DeepL (primary):
-//   TRANSLATE_PROVIDER=deepl    (optional; defaults to deepl)
-//   DEEPL_API_KEY=...           (required for DeepL)
-//   DEEPL_API_ENDPOINT=https://api-free.deepl.com/v2/translate  (or https://api.deepl.com/v2/translate)
+//   DEEPL_API_KEY
+//   (optional) DEEPL_API_ENDPOINT = https://api-free.deepl.com/v2/translate  (or https://api.deepl.com/v2/translate)
 //
 // Azure (fallback):
-//   AZURE_TRANSLATOR_KEY=...
-//   AZURE_TRANSLATOR_REGION=westeurope   (your region)
-//   AZURE_TRANSLATOR_ENDPOINT=https://api.cognitive.microsofttranslator.com
+//   AZURE_TRANSLATOR_KEY
+//   AZURE_TRANSLATOR_REGION
+//   (optional) AZURE_TRANSLATOR_ENDPOINT = https://api.cognitive.microsofttranslator.com
 
-import { createClient } from '@supabase/supabase-js'
+const SUPABASE_URL = process.env.SUPABASE_URL || ''
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
-const SUPABASE_URL = process.env.SUPABASE_URL
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-// DeepL
 const DEEPL_KEY = process.env.DEEPL_API_KEY || ''
 const DEEPL_ENDPOINT = process.env.DEEPL_API_ENDPOINT || 'https://api-free.deepl.com/v2/translate'
 
-// Azure
 const AZURE_KEY = process.env.AZURE_TRANSLATOR_KEY || ''
 const AZURE_REGION = process.env.AZURE_TRANSLATOR_REGION || ''
 const AZURE_ENDPOINT = process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com'
 
-// Helpers
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'content-type,authorization')
 }
 
-function isUUID(s) {
-  const v = String(s || '').trim().replace(/^["']|["']$/g, '') // strip stray quotes
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
-}
 function normalizeUUID(s) {
-  return String(s || '').trim().replace(/^["']|["']$/g, '')
+  return String(s || '').trim().replace(/^["'<\s]+|[">'\s]+$/g, '')
+}
+function isUUID(s) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)
 }
 
 function hashContent(rcp) {
@@ -60,10 +49,10 @@ function hashContent(rcp) {
   return (h >>> 0).toString(16)
 }
 
-// ---- DeepL ----
-async function deeplTranslateArray(texts, target, source /* may be null/auto */) {
+// -------- DeepL --------
+async function deeplTranslateArray(texts, target, source) {
   const params = new URLSearchParams()
-  for (const t of texts) params.append('text', t)
+  texts.forEach(t => params.append('text', t))
   params.append('target_lang', String(target).toUpperCase())
   if (source && source !== 'auto') params.append('source_lang', String(source).toUpperCase())
 
@@ -78,19 +67,19 @@ async function deeplTranslateArray(texts, target, source /* may be null/auto */)
   const body = await r.text()
   if (!r.ok) {
     const e = new Error(`deepl ${r.status}`)
-    e.responseText = body
+    e.body = body
     throw e
   }
   const json = JSON.parse(body)
-  const out = (json.translations || []).map(t => t.text || '')
-  return out
+  return (json.translations || []).map(t => t.text || '')
 }
 
-// ---- Azure ----
-async function azureTranslateArray(texts, target, source /* may be null → auto */) {
-  const query = new URLSearchParams({ 'api-version': '3.0', to: target })
-  if (source && source !== 'auto') query.append('from', source)
-  const r = await fetch(`${AZURE_ENDPOINT}/translate?${query.toString()}`, {
+// -------- Azure --------
+async function azureTranslateArray(texts, target, source) {
+  const qs = new URLSearchParams({ 'api-version': '3.0', to: target })
+  if (source && source !== 'auto') qs.append('from', source)
+
+  const r = await fetch(`${AZURE_ENDPOINT}/translate?${qs.toString()}`, {
     method: 'POST',
     headers: {
       'Ocp-Apim-Subscription-Key': AZURE_KEY,
@@ -102,27 +91,23 @@ async function azureTranslateArray(texts, target, source /* may be null → auto
   const body = await r.text()
   if (!r.ok) {
     const e = new Error(`azure ${r.status}`)
-    e.responseText = body
+    e.body = body
     throw e
   }
   const json = JSON.parse(body)
-  const out = json.map(x => x?.translations?.[0]?.text || '')
-  return out
+  return json.map(x => x?.translations?.[0]?.text || '')
 }
 
 // unified translate with fallback
-async function translateArrayWithFallback(texts, target, source) {
-  // 1) DeepL primary
+async function translateArray(texts, target, source) {
   if (DEEPL_KEY) {
     try {
       return await deeplTranslateArray(texts, target, source)
     } catch (e) {
-      // Typical quota error surfaces with 456 (Quota exceeded) or 403; fallback to Azure if available
-      if (!AZURE_KEY) throw e
+      if (!(AZURE_KEY && AZURE_REGION)) throw e // no fallback configured
       // fall through to Azure
     }
   }
-  // 2) Azure fallback
   if (AZURE_KEY && AZURE_REGION) {
     return await azureTranslateArray(texts, target, source)
   }
@@ -135,7 +120,6 @@ export default async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'method_not_allowed' })
   }
-
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({ error: 'supabase_env_missing' })
   }
@@ -143,20 +127,19 @@ export default async function handler(req, res) {
   const isGet = req.method === 'GET'
   const recipeIdRaw = isGet ? (req.query.recipeId || '') : (req.body?.recipeId || '')
   const targetLang = isGet ? (req.query.targetLang || '') : (req.body?.targetLang || '')
+  const sourceLang = isGet ? (req.query.source || 'auto') : (req.body?.source || 'auto')
   const force = isGet ? (req.query.force === 'true') : !!req.body?.force
   const debug = isGet ? (req.query.debug === 'true') : !!req.body?.debug
-  const sourceLang = isGet ? (req.query.source || 'auto') : (req.body?.source || 'auto') // optional
 
   const recipeId = normalizeUUID(recipeIdRaw)
-  if (!recipeId || !isUUID(recipeId) || !targetLang) {
+  if (!isUUID(recipeId) || !targetLang) {
     return res.status(400).json({
       error: 'bad_request',
       needed: ['recipeId(uuid)', 'targetLang'],
-      received: { recipeId: recipeIdRaw, targetLang },
+      received: { recipeId: recipeIdRaw, targetLang }
     })
   }
 
-  // Ensure at least one translator is configured
   if (!DEEPL_KEY && !(AZURE_KEY && AZURE_REGION)) {
     return res.status(503).json({ error: 'translator_not_configured' })
   }
@@ -164,7 +147,7 @@ export default async function handler(req, res) {
   const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
 
   try {
-    // 1) Load recipe
+    // 1) Load base recipe
     const { data: rcp, error: rErr } = await sb
       .from('recipes')
       .select('id,title,description,ingredients,steps')
@@ -172,14 +155,10 @@ export default async function handler(req, res) {
       .single()
 
     if (rErr || !rcp) {
-      return res.status(404).json({
-        error: 'recipe_not_found',
-        recipeId,
-        ...(debug ? { supabaseError: rErr?.message ?? null } : {}),
-      })
+      return res.status(404).json({ error: 'recipe_not_found', recipeId, ...(debug ? { supabaseError: rErr?.message ?? null } : {}) })
     }
 
-    // 2) Probe content_hash column existence (optional cache behavior)
+    // 2) content_hash support
     let hasContentHash = true
     try {
       const probe = await sb.from('recipe_translations')
@@ -189,10 +168,8 @@ export default async function handler(req, res) {
         .limit(1)
       if (probe.error && /column.*content_hash/i.test(probe.error.message)) hasContentHash = false
     } catch { hasContentHash = false }
-
     const contentHash = hashContent(rcp)
 
-    // 3) Cache check (only if column exists)
     if (hasContentHash && !force) {
       const { data: cached } = await sb
         .from('recipe_translations')
@@ -200,7 +177,6 @@ export default async function handler(req, res) {
         .eq('recipe_id', recipeId)
         .eq('lang', targetLang)
         .maybeSingle()
-
       if (cached && cached.content_hash === contentHash) {
         return res.status(200).json({
           cached: true,
@@ -212,23 +188,22 @@ export default async function handler(req, res) {
       }
     }
 
-    // 4) Prepare arrays
-    const ingRows = Array.isArray(rcp.ingredients) ? rcp.ingredients : []
+    // 3) Gather arrays
+    const ingRows  = Array.isArray(rcp.ingredients) ? rcp.ingredients : []
     const stepRows = Array.isArray(rcp.steps) ? rcp.steps : []
-
-    const ingNames = ingRows.map(i => (typeof i === 'object' ? (i.name ?? '') : String(i ?? '')))
+    const ingNames  = ingRows.map(i => (typeof i === 'object' ? (i.name ?? '') : String(i ?? '')))
     const stepTexts = stepRows.map(s => (typeof s === 'object' ? (s.text ?? '') : String(s ?? '')))
 
-    // 5) Translate via DeepL, Azure fallback
+    // 4) Translate via DeepL (fallback Azure)
     const [titleTrArr, descTrArr, ingTrArr, stepsTrArr] = await Promise.all([
-      translateArrayWithFallback([rcp.title ?? ''], targetLang, sourceLang),
-      translateArrayWithFallback([rcp.description ?? ''], targetLang, sourceLang),
-      translateArrayWithFallback(ingNames, targetLang, sourceLang),
-      translateArrayWithFallback(stepTexts, targetLang, sourceLang),
+      translateArray([rcp.title ?? ''], targetLang, sourceLang),
+      translateArray([rcp.description ?? ''], targetLang, sourceLang),
+      translateArray(ingNames, targetLang, sourceLang),
+      translateArray(stepTexts, targetLang, sourceLang),
     ])
 
     const titleTr = titleTrArr[0] ?? rcp.title ?? ''
-    const descTr = descTrArr[0] ?? rcp.description ?? ''
+    const descTr  = descTrArr[0] ?? rcp.description ?? ''
 
     const ingredientsTr = ingRows.map((row, i) => {
       const name = ingTrArr[i] ?? (typeof row === 'object' ? (row.name ?? '') : String(row ?? ''))
@@ -244,8 +219,8 @@ export default async function handler(req, res) {
         : { position: i + 1, text }
     })
 
-    // 6) Upsert cache
-    const upsertPayload = {
+    // 5) Upsert into recipe_translations (instructions, not steps)
+    const payload = {
       recipe_id: rcp.id,
       lang: targetLang,
       title: titleTr,
@@ -255,17 +230,12 @@ export default async function handler(req, res) {
       ...(hasContentHash ? { content_hash: contentHash } : {}),
     }
 
-    const { data: upData, error: upErr } = await sb
+    const { error: upErr } = await sb
       .from('recipe_translations')
-      .upsert(upsertPayload, { onConflict: 'recipe_id,lang' })
-      .select('recipe_id,lang')
+      .upsert(payload, { onConflict: 'recipe_id,lang' })
 
     if (upErr) {
-      return res.status(400).json({
-        error: 'upsert_failed',
-        detail: upErr.message,
-        keys: Object.keys(upsertPayload),
-      })
+      return res.status(400).json({ error: 'upsert_failed', detail: upErr.message, payloadKeys: Object.keys(payload) })
     }
 
     return res.status(200).json({
@@ -274,13 +244,8 @@ export default async function handler(req, res) {
       description: descTr,
       ingredients: ingredientsTr,
       steps: instructionsTr,
-      wrote: upData,
     })
   } catch (e) {
-    return res.status(500).json({
-      error: 'internal_error',
-      message: e?.message || String(e),
-      stack: process.env.NODE_ENV !== 'production' ? e?.stack : undefined,
-    })
+    return res.status(500).json({ error: 'internal_error', message: e?.message || String(e) })
   }
 }
