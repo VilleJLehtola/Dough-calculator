@@ -3,10 +3,12 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
-import { translateText, translateArray } from '@/utils/translate'
+import { translateText, translateArray, detectLanguage } from '@/utils/translate' // <-- added detectLanguage
 
 const BUCKET = 'recipe-images'
+const TARGET_LANGS = ['en', 'sv'] // translate into these (excluding detected source)
 
+// Helpers
 function newIngredient() {
   return { name: '', amount: '', isFlour: false } // bakers_pct is computed
 }
@@ -52,6 +54,9 @@ export default function CreateRecipePage() {
   // auth & saved flag
   const [userId, setUserId] = useState(null)
   const [isSaved, setIsSaved] = useState(false)
+
+  // translating chip
+  const [translating, setTranslating] = useState(false)
 
   // Ensure login & create a draft id
   useEffect(() => {
@@ -270,23 +275,61 @@ export default function CreateRecipePage() {
 
       setIsSaved(true)
 
-      // ---- kick off translation in background (fi -> en) ----
+      // ---- Auto-translate in background (detect source, write en/sv, skip existing) ----
+      setTranslating(true)
       ;(async () => {
         try {
-          const title_en = await translateText(title.trim(), 'fi', 'en')
-          const description_en = description ? await translateText(description, 'fi', 'en') : null
-          const steps_en = stp.length ? await translateArray(stp.map(s => s.text), 'fi', 'en') : []
+          // 1) Determine source language from title/description/steps (fallback to 'fi')
+          const sample = [
+            title?.trim() || '',
+            description?.trim() || '',
+            ...stp.map(s => s.text || ''),
+          ].filter(Boolean).join('\n')
+          let src = await detectLanguage(sample)
+          if (!src) src = 'fi'
 
-          await supabase.from('recipe_translations').upsert({
-            recipe_id: recipeId,
-            lang: 'en',
-            title: title_en,
-            description: description_en,
-            instructions: steps_en,
-            ingredients: ing, // same structure; translate names later if needed
-          }, { onConflict: 'recipe_id,lang' })
+          // 2) Build target list excluding source
+          const targets = TARGET_LANGS.filter(l => l !== src)
+
+          // 3) Check existing translations (should be none on create, but safe)
+          const { data: existingRows } = await supabase
+            .from('recipe_translations')
+            .select('lang')
+            .eq('recipe_id', recipeId)
+          const existing = new Set((existingRows ?? []).map(r => r.lang))
+          const missingTargets = targets.filter(t => !existing.has(t))
+          if (missingTargets.length === 0) return
+
+          // 4) Prepare arrays for translation
+          const stepTexts = stp.map(s => s.text)
+          const ingredientNames = ing.map(i => i.name)
+
+          // 5) Translate and upsert per target
+          for (const tgt of missingTargets) {
+            const title_t = await translateText(title.trim(), src, tgt)
+            const description_t = description ? await translateText(description, src, tgt) : null
+            const steps_t = stepTexts.length ? await translateArray(stepTexts, src, tgt) : []
+            const ingNames_t = ingredientNames.length ? await translateArray(ingredientNames, src, tgt) : []
+
+            // Keep all numeric data; only swap ingredient names
+            const ingredients_t = ing.map((it, idx) => ({
+              ...it,
+              name: ingNames_t[idx] ?? it.name,
+            }))
+
+            await supabase.from('recipe_translations').upsert({
+              recipe_id: recipeId,
+              lang: tgt,
+              title: title_t,
+              description: description_t,
+              instructions: steps_t,
+              ingredients: ingredients_t,
+            }, { onConflict: 'recipe_id,lang' })
+          }
         } catch (e) {
           console.warn('auto-translate failed', e)
+        } finally {
+          setTranslating(false)
         }
       })()
 
@@ -303,7 +346,12 @@ export default function CreateRecipePage() {
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create a recipe</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {translating && (
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" title="Generating translations in background">
+              <span className="w-2 h-2 rounded-full bg-current animate-pulse" /> Translating…
+            </span>
+          )}
           <button
             onClick={() => nav(-1)}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200"
