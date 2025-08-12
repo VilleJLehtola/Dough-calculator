@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 
+
 export default function AuthForm({ setUser, setActiveView }) {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
@@ -12,28 +13,52 @@ export default function AuthForm({ setUser, setActiveView }) {
   const handleAuth = async () => {
     setError('');
     if (!email || !password) {
-      setError('Missing email or password.');
+      setError('{t('email')} ja salasana vaaditaan.');
       return;
     }
-    try {
-      if (isRegistering) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        if (data?.user) setUser(data.user);
-      } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        if (data?.user) setUser(data.user);
+
+    if (isRegistering) {
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
       }
-    } catch (e) {
-      setError(e.message || 'Auth error');
+
+      const user = data.user;
+      if (user) {
+        const { error: insertError } = await supabase.from('users').insert({
+          id: user.id,
+          email: user.email,
+          created_at: new Date().toISOString(),
+        });
+
+        if (insertError) {
+          console.error('Failed to insert user:', insertError.message);
+          setError('Rekisteröinti onnistui, mutta käyttäjää ei voitu tallentaa.');
+        } else {
+          setUser(user);
+          setActiveView('calculator');
+        }
+      } else {
+        setError('Rekisteröinti epäonnistui.');
+      }
+    } else {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInError) {
+        setError(signInError.message);
+      } else {
+        setUser(data.user);
+        setActiveView('calculator');
+      }
     }
   };
 
   return (
-    <div className="max-w-md mx-auto bg-white dark:bg-gray-900 p-6 rounded-xl shadow space-y-3">
-      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-        {isRegistering ? t('register') : t('login')}
+    <div className="bg-white p-4 rounded-lg shadow border border-blue-200 space-y-4">
+      <h2 className="text-xl font-semibold text-blue-800 text-center">
+        {isRegistering ? '{t('register')}' : '{t('login')} sisään'}
       </h2>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -42,29 +67,36 @@ export default function AuthForm({ setUser, setActiveView }) {
         type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        placeholder={t('email')}
+        placeholder={t("email")}
         className="w-full p-2 border border-gray-300 rounded"
       />
       <input
         type="password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        placeholder={t('password')}
+        placeholder={t("password")}
         className="w-full p-2 border border-gray-300 rounded"
       />
 
+      <p
+        className="text-sm text-blue-600 hover:underline cursor-pointer text-center"
+        onClick={() => setActiveView('forgot-password')}
+      >
+        Unohtuiko salasana?
+      </p>
+
       <button
         onClick={handleAuth}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded mt-2"
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
       >
-        {isRegistering ? t('register') : t('login')}
+        {isRegistering ? '{t('register')}' : '{t('login')}'}
       </button>
 
       <p
-        className="text-sm text-gray-500 mt-2 cursor-pointer hover:underline"
-        onClick={() => setIsRegistering(v => !v)}
+        className="text-sm text-center text-blue-600 cursor-pointer hover:underline"
+        onClick={() => setIsRegistering(prev => !prev)}
       >
-        {isRegistering ? t('have_account_login') : t('no_account_register')}
+        {isRegistering ? '{t('have_account_login')}' : '{t('no_account_register')}'}
       </p>
 
       <button
