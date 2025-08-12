@@ -1,93 +1,87 @@
 // /api/translate.ts
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// Vercel serverless function. Supports DeepL or Azure based on env.
+// Body: { q: string | string[], source: string | 'detect', target: string, provider?: 'deepl' | 'azure' }
 
-const AZ_KEY = process.env.AZURE_TRANSLATOR_KEY || '';
-const AZ_ENDPOINT = (process.env.AZURE_TRANSLATOR_ENDPOINT || '').replace(/\/$/, '');
-const AZ_REGION = process.env.AZURE_TRANSLATOR_REGION || '';
-
-const DEEPL_KEY = process.env.DEEPL_API_KEY || '';
-const DEEPL_BASE = (process.env.DEEPL_BASE_URL || 'https://api-free.deepl.com').replace(/\/$/, '');
-
-function cors(res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS,GET');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-}
-
-async function translateViaAzure(qs: string[], source: string | undefined, target: string) {
-  if (!AZ_KEY || !AZ_ENDPOINT) throw new Error('azure-missing-config');
-
-  const params = new URLSearchParams({ 'api-version': '3.0', to: target });
-  if (source) params.append('from', source);
-  const url = `${AZ_ENDPOINT}/translate?${params.toString()}`;
-
-  const headers: Record<string, string> = {
-    'Ocp-Apim-Subscription-Key': AZ_KEY,
-    'Content-Type': 'application/json',
-  };
-  if (AZ_REGION) headers['Ocp-Apim-Subscription-Region'] = AZ_REGION;
-
-  const body = JSON.stringify(qs.map((t) => ({ Text: t })));
-  const r = await fetch(url, { method: 'POST', headers, body });
-  if (!r.ok) throw new Error(`azure-${r.status}`);
-
-  const data: any[] = await r.json();
-  const out = data.map((item: any) => item?.translations?.[0]?.text).filter(Boolean);
-  if (out.length !== qs.length) throw new Error('azure-empty');
-  return out as string[];
-}
-
-async function translateViaDeepL(qs: string[], source: string | undefined, target: string) {
-  if (!DEEPL_KEY) throw new Error('deepl-missing-config');
-
-  const url = `${DEEPL_BASE}/v2/translate`;
-  const form = new URLSearchParams();
-  form.append('auth_key', DEEPL_KEY);
-  form.append('target_lang', target.toUpperCase());
-  if (source) form.append('source_lang', source.toUpperCase());
-  for (const t of qs) form.append('text', t);
-
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form,
-  });
-  if (!r.ok) throw new Error(`deepl-${r.status}`);
-
-  const data: any = await r.json();
-  const out = (data?.translations || []).map((t: any) => t?.text).filter(Boolean);
-  if (out.length !== qs.length) throw new Error('deepl-empty');
-  return out as string[];
-}
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  cors(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' })
+    return
+  }
 
   try {
-    if (req.method === 'GET') {
-      return res.status(200).json({ ok: true, providerOrder: ['azure', 'deepl'] });
+    const { q, source, target, provider: forcedProvider } = req.body || {}
+    if (q == null) {
+      res.status(400).json({ error: 'Missing q' })
+      return
     }
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { q, source = '', target } = (req.body || {}) as {
-      q: string | string[];
-      source?: string;
-      target: string;
-    };
-    if (!q || !target) return res.status(400).json({ error: 'Missing q or target' });
+    const texts = Array.isArray(q) ? q : [q]
+    const provider = forcedProvider || (process.env.TRANSLATE_PROVIDER || 'deepl') // 'deepl' | 'azure'
 
-    const qs = Array.isArray(q) ? q : [q];
+    // -------- Language detection --------
+    if (source === 'detect') {
+      if (provider === 'azure') {
+        const AZURE_KEY = process.env.AZURE_TRANSLATOR_KEY
+        const AZURE_REGION = process.env.AZURE_TRANSLATOR_REGION // e.g. "westeurope"
+        const AZURE_ENDPOINT = process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com'
+        if (!AZURE_KEY || !AZURE_REGION) {
+          res.status(500).json({ error: 'Azure Translator not configured' })
+          return
+        }
+        const r = await fetch(`${AZURE_ENDPOINT}/detect?api-version=3.0`, {
+          method: 'POST',
+          headers: {
+            'Ocp-Apim-Subscription-Key': AZURE_KEY,
+            'Ocp-Apim-Subscription-Region': AZURE_REGION,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(texts.map(t => ({ Text: t }))),
+        })
+        if (!r.ok) {
+          const body = await r.text()
+          res.status(r.status).json({ error: `azure detect ${r.status}`, body })
+          return
+        }
+        const json = await r.json()
+        const detected = json?.[0]?.language || null
+        res.status(200).json({ translatedText: detected, provider: 'azure' })
+        return
+      } else {
+        // DeepL doesn't have a separate detect endpoint in the free plan,
+        // so translate to EN and read detected_source_language.
+        const DEEPL_KEY = process.env.DEEPL_API_KEY
+        const DEEPL_ENDPOINT = process.env.DEEPL_API_ENDPOINT || 'https://api-free.deepl.com/v2/translate'
+        if (!DEEPL_KEY) {
+          res.status(500).json({ error: 'DeepL not configured' })
+          return
+        }
+        const params = new URLSearchParams()
+        texts.forEach(t => params.append('text', t))
+        params.append('target_lang', 'EN')
 
-    // Try Azure first → fallback to DeepL
-    try {
-      const out = await translateViaAzure(qs, source || undefined, target);
-      return res.status(200).json({ translatedText: Array.isArray(q) ? out : out[0], provider: 'azure' });
-    } catch {
-      const out = await translateViaDeepL(qs, source || undefined, target);
-      return res.status(200).json({ translatedText: Array.isArray(q) ? out : out[0], provider: 'deepl' });
+        const r = await fetch(DEEPL_ENDPOINT, {
+          method: 'POST',
+          headers: { Authorization: `DeepL-Auth-Key ${DEEPL_KEY}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString(),
+        })
+        if (!r.ok) {
+          const body = await r.text()
+          res.status(r.status).json({ error: `deepl detect ${r.status}`, body })
+          return
+        }
+        const json = await r.json()
+        const detected = json?.translations?.[0]?.detected_source_language?.toLowerCase() || null
+        res.status(200).json({ translatedText: detected, provider: 'deepl' })
+        return
+      }
     }
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || 'translate-failed' });
-  }
-}
+
+    // -------- Normal translation --------
+    if (!target) {
+      res.status(400).json({ error: 'Missing target' })
+      return
+    }
+
+    if (provider === 'azure') {
+      const AZURE_KEY = process.env.AZURE_TRANSLATOR_KEY
+      const AZURE_R_
