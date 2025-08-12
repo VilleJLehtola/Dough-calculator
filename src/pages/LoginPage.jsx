@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import AuthForm from '@/components/AuthForm';
 import supabase from '@/supabaseClient';
+import { useTranslation } from 'react-i18next';
 
-export default function LoginPage() {
+export default function LoginPage(
+  const { t } = useTranslation();) {
   const [user, setUser] = useState(null);
   const [activeView, setActiveView] = useState('auth');
 
