@@ -23,11 +23,11 @@ export default function Header({ user, toggleMobileMenu }) {
       {/* Right side: Login (desktop only) or user email */}
       <div className="flex items-center gap-4">
         {user ? (
-          <span className="text-sm text-gray-800 dark:text-gray-200`>
-            ${t('welcome_user', { email: user.email })}
+          <span className="text-sm text-gray-800 dark:text-gray-200">
+            {t('welcome_user', { email: user.email })}
           </span>
         ) : (
-          <Link to=`/login">
+          <Link to="/login">
             <Button variant="outline" className="hidden md:block">
               Kirjaudu
             </Button>

@@ -332,7 +332,7 @@ export default function CreateRecipePage() {
             disabled={saving}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {saving ? 'Saving…' : isSaved ? 'Saved' : 'Save recipe`}
+            {saving ? 'Saving…' : isSaved ? 'Saved' : 'Save recipe'}
           </button>
         </div>
       </div>
@@ -405,12 +405,12 @@ export default function CreateRecipePage() {
       {/* Ingredients */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">${t('ingredients')}</h2>
+          <h2 className="font-semibold">{t('ingredients')}</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={autoMarkFlour}
               className="px-3 py-1 rounded-lg border border-gray-300 dark:border-slate-600 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-              title="Mark rows as flour if name contains `jauho' or 'flour'"
+              title="Mark rows as flour if name contains 'jauho' or 'flour'"
               type="button"
             >
               Auto-mark flour
@@ -464,7 +464,7 @@ export default function CreateRecipePage() {
                 disabled
                 value={ing.bakers_pct === null ? '' : `${ing.bakers_pct}%`}
                 className="sm:col-span-3 rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/60 text-gray-700 dark:text-gray-200 p-2"
-                placeholder="Baker`s % (auto)"
+                placeholder="Baker's % (auto)"
                 title="Auto-calculated relative to total flour"
               />
               <button
@@ -482,7 +482,7 @@ export default function CreateRecipePage() {
       {/* Steps */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">${t('instructions')}</h2>
+          <h2 className="font-semibold">{t('instructions')}</h2>
           <button
             onClick={addStep}
             className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
@@ -557,7 +557,7 @@ export default function CreateRecipePage() {
                       onChange={() => { setHero(f.url); setUserPickedHero(true) }}
                     />
                     <span className="text-sm truncate">
-                      {(() => { try { return new URL(f.url).pathname.split(`/').pop() } catch { return 'image' } })()}
+                      {(() => { try { return new URL(f.url).pathname.split('/').pop() } catch { return 'image' } })()}
                     </span>
                   </label>
                 ))}

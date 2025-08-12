@@ -455,7 +455,7 @@ export default function RecipeViewPage() {
                 )}
                 <div className="text-sm leading-tight">
                   <div className="font-semibold">
-                    {author?.username || author?.email || `Unknown author`}
+                    {author?.username || author?.email || 'Unknown author'}
                   </div>
                   {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
                 </div>
@@ -485,7 +485,7 @@ export default function RecipeViewPage() {
         {/* Ingredients */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">$${t('ingredients')}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">${t('ingredients')}</h2>
           </div>
           <div className="p-4 overflow-x-auto">
             {ingredientsToRender?.length ? (
@@ -501,14 +501,14 @@ export default function RecipeViewPage() {
                   {ingredientsToRender.map((row, idx) => (
                     <tr
                       key={idx}
-                      className={idx % 2 ? `bg-gray-50 dark:bg-slate-900/40` : 'bg-transparent'}
+                      className={idx % 2 ? `bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent`}
                     >
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{row.name ?? ''}</td>
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200 text-right">
                         {row.amount ?? ''}
                       </td>
                       <td className="py-2 text-gray-800 dark:text-gray-200 text-right">
-                        {row.bakers_pct ?? ``}
+                        {row.bakers_pct ?? ''}
                       </td>
                     </tr>
                   ))}
@@ -523,7 +523,7 @@ export default function RecipeViewPage() {
         {/* Instructions */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">$${t('instructions')}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">${t('instructions')}</h2>
           </div>
           <div className="p-4">
             {sortedSteps.length ? (
