@@ -96,7 +96,7 @@ function HeroCarousel(
                 className={`h-2 w-2 rounded-full transition ${
                   i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'
                 }`}
-                aria-label={`Go to slide ${i + 1}`}
+                aria-label={t('go_to_slide', { index: i + 1 })}
               />
             ))}
           </div>
@@ -400,7 +400,7 @@ export default function RecipeViewPage() {
       <div className="max-w-4xl mx-auto p-6">
         <p className="text-gray-700 dark:text-gray-300">Recipe not found.</p>
         <Link to="/browse" className="text-blue-600 dark:text-blue-400 underline">
-          ← Back to recipes
+          {t('back_to_recipes')}
         </Link>
       </div>
     );
@@ -534,7 +534,7 @@ export default function RecipeViewPage() {
                       <span className="flex-1">{s.text || s}</span>
                       {s.time != null && s.time !== '' && (
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
-                          +{s.time} min
+                          +{s.time} {t('minutes_short')}
                         </span>
                       )}
                     </div>
@@ -551,7 +551,7 @@ export default function RecipeViewPage() {
       {/* Back link */}
       <div className="mt-6">
         <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
-          ← Back to recipes
+          {t('back_to_recipes')}
         </Link>
       </div>
     </div>
