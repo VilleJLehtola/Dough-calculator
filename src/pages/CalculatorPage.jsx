@@ -112,7 +112,7 @@ export default function CalculatorPage() {
       steps.push(`Add starter and salt${oilOn ? ', then oil' : ''}; mix/knead or do stretch & folds until smooth.`);
       steps.push('Rest 20–30 min, then bulk until 50–75% risen with bubbles.');
       steps.push('Divide and ball. Rest 30–60 min at room temp.');
-      if (coldFerment) steps.push('{t('cold_ferment')} dough balls 12–48 h at 4°C; temper 1–2 h before baking.');
+      if (coldFerment) steps.push(`\${t('cold_ferment')} dough balls 12–48 h at 4°C; temper 1–2 h before baking.');
       steps.push('Open by hand, top lightly, and bake as hot as possible on stone/steel.');
       return steps;
     }
@@ -152,7 +152,7 @@ export default function CalculatorPage() {
           {/* Left column: Controls */}
           <div>
             {/* Presets */}
-            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label=`${t('recipe_presets')}`>
+            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label=`\${t('recipe_presets')}`>
               {presets.map((p) => (
                 <ToggleButton key={p.key} active={activePreset === p.key} onClick={() => applyPreset(p)} aria-label={`Apply ${p.label} preset`}>
                   {p.label}
@@ -172,9 +172,9 @@ export default function CalculatorPage() {
 
             {/* Primary inputs */}
             {inputMode === 'flour' ? (
-              <InputField id="amount" label=`${t('amount_flour')}` suffix="g" value={amount} onChange={setAmount} min={1} />
+              <InputField id="amount" label=`\${t('amount_flour')}` suffix="g" value={amount} onChange={setAmount} min={1} />
             ) : (
-              <InputField id="amount" label=`${t('amount_water')}` suffix="ml" value={amount} onChange={setAmount} min={1} />
+              <InputField id="amount" label=`\${t('amount_water')}` suffix="ml" value={amount} onChange={setAmount} min={1} />
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -192,8 +192,8 @@ export default function CalculatorPage() {
                   <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>{t('cold_ferment')}</ToggleButton>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField id="ryePct" label=`${t('rye_pct_total')}` suffix="%" value={ryePct} onChange={setRyePct} min={0} max={100} disabled={!ryeOn} />
-                  <InputField id="seedsPct" label=`${t('seeds_pct_total')}` suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} disabled={!seedsOn} />
+                  <InputField id="ryePct" label=`\${t('rye_pct_total')}` suffix="%" value={ryePct} onChange={setRyePct} min={0} max={100} disabled={!ryeOn} />
+                  <InputField id="seedsPct" label=`\${t('seeds_pct_total')}` suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} disabled={!seedsOn} />
                 </div>
               </div>
             )}

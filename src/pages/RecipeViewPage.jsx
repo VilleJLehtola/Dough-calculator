@@ -501,14 +501,14 @@ export default function RecipeViewPage() {
                   {ingredientsToRender.map((row, idx) => (
                     <tr
                       key={idx}
-                      className={idx % 2 ? `bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent`}
+                      className={idx % 2 ? `bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent'}
                     >
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{row.name ?? ''}</td>
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200 text-right">
                         {row.amount ?? ''}
                       </td>
                       <td className="py-2 text-gray-800 dark:text-gray-200 text-right">
-                        {row.bakers_pct ?? ''}
+                        {row.bakers_pct ?? '`}
                       </td>
                     </tr>
                   ))}
@@ -532,7 +532,7 @@ export default function RecipeViewPage() {
                   <li key={i} className="text-gray-800 dark:text-gray-200">
                     <div className="flex items-start gap-2">
                       <span className="flex-1">{s.text || s}</span>
-                      {s.time != null && s.time !== `` && (
+                      {s.time != null && s.time !== `' && (
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
                           +{s.time} min
                         </span>

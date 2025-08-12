@@ -12,7 +12,7 @@ export default function ToggleButton({ active, onClick, children, ariaPressed })
         focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
         ${active
           ? "bg-blue-600/90 border-blue-500 text-white"
-          : "bg-gray-800/70 border-gray-700 text-gray-200 hover:bg-gray-700/70"}\"}
+          : "bg-gray-800/70 border-gray-700 text-gray-200 hover:bg-gray-700/70"}`}
     >
       {children}
     </button>

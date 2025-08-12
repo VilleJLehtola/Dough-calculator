@@ -13,7 +13,7 @@ export default function AuthForm({ setUser, setActiveView }) {
   const handleAuth = async () => {
     setError('');
     if (!email || !password) {
-      setError('{t('email')} ja salasana vaaditaan.');
+      setError(`\${t('email')} ja salasana vaaditaan.');
       return;
     }
 
@@ -58,7 +58,7 @@ export default function AuthForm({ setUser, setActiveView }) {
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-blue-200 space-y-4">
       <h2 className="text-xl font-semibold text-blue-800 text-center">
-        {isRegistering ? '{t('register')}' : '{t('login')} sisään'}
+        {isRegistering ? `\${t('register')}` : `\${t('login')} sisään'}
       </h2>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}
@@ -89,14 +89,14 @@ export default function AuthForm({ setUser, setActiveView }) {
         onClick={handleAuth}
         className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
       >
-        {isRegistering ? '{t('register')}' : '{t('login')}'}
+        {isRegistering ? `\${t('register')}` : `\${t('login')}`}
       </button>
 
       <p
         className="text-sm text-center text-blue-600 cursor-pointer hover:underline"
         onClick={() => setIsRegistering(prev => !prev)}
       >
-        {isRegistering ? '{t('have_account_login')}' : '{t('no_account_register')}'}
+        {isRegistering ? `\${t('have_account_login')}` : `\${t('no_account_register')}`}
       </p>
 
       <button
