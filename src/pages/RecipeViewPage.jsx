@@ -107,7 +107,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
 /* ---------------------------------------------------------------------------- */
 
 export default function RecipeViewPage() {
-  const { tState } = useTranslation();
+  const { t } = useTranslation();
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
@@ -172,7 +172,7 @@ export default function RecipeViewPage() {
         time: s.time ?? s.minutes ?? null,
       }));
     }
-    if (Array.isArray(raw)) return raw.map((tState, i) => ({ position: i + 1, text: String(tState ?? '') }));
+    if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
     if (typeof raw === 'string') {
       return raw
         .split('\n')
@@ -278,7 +278,7 @@ export default function RecipeViewPage() {
   }, [id]);
 
   // Translation: prefer cached row; if missing, call serverless to create it
-  const [tState, setT] = useState(null);
+  const [t, setT] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -349,8 +349,8 @@ export default function RecipeViewPage() {
     };
   }, [id, uiLang]);
 
-  const title = tState?.title ?? recipe?.title ?? 'Resepti';
-  const description = tState?.description ?? recipe?.description ?? '';
+  const title = t?.title ?? recipe?.title ?? 'Resepti';
+  const description = t?.description ?? recipe?.description ?? '';
   const servings = recipe?.servings ?? null;
   const totalTime =
     recipe?.prep_time_minutes ??
@@ -372,8 +372,8 @@ export default function RecipeViewPage() {
     [servings, totalTime, difficulty]
   );
 
-  const ingredientsToRender = tState?.ingredients ?? ingredients;
-  const stepsToRender = tState?.steps ?? steps;
+  const ingredientsToRender = t?.ingredients ?? ingredients;
+  const stepsToRender = t?.steps ?? steps;
 
   const sortedSteps = useMemo(
     () =>
@@ -414,7 +414,7 @@ export default function RecipeViewPage() {
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
 
           {/* Shows when a translation is applied */}
-          {uiLang !== 'auto' && tState && (
+          {uiLang !== 'auto' && t && (
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
               title={`Viewing ${uiLang.toUpperCase()} translation`}
@@ -455,7 +455,7 @@ export default function RecipeViewPage() {
                 )}
                 <div className="text-sm leading-tight">
                   <div className="font-semibold">
-                    {author?.username || author?.email || 'Unknown author'}
+                    {author?.username || author?.email || `Unknown author`}
                   </div>
                   {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
                 </div>
@@ -485,7 +485,7 @@ export default function RecipeViewPage() {
         {/* Ingredients */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">${t('ingredients')}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">$${t('ingredients')}</h2>
           </div>
           <div className="p-4 overflow-x-auto">
             {ingredientsToRender?.length ? (
@@ -501,14 +501,14 @@ export default function RecipeViewPage() {
                   {ingredientsToRender.map((row, idx) => (
                     <tr
                       key={idx}
-                      className={idx % 2 ? `bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent'}
+                      className={idx % 2 ? `bg-gray-50 dark:bg-slate-900/40` : 'bg-transparent'}
                     >
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{row.name ?? ''}</td>
                       <td className="py-2 pr-4 text-gray-800 dark:text-gray-200 text-right">
                         {row.amount ?? ''}
                       </td>
                       <td className="py-2 text-gray-800 dark:text-gray-200 text-right">
-                        {row.bakers_pct ?? '`}
+                        {row.bakers_pct ?? ``}
                       </td>
                     </tr>
                   ))}
@@ -523,7 +523,7 @@ export default function RecipeViewPage() {
         {/* Instructions */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">${t('instructions')}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">$${t('instructions')}</h2>
           </div>
           <div className="p-4">
             {sortedSteps.length ? (
@@ -532,7 +532,7 @@ export default function RecipeViewPage() {
                   <li key={i} className="text-gray-800 dark:text-gray-200">
                     <div className="flex items-start gap-2">
                       <span className="flex-1">{s.text || s}</span>
-                      {s.time != null && s.time !== `' && (
+                      {s.time != null && s.time !== `` && (
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
                           +{s.time} min
                         </span>
