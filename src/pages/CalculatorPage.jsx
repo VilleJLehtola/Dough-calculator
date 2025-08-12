@@ -2,10 +2,12 @@ import React, { useMemo, useState } from 'react';
 import InputField from '../components/common/InputField';
 import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
+import { useTranslation } from 'react-i18next';
 
 // CalculatorPage — styled like RecipeViewPage with hero, two-column layout,
-// base-only hydration (excluding starter), per-preset Quick Recipe steps.
-export default function CalculatorPage() {
+// base-only hydration (excluding starter), per-preset {t('quick_recipe')} steps.
+export default function CalculatorPage(
+  const { t } = useTranslation();) {
   // -------- State --------
   const [inputMode, setInputMode] = useState('flour'); // 'flour' (total flour) | 'water' (total water)
   const [amount, setAmount] = useState(500);
@@ -25,7 +27,7 @@ export default function CalculatorPage() {
   const [garlicOn, setGarlicOn] = useState(false); // recipe hint only
   const [coldFerment, setColdFerment] = useState(false);
 
-  // UI helper: track which preset last applied (for Quick Recipe text tweaks)
+  // UI helper: track which preset last applied (for {t('quick_recipe')} text tweaks)
   const [activePreset, setActivePreset] = useState(null); // 'neapolitan' | 'new-york' | 'ciabatta' | 'focaccia' | 'sourdough' | null
 
   // -------- Presets --------
@@ -100,7 +102,7 @@ export default function CalculatorPage() {
     return { flourTotal, waterTotal, baseFlour, baseWater, starter, salt, oil, ryeFlour, whiteFlour, seeds, totalWeight };
   }, [amount, inputMode, hydrationBasePct, starterPct, saltPct, oilOn, ryeOn, ryePct, seedsOn, seedsPct, mode]);
 
-  // -------- Quick Recipe builder (preset-aware) --------
+  // -------- {t('quick_recipe')} builder (preset-aware) --------
   const quickSteps = useMemo(() => {
     const steps = [];
 
@@ -110,7 +112,7 @@ export default function CalculatorPage() {
       steps.push(`Add starter and salt${oilOn ? ', then oil' : ''}; mix/knead or do stretch & folds until smooth.`);
       steps.push('Rest 20–30 min, then bulk until 50–75% risen with bubbles.');
       steps.push('Divide and ball. Rest 30–60 min at room temp.');
-      if (coldFerment) steps.push('Cold ferment dough balls 12–48 h at 4°C; temper 1–2 h before baking.');
+      if (coldFerment) steps.push('{t('cold_ferment')} dough balls 12–48 h at 4°C; temper 1–2 h before baking.');
       steps.push('Open by hand, top lightly, and bake as hot as possible on stone/steel.');
       return steps;
     }
@@ -150,7 +152,7 @@ export default function CalculatorPage() {
           {/* Left column: Controls */}
           <div>
             {/* Presets */}
-            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Recipe Presets">
+            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="{t('recipe_presets')}">
               {presets.map((p) => (
                 <ToggleButton key={p.key} active={activePreset === p.key} onClick={() => applyPreset(p)} aria-label={`Apply ${p.label} preset`}>
                   {p.label}
@@ -159,20 +161,20 @@ export default function CalculatorPage() {
             </div>
 
             {/* Input mode + mode */}
-            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label="Modes">
-              <ToggleButton active={inputMode === 'flour'} onClick={() => setInputMode('flour')} aria-pressed={inputMode === 'flour'}>Flour</ToggleButton>
-              <ToggleButton active={inputMode === 'water'} onClick={() => setInputMode('water')} aria-pressed={inputMode === 'water'}>Water</ToggleButton>
+            <div className="flex flex-wrap gap-2 mb-4" role="group" aria-label={t('modes')}>
+              <ToggleButton active={inputMode === 'flour'} onClick={() => setInputMode('flour')} aria-pressed={inputMode === 'flour'}>{t('flour')}</ToggleButton>
+              <ToggleButton active={inputMode === 'water'} onClick={() => setInputMode('water')} aria-pressed={inputMode === 'water'}>{t('water')}</ToggleButton>
               <div className="ml-auto flex gap-2">
-                <ToggleButton active={mode === 'bread'} onClick={() => { setMode('bread'); setActivePreset(null); }}>🥖 Bread</ToggleButton>
-                <ToggleButton active={mode === 'pizza'} onClick={() => { setMode('pizza'); setActivePreset(null); }}>🍕 Pizza</ToggleButton>
+                <ToggleButton active={mode === 'bread'} onClick={() => { setMode('bread'); setActivePreset(null); }}>🥖 {t('bread')}</ToggleButton>
+                <ToggleButton active={mode === 'pizza'} onClick={() => { setMode('pizza'); setActivePreset(null); }}>🍕 {t('pizza')}</ToggleButton>
               </div>
             </div>
 
             {/* Primary inputs */}
             {inputMode === 'flour' ? (
-              <InputField id="amount" label="Amount (flour)" suffix="g" value={amount} onChange={setAmount} min={1} />
+              <InputField id="amount" label="{t('amount_flour')}" suffix="g" value={amount} onChange={setAmount} min={1} />
             ) : (
-              <InputField id="amount" label="Amount (water)" suffix="ml" value={amount} onChange={setAmount} min={1} />
+              <InputField id="amount" label="{t('amount_water')}" suffix="ml" value={amount} onChange={setAmount} min={1} />
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -187,11 +189,11 @@ export default function CalculatorPage() {
                 <div className="flex flex-wrap items-center gap-2 mb-3">
                   <ToggleButton active={ryeOn} onClick={() => setRyeOn(!ryeOn)}>Rye</ToggleButton>
                   <ToggleButton active={seedsOn} onClick={() => setSeedsOn(!seedsOn)}>Seeds</ToggleButton>
-                  <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>Cold ferment</ToggleButton>
+                  <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>{t('cold_ferment')}</ToggleButton>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField id="ryePct" label="Rye % of total flour" suffix="%" value={ryePct} onChange={setRyePct} min={0} max={100} disabled={!ryeOn} />
-                  <InputField id="seedsPct" label="Seeds % of total flour" suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} disabled={!seedsOn} />
+                  <InputField id="ryePct" label="{t('rye_pct_total')}" suffix="%" value={ryePct} onChange={setRyePct} min={0} max={100} disabled={!ryeOn} />
+                  <InputField id="seedsPct" label="{t('seeds_pct_total')}" suffix="%" value={seedsPct} onChange={setSeedsPct} min={5} max={20} disabled={!seedsOn} />
                 </div>
               </div>
             )}
@@ -199,16 +201,16 @@ export default function CalculatorPage() {
             {/* Pizza options */}
             {mode === 'pizza' && (
               <div className="mt-4 flex flex-wrap items-center gap-2">
-                <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>Oil (7%)</ToggleButton>
-                <ToggleButton active={garlicOn} onClick={() => setGarlicOn(!garlicOn)}>Garlic</ToggleButton>
-                <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>Cold ferment</ToggleButton>
+                <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>{t('oil_7_pct')}</ToggleButton>
+                <ToggleButton active={garlicOn} onClick={() => setGarlicOn(!garlicOn)}>{t('garlic')}</ToggleButton>
+                <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>{t('cold_ferment')}</ToggleButton>
               </div>
             )}
           </div>
 
-          {/* Right column: Ingredients + Quick Recipe */}
+          {/* Right column: Ingredients + {t('quick_recipe')} */}
           <div className="bg-gray-800 rounded-xl p-4 text-white" aria-live="polite">
-            <h2 className="text-lg font-bold mb-2">Ingredients</h2>
+            <h2 className="text-lg font-bold mb-2">{t('ingredients')}</h2>
             <ul className="space-y-1 text-sm">
               <li>{calc.whiteFlour}g {mode === 'pizza' ? 'Tipo 00 Flour' : 'White Flour'}</li>
               {mode === 'bread' && ryeOn && <li>{calc.ryeFlour}g Rye Flour</li>}
@@ -225,7 +227,7 @@ export default function CalculatorPage() {
             </div>
 
             <div className="mt-6">
-              <h3 className="text-md font-semibold mb-2">Quick Recipe</h3>
+              <h3 className="text-md font-semibold mb-2">{t('quick_recipe')}</h3>
               <ol className="list-decimal pl-5 space-y-1 text-sm text-gray-300">
                 {quickSteps.map((s, i) => (
                   <li key={i}>{s}</li>
