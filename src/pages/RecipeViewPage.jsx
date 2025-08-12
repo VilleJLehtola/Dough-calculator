@@ -6,7 +6,8 @@ import { Clock, Users, ChefHat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /* ---------------------- Small, dependency-free carousel ---------------------- */
-function HeroCarousel({ items = [], title = '', overlay = null }) {
+function HeroCarousel(
+  const { t } = useTranslation();{ items = [], title = '', overlay = null }) {
   const urls = (items || [])
     .map((im) => (typeof im === 'string' ? im : im?.url))
     .filter(Boolean);
@@ -95,7 +96,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
                 className={`h-2 w-2 rounded-full transition ${
                   i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'
                 }`}
-                aria-label={t('go_to_slide', { index: i + 1 })}
+                aria-label={`Go to slide ${i + 1}`}
               />
             ))}
           </div>
@@ -107,7 +108,6 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
 /* ---------------------------------------------------------------------------- */
 
 export default function RecipeViewPage() {
-  const { t } = useTranslation();
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
@@ -400,7 +400,7 @@ export default function RecipeViewPage() {
       <div className="max-w-4xl mx-auto p-6">
         <p className="text-gray-700 dark:text-gray-300">Recipe not found.</p>
         <Link to="/browse" className="text-blue-600 dark:text-blue-400 underline">
-          {t('back_to_recipes')}
+          ← Back to recipes
         </Link>
       </div>
     );
@@ -534,7 +534,7 @@ export default function RecipeViewPage() {
                       <span className="flex-1">{s.text || s}</span>
                       {s.time != null && s.time !== '' && (
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
-                          +{s.time} {t('minutes_short')}
+                          +{s.time} min
                         </span>
                       )}
                     </div>
@@ -551,7 +551,7 @@ export default function RecipeViewPage() {
       {/* Back link */}
       <div className="mt-6">
         <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
-          {t('back_to_recipes')}
+          ← Back to recipes
         </Link>
       </div>
     </div>
