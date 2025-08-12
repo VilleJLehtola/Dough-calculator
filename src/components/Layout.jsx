@@ -4,8 +4,10 @@ import Header from './Header';
 import Sidebar from './Sidebar';
 import MobileMenu from './MobileMenu';
 import DarkModeToggle from './DarkModeToggle';
+import { useTranslation } from 'react-i18next';
 
 const Layout = ({ children, user, onLoginClick, onLogout }) => {
+  const { t } = useTranslation();
   const location = useLocation();
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
