@@ -3,10 +3,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
-import { translateText, translateArray, detectLanguage } from '@/utils/translate'
+import { detectLanguage } from '@/utils/translate' // we only need detect to skip source
 
 const BUCKET = 'recipe-images'
-const TARGET_LANGS = ['en', 'sv'] // translate into these (excluding detected source)
+const TARGET_LANGS = ['en', 'sv'] // extend here
 
 function newIngredient() {
   return { name: '', amount: '', isFlour: false } // bakers_pct is computed
@@ -96,12 +96,12 @@ export default function EditRecipePage() {
       setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()])
       setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)])
 
-      // images: prefer DB list; derive paths so delete works
+      // images
       let imgs = []
       if (Array.isArray(r.images) && r.images.length) {
         imgs = r.images.map(u => ({ url: u, path: urlToPath(u) }))
       } else {
-        imgs = await listFolderUrls(`recipes/${id}`) // hydrate from storage if DB empty
+        imgs = await listFolderUrls(`recipes/${id}`)
       }
       setUploaded(imgs)
       setHero(r.cover_image || imgs[0]?.url || null)
@@ -209,7 +209,7 @@ export default function EditRecipePage() {
     }).eq('id', id)
   }
 
-  // save (UPDATE) + translations (awaited so chip is visible and rows are written)
+  // save (UPDATE) + translations via serverless
   const handleSave = async () => {
     setError('')
     if (!title.trim()) { setError('Title is required.'); return }
@@ -258,56 +258,31 @@ export default function EditRecipePage() {
       const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id)
       if (updErr) throw updErr
 
-      // ---------- TRANSLATION ----------
+      // ---------- TRANSLATION via /api/translate-recipe ----------
       setTranslating(true)
       try {
-        // Detect source language from current content (fallback to 'fi')
         const sample = [
           updatedRecipe.title ?? '',
           updatedRecipe.description ?? '',
           ...(updatedRecipe.steps?.map(s => s.text) ?? []),
         ].filter(Boolean).join('\n')
+
         let src = await detectLanguage(sample)
-        if (!src) src = 'fi'
+        if (!src) src = 'fi' // reasonable default
 
-        // Targets to generate, excluding the source
         const targets = TARGET_LANGS.filter(l => l !== src)
-
-        // Skip targets that already exist
-        const { data: existingRows } = await supabase
-          .from('recipe_translations')
-          .select('lang')
-          .eq('recipe_id', id)
-        const existing = new Set((existingRows ?? []).map(r => r.lang))
-        const missingTargets = targets.filter(t => !existing.has(t))
-
-        // Prepare arrays
-        const stepTexts = updatedRecipe.steps?.map(s => s.text) ?? []
-        const ingredientNames = updatedRecipe.ingredients?.map(i => i.name) ?? []
-
-        for (const tgt of missingTargets) {
-          const title_t = await translateText(updatedRecipe.title, src, tgt)
-          const description_t = updatedRecipe.description ? await translateText(updatedRecipe.description, src, tgt) : null
-          const steps_t = stepTexts.length ? await translateArray(stepTexts, src, tgt) : []
-          const ingNames_t = ingredientNames.length ? await translateArray(ingredientNames, src, tgt) : []
-
-          // Rebuild ingredients with translated names (keep numeric data)
-          const ingredients_t = (updatedRecipe.ingredients ?? []).map((it, idx) => ({
-            ...it,
-            name: ingNames_t[idx] ?? it.name,
-          }))
-
-          await supabase.from('recipe_translations').upsert({
-            recipe_id: id,
-            lang: tgt,
-            title: title_t,
-            description: description_t,
-            instructions: steps_t,
-            ingredients: ingredients_t,
-          }, { onConflict: 'recipe_id,lang' })
+        for (const tgt of targets) {
+          const r = await fetch('/api/translate-recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipeId: id, targetLang: tgt, force: false, debug: true }),
+          })
+          // Optional: log errors for debugging
+          if (!r.ok) {
+            const j = await r.json().catch(() => ({}))
+            console.warn('translate-recipe failed', tgt, j)
+          }
         }
-      } catch (e) {
-        console.warn('edit translate failed', e)
       } finally {
         setTranslating(false)
       }
