@@ -1,6 +1,4 @@
-// ========================================
-// File: src/pages/EditRecipePage.jsx
-// ========================================
+// src/pages/EditRecipePage.jsx
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import supabase from '@/supabaseClient'
@@ -8,10 +6,10 @@ import ImagesUploader from '@/components/ImagesUploader'
 import { translateText, translateArray, detectLanguage } from '@/utils/translate'
 
 const BUCKET = 'recipe-images'
-const TARGET_LANGS = ['en', 'sv'] as const
+const TARGET_LANGS = ['en', 'sv'] // JS-only, no TS syntax
 
 function newIngredient() {
-  return { name: '', amount: '', isFlour: false } // bakers_pct is computed
+  return { name: '', amount: '', isFlour: false } // bakers_pct computed
 }
 function newStep(i = 1) {
   return { position: i, text: '', time: '' }
@@ -66,7 +64,7 @@ export default function EditRecipePage() {
   const [hero, setHero] = useState(null)
   const [userPickedHero, setUserPickedHero] = useState(false)
 
-  // flags
+  // i18n / flags
   const [isLoaded, setIsLoaded] = useState(false)
   const [originalLang, setOriginalLang] = useState('auto') // 'auto' | 'fi' | 'en' | 'sv' | ...
   const [translating, setTranslating] = useState(false)
@@ -283,7 +281,7 @@ export default function EditRecipePage() {
             src = await detectLanguage(sample) || 'fi'
           }
 
-          // 2) Which targets to generate
+          // 2) Which targets to generate (exclude source)
           const targets = TARGET_LANGS.filter(l => l !== src)
 
           // 3) Skip if already translated
@@ -300,8 +298,8 @@ export default function EditRecipePage() {
           const ingredientNames = updatedRecipe.ingredients?.map(i => i.name) ?? []
 
           for (const tgt of missingTargets) {
-            const title_t = await translateText(updatedRecipe.title, src, tgt) as string
-            const description_t = updatedRecipe.description ? await translateText(updatedRecipe.description, src, tgt) as string : null
+            const title_t = await translateText(updatedRecipe.title, src, tgt)
+            const description_t = updatedRecipe.description ? await translateText(updatedRecipe.description, src, tgt) : null
             const steps_t = stepTexts.length ? await translateArray(stepTexts, src, tgt) : []
             const ingNames_t = ingredientNames.length ? await translateArray(ingredientNames, src, tgt) : []
 
@@ -314,8 +312,8 @@ export default function EditRecipePage() {
             const { error: upErr } = await supabase.from('recipe_translations').upsert({
               recipe_id: id,
               lang: tgt,
-              title: title_t as string,
-              description: description_t as string | null,
+              title: title_t,
+              description: description_t,
               instructions: steps_t,
               ingredients: ingredients_t,
             }, { onConflict: 'recipe_id,lang' })
