@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
 import { detectLanguage } from '@/utils/translate'
+import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images'
 const TARGET_LANGS = ['en', 'sv'] // extend here
@@ -28,7 +29,8 @@ async function listFolderUrls(folder) {
     })
 }
 
-export default function CreateRecipePage() {
+export default function CreateRecipePage(
+  const { t } = useTranslation();) {
   const nav = useNavigate()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -403,7 +405,7 @@ export default function CreateRecipePage() {
       {/* Ingredients */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Ingredients</h2>
+          <h2 className="font-semibold">{t('ingredients')}</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={autoMarkFlour}
@@ -480,7 +482,7 @@ export default function CreateRecipePage() {
       {/* Steps */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Instructions</h2>
+          <h2 className="font-semibold">{t('instructions')}</h2>
           <button
             onClick={addStep}
             className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
