@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /* ---------------------- Small, dependency-free carousel ---------------------- */
 function HeroCarousel({ items = [], title = '', overlay = null }) {
@@ -94,7 +95,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
                 className={`h-2 w-2 rounded-full transition ${
                   i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'
                 }`}
-                aria-label={`Go to slide ${i + 1}`}
+                aria-label={t('go_to_slide', { index: i + 1 })}
               />
             ))}
           </div>
@@ -106,6 +107,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
 /* ---------------------------------------------------------------------------- */
 
 export default function RecipeViewPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
@@ -398,7 +400,7 @@ export default function RecipeViewPage() {
       <div className="max-w-4xl mx-auto p-6">
         <p className="text-gray-700 dark:text-gray-300">Recipe not found.</p>
         <Link to="/browse" className="text-blue-600 dark:text-blue-400 underline">
-          ← Back to recipes
+          {t('back_to_recipes')}
         </Link>
       </div>
     );
@@ -483,7 +485,7 @@ export default function RecipeViewPage() {
         {/* Ingredients */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ingredients</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
           </div>
           <div className="p-4 overflow-x-auto">
             {ingredientsToRender?.length ? (
@@ -521,7 +523,7 @@ export default function RecipeViewPage() {
         {/* Instructions */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Instructions</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('instructions')}</h2>
           </div>
           <div className="p-4">
             {sortedSteps.length ? (
@@ -532,7 +534,7 @@ export default function RecipeViewPage() {
                       <span className="flex-1">{s.text || s}</span>
                       {s.time != null && s.time !== '' && (
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
-                          +{s.time} min
+                          +{s.time} {t('minutes_short')}
                         </span>
                       )}
                     </div>
@@ -549,7 +551,7 @@ export default function RecipeViewPage() {
       {/* Back link */}
       <div className="mt-6">
         <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
-          ← Back to recipes
+          {t('back_to_recipes')}
         </Link>
       </div>
     </div>
