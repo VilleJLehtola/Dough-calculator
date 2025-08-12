@@ -2,10 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Sun, Moon, LogOut, LogIn } from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
-import { useTranslation } from 'react-i18next';
 
 export default function MobileMenu({ isOpen, setIsOpen, user, onLoginClick, onLogout }) {
-  const { t } = useTranslation();
   const isDark = document.documentElement.classList.contains('dark');
 
   return (
@@ -30,14 +28,14 @@ export default function MobileMenu({ isOpen, setIsOpen, user, onLoginClick, onLo
       {/* Sidebar */}
       <div
         className={`fixed top-0 left-0 h-full w-64 z-50 bg-white dark:bg-slate-900 shadow-lg transform transition-transform duration-300 ease-in-out ${
-          isOpen ? 'translate-x-0' : '-translate-x-full`
+          isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <nav className="flex flex-col p-6 space-y-4 text-gray-900 dark:text-gray-100">
           <Link to="/" onClick={() => setIsOpen(false)}>Home</Link>
           <Link to="/browse" onClick={() => setIsOpen(false)}>Browse</Link>
-          <Link to="/calculator" onClick={() => setIsOpen(false)}>${t('calculator')}</Link>
-          <Link to="/favorites" onClick={() => setIsOpen(false)}>{t(`favorites')}</Link>
+          <Link to="/calculator" onClick={() => setIsOpen(false)}>Calculator</Link>
+          <Link to="/favorites" onClick={() => setIsOpen(false)}>Favorites</Link>
           <Link to="/profile" onClick={() => setIsOpen(false)}>Your profile</Link>
 
           {/* Toggle section */}

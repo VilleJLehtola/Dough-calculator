@@ -1,5 +1,4 @@
 import {
-import { useTranslation } from 'react-i18next';
   Home,
   Search,
   Radio,
@@ -14,7 +13,6 @@ import clsx from 'clsx';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Sidebar({ user, onLogout }) {
-  const { t } = useTranslation();
   const { pathname } = useLocation();
   const isActive = (path) => pathname === path || pathname.startsWith(path + '/');
 

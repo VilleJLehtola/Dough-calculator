@@ -3,7 +3,6 @@ import supabase from '@/supabaseClient';
 
 
 export default function ForgotPasswordForm({ setActiveView }) {
-  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');

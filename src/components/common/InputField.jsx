@@ -13,7 +13,6 @@ export default function InputField({
   disabled,
   type = "number",
 }) {
-  const { t } = useTranslation();
   return (
     <label htmlFor={id} className="flex flex-col gap-1 w-full">
       <span className="text-xs font-medium text-gray-300">{label}</span>

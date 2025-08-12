@@ -9,7 +9,6 @@ import { FoldScheduler } from './AdminRecipeEditor/FoldScheduler';
 import { InstructionsEditor } from './AdminRecipeEditor/InstructionsEditor';
 
 export default function AdminRecipeEditor({ user, existingRecipe }) {
-  const { t } = useTranslation();
   const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
   if (!isAdmin) return null;
 

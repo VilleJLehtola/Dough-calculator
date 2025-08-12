@@ -8,7 +8,6 @@ const LANGS = [
 ];
 
 export default function LanguageSwitcher() {
-  const { t } = useTranslation();
   const [lang, setLang] = useState(localStorage.getItem('lang') || 'auto');
 
   useEffect(() => {

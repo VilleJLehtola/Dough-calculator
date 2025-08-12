@@ -4,7 +4,6 @@ import supabase from '@/supabaseClient';
 
 
 export default function AdminDashboard({ user }) {
-  const { t } = useTranslation();
   const [recipes, setRecipes] = useState([]);
   const [imagesMap, setImagesMap] = useState({});
   const [loading, setLoading] = useState(true);

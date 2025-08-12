@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import supabase from '@/supabaseClient';
-import { useTranslation } from 'react-i18next';
 
 
 export default function AuthForm({ setUser, setActiveView }) {
-  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
@@ -13,7 +11,7 @@ export default function AuthForm({ setUser, setActiveView }) {
   const handleAuth = async () => {
     setError('');
     if (!email || !password) {
-      setError(`${t('email')} ja salasana vaaditaan.`);
+      setError('Sähköposti ja salasana vaaditaan.');
       return;
     }
 
@@ -57,25 +55,25 @@ export default function AuthForm({ setUser, setActiveView }) {
 
   return (
     <div className="bg-white p-4 rounded-lg shadow border border-blue-200 space-y-4">
-      <h2 className="text-xl font-semibold text-blue-800 text-center`>
-        {isRegistering ? '${t('register')}' : '${t('login')} sisään'}
+      <h2 className="text-xl font-semibold text-blue-800 text-center">
+        {isRegistering ? 'Rekisteröidy' : 'Kirjaudu sisään'}
       </h2>
 
-      {error && <p className=`text-red-500 text-sm">{error}</p>}
+      {error && <p className="text-red-500 text-sm">{error}</p>}
 
       <input
-        type="email`
+        type="email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        placeholder=${t("email")}
-        className=`w-full p-2 border border-gray-300 rounded"
+        placeholder="Sähköposti"
+        className="w-full p-2 border border-gray-300 rounded"
       />
       <input
-        type="password`
+        type="password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        placeholder=${t("password")}
-        className=`w-full p-2 border border-gray-300 rounded"
+        placeholder="Salasana"
+        className="w-full p-2 border border-gray-300 rounded"
       />
 
       <p
@@ -87,24 +85,25 @@ export default function AuthForm({ setUser, setActiveView }) {
 
       <button
         onClick={handleAuth}
-        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition`
+        className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
       >
-        {isRegistering ? '${t('register')}' : '${t('login')}'}
+        {isRegistering ? 'Rekisteröidy' : 'Kirjaudu'}
       </button>
 
       <p
-        className=`text-sm text-center text-blue-600 cursor-pointer hover:underline`
+        className="text-sm text-center text-blue-600 cursor-pointer hover:underline"
         onClick={() => setIsRegistering(prev => !prev)}
       >
-        {isRegistering ? '${t('have_account_login')}' : '${t('no_account_register')}'}
+        {isRegistering ? 'Onko sinulla jo tili? Kirjaudu' : 'Ei tiliä? Rekisteröidy'}
       </p>
 
       <button
         onClick={() => setActiveView('calculator')}
-        className=`w-full text-sm text-gray-500 mt-2 hover:underline"
+        className="w-full text-sm text-gray-500 mt-2 hover:underline"
       >
-        {t('back_to_calculator')}
+        ← Palaa laskimeen ilman kirjautumista
       </button>
     </div>
   );
 }
+

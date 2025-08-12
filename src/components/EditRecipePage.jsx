@@ -5,7 +5,6 @@ import supabase from '@/supabaseClient';
 import AdminRecipeEditor from './AdminRecipeEditor';
 
 export default function EditRecipePage({ user }) {
-  const { t } = useTranslation();
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -14,7 +14,6 @@ import {
 } from 'react-icons/fa';
 
 export default function FavoritesList({ user, onLoadFavorite }) {
-  const { t } = useTranslation();
   const [favorites, setFavorites] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [loading, setLoading] = useState(true);
