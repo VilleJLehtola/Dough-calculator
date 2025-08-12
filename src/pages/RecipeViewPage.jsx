@@ -1,3 +1,4 @@
+// /src/pages/RecipeViewPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
@@ -274,23 +275,57 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // Translation: call our API when uiLang != 'auto'
+  // Translation: prefer cached row; if missing, call serverless to create it
   const [t, setT] = useState(null);
+
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       if (!id) return;
+
+      // Auto = show base recipe as-is
       if (uiLang === 'auto') {
         setT(null);
         return;
       }
+
       try {
+        // 1) Try cached translation
+        const { data: trRow, error: trErr } = await supabase
+          .from('recipe_translations')
+          .select('title,description,ingredients,steps')
+          .eq('recipe_id', id)
+          .eq('lang', uiLang)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (trErr) {
+          console.warn('translation select error', trErr);
+        }
+
+        if (trRow) {
+          setT({
+            title: trRow.title ?? undefined,
+            description: trRow.description ?? undefined,
+            ingredients: Array.isArray(trRow.ingredients) ? trRow.ingredients : undefined,
+            steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
+          });
+          return;
+        }
+
+        // 2) No cache → serverless (translate + upsert)
         const resp = await fetch('/api/translate-recipe', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ recipeId: id, targetLang: uiLang }),
         });
+
+        const data = await resp.json().catch(() => ({}));
+        if (cancelled) return;
+
         if (resp.ok) {
-          const data = await resp.json();
           setT({
             title: data.title ?? undefined,
             description: data.description ?? undefined,
@@ -298,12 +333,18 @@ export default function RecipeViewPage() {
             steps: Array.isArray(data.steps) ? data.steps : undefined,
           });
         } else {
-          setT(null); // fail open
+          console.warn('translate-recipe failed', data);
+          setT(null);
         }
-      } catch {
-        setT(null);
+      } catch (e) {
+        console.warn('translation flow error', e);
+        if (!cancelled) setT(null);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id, uiLang]);
 
   const title = t?.title ?? recipe?.title ?? 'Resepti';
@@ -367,7 +408,19 @@ export default function RecipeViewPage() {
     <div className="max-w-6xl mx-auto p-4 sm:p-6">
       {/* Title + Edit */}
       <div className="flex items-start justify-between gap-4">
-        <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
+
+          {/* Shows when a translation is applied */}
+          {uiLang !== 'auto' && t && (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+              title={`Viewing ${uiLang.toUpperCase()} translation`}
+            >
+              {uiLang.toUpperCase()}
+            </span>
+          )}
+        </div>
 
         {uid && recipe?.author_id === uid && (
           <Link
