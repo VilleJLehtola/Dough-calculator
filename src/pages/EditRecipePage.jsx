@@ -2,17 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
+import { translateText, translateArray } from '@/utils/translate' // <-- import the same helpers
 
 const BUCKET = 'recipe-images'
 
 function newIngredient() {
-  return { name: '', amount: '', isFlour: false } // bakers_pct is computed
+  return { name: '', amount: '', isFlour: false }
 }
 function newStep(i = 1) {
   return { position: i, text: '', time: '' }
 }
 
-// derive storage path from a public URL
 function urlToPath(url) {
   try {
     const u = new URL(url)
@@ -24,7 +24,6 @@ function urlToPath(url) {
   }
 }
 
-// list folder -> [{url, path}]
 async function listFolderUrls(folder) {
   const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 })
   if (error || !files?.length) return []
@@ -45,30 +44,25 @@ export default function EditRecipePage() {
   const [error, setError] = useState('')
   const [userId, setUserId] = useState(null)
 
-  // basics
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [totalTime, setTotalTime] = useState('')
   const [servings, setServings] = useState('')
   const [difficulty, setDifficulty] = useState('')
 
-  // json
   const [ingredients, setIngredients] = useState([newIngredient()])
   const [steps, setSteps] = useState([newStep(1)])
 
-  // images
-  const [uploaded, setUploaded] = useState([])    // [{url, path}]
+  const [uploaded, setUploaded] = useState([])
   const [hero, setHero] = useState(null)
   const [userPickedHero, setUserPickedHero] = useState(false)
 
-  // flags
   const [isLoaded, setIsLoaded] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null))
   }, [])
 
-  // load recipe
   useEffect(() => {
     let alive = true
     ;(async () => {
@@ -81,23 +75,20 @@ export default function EditRecipePage() {
       if (err) { setError(err.message); return }
       if (!alive) return
 
-      // basics
       setTitle(r.title || '')
       setDescription(r.description || '')
       setTotalTime(r.prep_time_minutes ?? '')
       setServings(r.servings ?? '')
       setDifficulty(r.difficulty || '')
 
-      // json
       setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()])
       setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)])
 
-      // images: prefer DB list; derive paths so delete works
       let imgs = []
       if (Array.isArray(r.images) && r.images.length) {
         imgs = r.images.map(u => ({ url: u, path: urlToPath(u) }))
       } else {
-        imgs = await listFolderUrls(`recipes/${id}`) // hydrate from storage if DB empty
+        imgs = await listFolderUrls(`recipes/${id}`)
       }
       setUploaded(imgs)
       setHero(r.cover_image || imgs[0]?.url || null)
@@ -107,7 +98,6 @@ export default function EditRecipePage() {
     return () => { alive = false }
   }, [id])
 
-  // ---------- Baker’s % ----------
   const totalFlour = useMemo(() =>
     ingredients.reduce((sum, ing) => {
       const amt = Number(ing.amount)
@@ -124,13 +114,11 @@ export default function EditRecipePage() {
     })
   , [ingredients, totalFlour])
 
-  // ingredient ops
   const updateIngredient = (i, k, v) =>
     setIngredients(prev => prev.map((row, idx) => (idx === i ? { ...row, [k]: v } : row)))
   const addIngredient = () => setIngredients(prev => [...prev, newIngredient()])
   const removeIngredient = (i) => setIngredients(prev => prev.filter((_, idx) => idx !== i))
 
-  // steps ops
   const updateStepText = (i, v) =>
     setSteps(prev => prev.map((s, idx) => (idx === i ? { ...s, text: v } : s)))
   const updateStepTime = (i, v) =>
@@ -139,7 +127,6 @@ export default function EditRecipePage() {
   const removeStep = (i) =>
     setSteps(prev => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, position: idx + 1 })))
 
-  // flour helper
   const autoMarkFlour = () => {
     const re = /(jauho|flour)/i
     setIngredients(prev => prev.map(ing => ({
@@ -148,21 +135,18 @@ export default function EditRecipePage() {
     })))
   }
 
-  // uploads
   const handleImagesUploaded = async (files) => {
     if (!files?.length) return
     const next = [...uploaded, ...files]
     setUploaded(next)
     if (!userPickedHero && !hero && next[0]) setHero(next[0].url)
 
-    // persist immediately
     const urls = next.map(f => f.url)
     const chosen = userPickedHero ? hero : (urls[0] || null)
     await supabase.from('recipes').update({ images: urls, cover_image: chosen }).eq('id', id)
     if (!userPickedHero) setHero(chosen)
   }
 
-  // drag & drop
   const [dragIndex, setDragIndex] = useState(null)
   const onDragStart = (idx) => () => setDragIndex(idx)
   const onDragOver = (e) => e.preventDefault()
@@ -183,7 +167,6 @@ export default function EditRecipePage() {
     setDragIndex(null)
   }
 
-  // delete image
   const deleteImage = async (idx) => {
     const target = uploaded[idx]
     if (!target) return
@@ -205,7 +188,6 @@ export default function EditRecipePage() {
     }).eq('id', id)
   }
 
-  // save (UPDATE)
   const handleSave = async () => {
     setError('')
     if (!title.trim()) { setError('Title is required.'); return }
@@ -229,7 +211,6 @@ export default function EditRecipePage() {
           time: s.time === '' ? null : Number(s.time),
         }))
 
-      // hydrate from storage if needed
       let effective = uploaded
       if (effective.length === 0) {
         effective = await listFolderUrls(`recipes/${id}`)
@@ -238,10 +219,10 @@ export default function EditRecipePage() {
       const urls = effective.map(f => f.url)
       const chosen = userPickedHero ? (hero || urls[0] || null) : (urls[0] || null)
 
-      const { error: updErr } = await supabase.from('recipes').update({
+      const updatedRecipe = {
         title: title.trim(),
         description: description || null,
-        author_id: userId || null, // stays the same normally
+        author_id: userId || null,
         prep_time_minutes: totalTime ? Number(totalTime) : null,
         servings: servings ? Number(servings) : null,
         difficulty: difficulty || null,
@@ -249,8 +230,33 @@ export default function EditRecipePage() {
         steps: stp,
         images: urls,
         cover_image: chosen,
-      }).eq('id', id)
+      }
+
+      const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id)
       if (updErr) throw updErr
+
+      // 🔹 Auto-translate like in CreateRecipePage
+      ;(async () => {
+        try {
+          const title_en = await translateText(updatedRecipe.title, 'fi', 'en')
+          const description_en = updatedRecipe.description
+            ? await translateText(updatedRecipe.description, 'fi', 'en')
+            : null
+          const steps_en = updatedRecipe.steps?.length
+            ? await translateArray(updatedRecipe.steps.map(s => s.text), 'fi', 'en')
+            : []
+          await supabase.from('recipe_translations').upsert({
+            recipe_id: id,
+            lang: 'en',
+            title: title_en,
+            description: description_en,
+            instructions: steps_en,
+            ingredients: updatedRecipe.ingredients ?? null,
+          }, { onConflict: 'recipe_id,lang' })
+        } catch (e) {
+          console.warn('edit translate failed', e)
+        }
+      })()
 
       nav(`/recipe/${id}`)
     } catch (e) {
@@ -260,6 +266,12 @@ export default function EditRecipePage() {
       setSaving(false)
     }
   }
+
+  return (
+    // ... [UNCHANGED JSX BELOW]
+  )
+}
+
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
