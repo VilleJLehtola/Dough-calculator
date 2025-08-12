@@ -323,7 +323,7 @@ export default function EditRecipePage() {
             disabled={saving || !isLoaded}
             className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {saving ? 'Saving…' : 'Save changes`}
+            {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
       </div>

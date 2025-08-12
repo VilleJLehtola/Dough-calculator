@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid'
  * No DB inserts here; the page writes images/cover to `recipes`.
  */
 export default function ImagesUploader({ recipeId, userId, draftId, onUploaded, bucket = 'recipe-images' }) {
+  const { t } = useTranslation();
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)

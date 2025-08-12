@@ -108,6 +108,7 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
 
 export default function RecipeViewPage() {
   const { t } = useTranslation();
+  const { transRow } = useTranslation();
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
@@ -172,7 +173,7 @@ export default function RecipeViewPage() {
         time: s.time ?? s.minutes ?? null,
       }));
     }
-    if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
+    if (Array.isArray(raw)) return raw.map((transRow, i) => ({ position: i + 1, text: String(transRow ?? '') }));
     if (typeof raw === 'string') {
       return raw
         .split('\n')
@@ -278,7 +279,7 @@ export default function RecipeViewPage() {
   }, [id]);
 
   // Translation: prefer cached row; if missing, call serverless to create it
-  const [t, setT] = useState(null);
+  const [transRow, setTransRow] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -288,7 +289,7 @@ export default function RecipeViewPage() {
 
       // Auto = show base recipe as-is
       if (uiLang === 'auto') {
-        setT(null);
+        setTransRow(null);
         return;
       }
 
@@ -308,7 +309,7 @@ export default function RecipeViewPage() {
         }
 
         if (trRow) {
-          setT({
+          setTransRow({
             title: trRow.title ?? undefined,
             description: trRow.description ?? undefined,
             ingredients: Array.isArray(trRow.ingredients) ? trRow.ingredients : undefined,
@@ -328,7 +329,7 @@ export default function RecipeViewPage() {
         if (cancelled) return;
 
         if (resp.ok) {
-          setT({
+          setTransRow({
             title: data.title ?? undefined,
             description: data.description ?? undefined,
             ingredients: Array.isArray(data.ingredients) ? data.ingredients : undefined,
@@ -336,11 +337,11 @@ export default function RecipeViewPage() {
           });
         } else {
           console.warn('translate-recipe failed', data);
-          setT(null);
+          setTransRow(null);
         }
       } catch (e) {
         console.warn('translation flow error', e);
-        if (!cancelled) setT(null);
+        if (!cancelled) setTransRow(null);
       }
     })();
 
@@ -349,8 +350,8 @@ export default function RecipeViewPage() {
     };
   }, [id, uiLang]);
 
-  const title = t?.title ?? recipe?.title ?? 'Resepti';
-  const description = t?.description ?? recipe?.description ?? '';
+  const title = transRow?.title ?? recipe?.title ?? 'Resepti';
+  const description = transRow?.description ?? recipe?.description ?? '';
   const servings = recipe?.servings ?? null;
   const totalTime =
     recipe?.prep_time_minutes ??
@@ -372,8 +373,8 @@ export default function RecipeViewPage() {
     [servings, totalTime, difficulty]
   );
 
-  const ingredientsToRender = t?.ingredients ?? ingredients;
-  const stepsToRender = t?.steps ?? steps;
+  const ingredientsToRender = transRow?.ingredients ?? ingredients;
+  const stepsToRender = transRow?.steps ?? steps;
 
   const sortedSteps = useMemo(
     () =>
@@ -414,7 +415,7 @@ export default function RecipeViewPage() {
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
 
           {/* Shows when a translation is applied */}
-          {uiLang !== 'auto' && t && (
+          {uiLang !== 'auto' && transRow && (
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
               title={`Viewing ${uiLang.toUpperCase()} translation`}
@@ -455,7 +456,7 @@ export default function RecipeViewPage() {
                 )}
                 <div className="text-sm leading-tight">
                   <div className="font-semibold">
-                    {author?.username || author?.email || `Unknown author`}
+                    {author?.username || author?.email || `Unknown author'}
                   </div>
                   {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
                 </div>

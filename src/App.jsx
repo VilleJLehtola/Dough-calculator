@@ -13,6 +13,7 @@ import CreateRecipePage from './pages/CreateRecipePage';
 import EditRecipePage from '@/pages/EditRecipePage';
 
 export default function App() {
+  const { t } = useTranslation();
   const [user, setUser] = useState(null);
 
   useEffect(() => {

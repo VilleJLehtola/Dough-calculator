@@ -4,6 +4,7 @@ import supabase from "../supabaseClient";
 
 
 export default function RecipeCard({ title, subtitle, image, recipeId }) {
+  const { t } = useTranslation();
   const [likes, setLikes] = useState(0);
 
   useEffect(() => {

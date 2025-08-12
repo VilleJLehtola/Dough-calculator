@@ -10,6 +10,7 @@ import ResultDisplay from './ResultDisplay';
 import RecipeView from './RecipeView';
 
 export default function SharedFavoritePage() {
+  const { t } = useTranslation();
   const { userId, favoriteName } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

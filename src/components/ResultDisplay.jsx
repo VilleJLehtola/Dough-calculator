@@ -1,6 +1,7 @@
 import React from 'react';
 
 export default function ResultDisplay({ result }) {
+  const { t } = useTranslation();
   if (!result) return null;
 
   return (

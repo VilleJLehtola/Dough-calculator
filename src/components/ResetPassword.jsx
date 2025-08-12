@@ -3,6 +3,7 @@ import supabase from '@/supabaseClient';
 
 
 export default function ResetPassword({ setActiveView }) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');

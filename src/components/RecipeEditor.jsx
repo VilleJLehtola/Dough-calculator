@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 
 export default function RecipeEditor({ onSave }) {
+  const { t } = useTranslation();
   const session = useSession();
   const isAdmin = session?.user?.email === 'ville.j.lehtola@gmail.com';
 

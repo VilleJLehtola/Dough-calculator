@@ -2,6 +2,7 @@
 import React from "react";
 
 export default function ToggleButton({ active, onClick, children, ariaPressed }) {
+  const { t } = useTranslation();
   return (
     <button
       type="button"
