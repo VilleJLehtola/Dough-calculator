@@ -1,6 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-export default function Favorites() {
+export default function {t('favorites')}(
+  const { t } = useTranslation();) {
   return (
     <div className="h-full w-full flex items-center justify-center">
       <div className="max-w-md w-full bg-slate-900/40 border border-slate-700 rounded-xl p-6 text-center">
