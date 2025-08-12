@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next';
 
 // CalculatorPage — styled like RecipeViewPage with hero, two-column layout,
 // base-only hydration (excluding starter), per-preset {t('quick_recipe')} steps.
-export default function CalculatorPage(
-  const { t } = useTranslation();) {
+export default function CalculatorPage() {
+  const { t } = useTranslation();
   // -------- State --------
   const [inputMode, setInputMode] = useState('flour'); // 'flour' (total flour) | 'water' (total water)
   const [amount, setAmount] = useState(500);

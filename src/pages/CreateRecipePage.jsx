@@ -29,8 +29,8 @@ async function listFolderUrls(folder) {
     })
 }
 
-export default function CreateRecipePage(
-  const { t } = useTranslation();) {
+export default function CreateRecipePage() {
+  const { t } = useTranslation();
   const nav = useNavigate()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')

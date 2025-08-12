@@ -41,8 +41,8 @@ async function listFolderUrls(folder) {
     })
 }
 
-export default function EditRecipePage(
-  const { t } = useTranslation();) {
+export default function EditRecipePage() {
+  const { t } = useTranslation();
   const nav = useNavigate()
   const { id } = useParams()
 

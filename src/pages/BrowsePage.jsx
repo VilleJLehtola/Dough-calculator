@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 
-export default function BrowsePage(
-  const { t } = useTranslation();) {
+export default function BrowsePage() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
