@@ -4,6 +4,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
 import { detectLanguage } from '@/utils/translate' // we only need detect to skip source
+import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images'
 const TARGET_LANGS = ['en', 'sv'] // extend here
@@ -40,7 +41,8 @@ async function listFolderUrls(folder) {
     })
 }
 
-export default function EditRecipePage() {
+export default function EditRecipePage(
+  const { t } = useTranslation();) {
   const nav = useNavigate()
   const { id } = useParams()
 
@@ -381,7 +383,7 @@ export default function EditRecipePage() {
       {/* Ingredients */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Ingredients</h2>
+          <h2 className="font-semibold">{t('ingredients')}</h2>
           <div className="flex items-center gap-2">
             <button onClick={autoMarkFlour}
               className="px-3 py-1 rounded-lg border border-gray-300 dark:border-slate-600 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
@@ -426,7 +428,7 @@ export default function EditRecipePage() {
       {/* Steps */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Instructions</h2>
+          <h2 className="font-semibold">{t('instructions')}</h2>
           <button onClick={addStep}
             className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">+ Add step</button>
         </div>
