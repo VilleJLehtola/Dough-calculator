@@ -1,6 +1,6 @@
-// ==============================
-// EditRecipePage.jsx
-// ==============================
+// ========================================
+// File: src/pages/EditRecipePage.jsx
+// ========================================
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import supabase from '@/supabaseClient'
@@ -8,10 +8,10 @@ import ImagesUploader from '@/components/ImagesUploader'
 import { translateText, translateArray, detectLanguage } from '@/utils/translate'
 
 const BUCKET = 'recipe-images'
-const TARGET_LANGS = ['en', 'sv'] // extend as needed
+const TARGET_LANGS = ['en', 'sv'] as const
 
 function newIngredient() {
-  return { name: '', amount: '', isFlour: false }
+  return { name: '', amount: '', isFlour: false } // bakers_pct is computed
 }
 function newStep(i = 1) {
   return { position: i, text: '', time: '' }
@@ -42,59 +42,6 @@ async function listFolderUrls(folder) {
     })
 }
 
-async function generateTranslations({ recipeId, srcLang, updatedRecipe, setTranslating }) {
-  try {
-    setTranslating?.(true)
-
-    // 1) which targets to produce
-    const targets = TARGET_LANGS.filter(l => l !== srcLang)
-
-    // 2) skip targets that already exist
-    const { data: existingRows } = await supabase
-      .from('recipe_translations')
-      .select('lang')
-      .eq('recipe_id', recipeId)
-    const existing = new Set((existingRows ?? []).map(r => r.lang))
-    const missingTargets = targets.filter(t => !existing.has(t))
-    if (missingTargets.length === 0) return
-
-    const stepTexts = updatedRecipe.steps?.map(s => s.text) ?? []
-    const ingredientNames = (updatedRecipe.ingredients ?? []).map(i => i.name ?? '')
-
-    for (const tgt of missingTargets) {
-      const title_t = await translateText(updatedRecipe.title, srcLang, tgt)
-      const description_t = updatedRecipe.description
-        ? await translateText(updatedRecipe.description, srcLang, tgt)
-        : null
-
-      const steps_t = stepTexts.length
-        ? await translateArray(stepTexts, srcLang, tgt)
-        : []
-
-      // ingredients: translate names in batch; keep amounts/flags as-is
-      let ingredients_t = null
-      if ((updatedRecipe.ingredients ?? []).length) {
-        const names_t = await translateArray(ingredientNames, srcLang, tgt)
-        ingredients_t = (updatedRecipe.ingredients ?? []).map((ing, idx) => ({
-          ...ing,
-          name: names_t[idx] || ing.name || '',
-        }))
-      }
-
-      await supabase.from('recipe_translations').upsert({
-        recipe_id: recipeId,
-        lang: tgt,
-        title: title_t,
-        description: description_t,
-        instructions: steps_t,
-        ingredients: ingredients_t,
-      }, { onConflict: 'recipe_id,lang' })
-    }
-  } finally {
-    setTranslating?.(false)
-  }
-}
-
 export default function EditRecipePage() {
   const nav = useNavigate()
   const { id } = useParams()
@@ -110,10 +57,6 @@ export default function EditRecipePage() {
   const [servings, setServings] = useState('')
   const [difficulty, setDifficulty] = useState('')
 
-  // i18n
-  const [originalLang, setOriginalLang] = useState('auto') // 'auto' | 'fi' | 'en' | 'sv' | ...
-  const [translating, setTranslating] = useState(false)
-
   // json
   const [ingredients, setIngredients] = useState([newIngredient()])
   const [steps, setSteps] = useState([newStep(1)])
@@ -125,6 +68,8 @@ export default function EditRecipePage() {
 
   // flags
   const [isLoaded, setIsLoaded] = useState(false)
+  const [originalLang, setOriginalLang] = useState('auto') // 'auto' | 'fi' | 'en' | 'sv' | ...
+  const [translating, setTranslating] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null))
@@ -166,7 +111,7 @@ export default function EditRecipePage() {
 
       setIsLoaded(true)
 
-      // try to guess original language (non-blocking)
+      // prefill original language (best-effort, non-blocking)
       try {
         const sample = [r.title ?? '', r.description ?? '', ...(r.steps?.map(s => s.text) ?? [])]
           .filter(Boolean).join('\n')
@@ -326,15 +271,61 @@ export default function EditRecipePage() {
       const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id)
       if (updErr) throw updErr
 
-      // Auto-translate: detect source lang (or use override), then translate missing targets
+      // Auto-translate (detect source, skip existing, translate ingredients & steps)
+      setTranslating(true)
       ;(async () => {
-        let src = originalLang
-        if (src === 'auto') {
-          const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map(s => s.text) ?? [])]
-            .filter(Boolean).join('\n')
-          src = (await detectLanguage(sample)) || 'fi'
+        try {
+          // 1) Determine source lang
+          let src = originalLang
+          if (src === 'auto') {
+            const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map(s => s.text) ?? [])]
+              .filter(Boolean).join('\n')
+            src = await detectLanguage(sample) || 'fi'
+          }
+
+          // 2) Which targets to generate
+          const targets = TARGET_LANGS.filter(l => l !== src)
+
+          // 3) Skip if already translated
+          const { data: existingRows } = await supabase
+            .from('recipe_translations')
+            .select('lang')
+            .eq('recipe_id', id)
+          const existing = new Set((existingRows ?? []).map(r => r.lang))
+          const missingTargets = targets.filter(t => !existing.has(t))
+          if (missingTargets.length === 0) return
+
+          // Prepare arrays
+          const stepTexts = updatedRecipe.steps?.map(s => s.text) ?? []
+          const ingredientNames = updatedRecipe.ingredients?.map(i => i.name) ?? []
+
+          for (const tgt of missingTargets) {
+            const title_t = await translateText(updatedRecipe.title, src, tgt) as string
+            const description_t = updatedRecipe.description ? await translateText(updatedRecipe.description, src, tgt) as string : null
+            const steps_t = stepTexts.length ? await translateArray(stepTexts, src, tgt) : []
+            const ingNames_t = ingredientNames.length ? await translateArray(ingredientNames, src, tgt) : []
+
+            // Rebuild ingredients with translated names
+            const ingredients_t = (updatedRecipe.ingredients ?? []).map((it, idx) => ({
+              ...it,
+              name: ingNames_t[idx] ?? it.name,
+            }))
+
+            const { error: upErr } = await supabase.from('recipe_translations').upsert({
+              recipe_id: id,
+              lang: tgt,
+              title: title_t as string,
+              description: description_t as string | null,
+              instructions: steps_t,
+              ingredients: ingredients_t,
+            }, { onConflict: 'recipe_id,lang' })
+            if (upErr) console.warn('translation upsert failed', tgt, upErr)
+          }
+        } catch (e) {
+          console.warn('edit translate failed', e)
+        } finally {
+          setTranslating(false)
         }
-        await generateTranslations({ recipeId: id, srcLang: src, updatedRecipe, setTranslating })
       })()
 
       nav(`/recipe/${id}`)
@@ -349,15 +340,13 @@ export default function EditRecipePage() {
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-          Edit recipe
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit recipe</h1>
+        <div className="flex items-center gap-3">
           {translating && (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" title="Generating translations…">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200" title="Generating translations in background">
               <span className="w-2 h-2 rounded-full bg-current animate-pulse" /> Translating…
             </span>
           )}
-        </h1>
-        <div className="flex gap-2">
           <Link
             to={`/recipe/${id}`}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200"
@@ -381,8 +370,8 @@ export default function EditRecipePage() {
       )}
 
       {/* Basics */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2 sm:col-span-3">
+      <section className="grid gap-4 sm:grid-cols-1">
+        <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Title</label>
           <input
             value={title}
@@ -391,7 +380,7 @@ export default function EditRecipePage() {
             placeholder="Pataleipä"
           />
         </div>
-        <div className="space-y-2 sm:col-span-3">
+        <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Short description</label>
           <textarea
             rows={3}
@@ -401,6 +390,9 @@ export default function EditRecipePage() {
             placeholder="Valkosipulinen pataleipä…"
           />
         </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-4">
         <div className="space-y-2">
           <label className="text-sm text-gray-600 dark:text-gray-300">Servings</label>
           <input type="number" value={servings} onChange={(e) => setServings(e.target.value)}
