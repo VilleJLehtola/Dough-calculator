@@ -1,5 +1,5 @@
 // /src/pages/EditRecipePage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import supabase from '@/supabaseClient';
@@ -16,6 +16,8 @@ function newIngredient() {
 function newStep(i = 1) {
   return { position: i, text: '', time: '' };
 }
+
+// ---- helpers ---------------------------------------------------------------
 
 // derive storage path from a public URL
 function urlToPath(url) {
@@ -42,6 +44,16 @@ async function listFolderUrls(folder) {
     });
 }
 
+// Build a stable snapshot of just the fields we translate (title, description, step texts)
+function translatableSnapshot({ title, description, steps }) {
+  return JSON.stringify({
+    t: (title || '').trim(),
+    d: (description || '').trim(),
+    s: Array.isArray(steps) ? steps.map((s) => ({ t: (s?.text || '').trim() })) : [],
+  });
+}
+
+// ---- component -------------------------------------------------------------
 export default function EditRecipePage() {
   const { t } = useTranslation();
   const nav = useNavigate();
@@ -67,14 +79,17 @@ export default function EditRecipePage() {
   const [hero, setHero] = useState(null);
   const [userPickedHero, setUserPickedHero] = useState(false);
 
-  // tags (UI state only; linking/unlinking handled inside <TagsInput />)
+  // tags (UI state only; linking/unlinking handled in <TagsInput/>)
   const [tags, setTags] = useState([]); // [{id, name}]
 
   // flags
   const [isLoaded, setIsLoaded] = useState(false);
   const [translating, setTranslating] = useState(false);
 
-  // current user
+  // baseline snapshot for change detection
+  const originalTranslatableRef = useRef('');
+
+  // auth
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
   }, []);
@@ -142,6 +157,13 @@ export default function EditRecipePage() {
       } catch (e) {
         console.warn('load tags error', e);
       }
+
+      // store baseline snapshot for change detection
+      originalTranslatableRef.current = translatableSnapshot({
+        title: r.title,
+        description: r.description,
+        steps: Array.isArray(r.steps) ? r.steps : [],
+      });
 
       setIsLoaded(true);
     })();
@@ -295,7 +317,7 @@ export default function EditRecipePage() {
     }
   };
 
-  // save (UPDATE) + cache-aware translation trigger (no force)
+  // save (UPDATE) + translate only when translatable fields changed
   const handleSave = async () => {
     setError('');
     if (!title.trim()) {
@@ -334,7 +356,7 @@ export default function EditRecipePage() {
       const updatedRecipe = {
         title: title.trim(),
         description: description || null,
-        author_id: userId || null, // normally unchanged
+        author_id: userId || null, // usually unchanged
         prep_time_minutes: totalTime ? Number(totalTime) : null,
         servings: servings ? Number(servings) : null,
         difficulty: difficulty || null,
@@ -348,37 +370,49 @@ export default function EditRecipePage() {
         .from('recipes')
         .update(updatedRecipe)
         .eq('id', id)
-        .select('id, updated_at')
+        .select('id')
         .maybeSingle();
 
       if (updErr) throw updErr;
       if (!updated) throw new Error(t('no_permission_update', 'Could not update recipe (no permission or not found).'));
 
-      // ---------- TRANSLATION via /api/translate-recipe (cache-aware, no force) ----------
-      setTranslating(true);
-      try {
-        const sample = [
-          updatedRecipe.title ?? '',
-          updatedRecipe.description ?? '',
-          ...(updatedRecipe.steps?.map((s) => s.text) ?? []),
-        ]
-          .filter(Boolean)
-          .join('\n');
+      // ---- Only trigger translations if title/description/steps changed ----
+      const currentSnapshot = translatableSnapshot({
+        title: updatedRecipe.title,
+        description: updatedRecipe.description,
+        steps: stp,
+      });
+      const translatableChanged = currentSnapshot !== originalTranslatableRef.current;
 
-        let src = await detectLanguage(sample);
-        if (!src) src = 'fi';
+      if (translatableChanged) {
+        setTranslating(true);
+        try {
+          const sample = [
+            updatedRecipe.title ?? '',
+            updatedRecipe.description ?? '',
+            ...(stp.map((s) => s.text) ?? []),
+          ]
+            .filter(Boolean)
+            .join('\n');
 
-        const targets = TARGET_LANGS.filter((l) => l !== src);
-        for (const tgt of targets) {
-          // No "force": API should upsert only if stale/missing
-          await fetch('/api/translate-recipe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipeId: id, targetLang: tgt }),
-          }).catch(() => {});
+          let src = await detectLanguage(sample);
+          if (!src) src = 'fi';
+
+          const targets = TARGET_LANGS.filter((l) => l !== src);
+          for (const tgt of targets) {
+            // Force only when changed so cache refreshes, but save quota otherwise
+            await fetch('/api/translate-recipe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ recipeId: id, targetLang: tgt, force: true }),
+            }).catch(() => {});
+          }
+
+          // update baseline so subsequent saves without changes won’t re-translate
+          originalTranslatableRef.current = currentSnapshot;
+        } finally {
+          setTranslating(false);
         }
-      } finally {
-        setTranslating(false);
       }
 
       nav(`/recipe/${id}`);
@@ -394,7 +428,7 @@ export default function EditRecipePage() {
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          {t('edit_recipe', 'Edit recipe')}
+          {t('edit_recipe', 'Muokkaa reseptiä')}
         </h1>
         <div className="flex gap-2 items-center">
           {translating && (
@@ -440,7 +474,9 @@ export default function EditRecipePage() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('short_description', 'Short description')}</label>
+          <label className="text-sm text-gray-600 dark:text-gray-300">
+            {t('short_description', 'Short description')}
+          </label>
           <textarea
             rows={3}
             value={description}
@@ -462,7 +498,9 @@ export default function EditRecipePage() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('total_time_min', 'Total time (min)')}</label>
+          <label className="text-sm text-gray-600 dark:text-gray-300">
+            {t('total_time_min', 'Total time (min)')}
+          </label>
           <input
             type="number"
             value={totalTime}
