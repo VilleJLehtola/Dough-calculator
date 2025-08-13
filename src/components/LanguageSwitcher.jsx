@@ -1,53 +1,61 @@
-import { useEffect, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-export default function LanguageSwitcher({ compact = false }) {
+const LANGS = [
+  { code: 'auto', label: 'Auto', emoji: '🌐' },
+  { code: 'fi', label: 'FI', emoji: '🇫🇮' },
+  { code: 'en', label: 'EN', emoji: '🇬🇧' },
+  { code: 'sv', label: 'SV', emoji: '🇸🇪' },
+];
+
+export default function LanguageSwitcher() {
   const { i18n } = useTranslation();
+  const [lang, setLangState] = useState(localStorage.getItem('lang') || 'auto');
 
-  const langs = useMemo(
-    () => [
-      { code: 'fi', label: 'FI' },
-      { code: 'en', label: 'EN' },
-      { code: 'sv', label: 'SV' },
-    ],
-    []
-  );
+  const setLang = (code) => {
+    if (code === lang) return;
 
-  const setLang = (lng) => {
-    if (lng === i18n.language) return;
-    i18n.changeLanguage(lng);
+    setLangState(code);
+
     try {
-      localStorage.setItem('lang', lng);
+      localStorage.setItem('lang', code);
     } catch {}
+
+    // Notify listeners (RecipeViewPage listens to this)
+    window.dispatchEvent(new CustomEvent('langchange', { detail: code }));
+
+    // Keep <html lang> in sync for a11y/SEO
+    try {
+      document.documentElement.lang = code === 'auto' ? 'fi' : code;
+    } catch {}
+
+    // Optional: sync with global i18n if available
+    if (i18n?.changeLanguage && code !== 'auto') {
+      i18n.changeLanguage(code);
+    }
   };
 
-  // keep <html lang=".."> in sync too (belt & suspenders)
   useEffect(() => {
-    document?.documentElement && (document.documentElement.lang = i18n.language || 'fi');
-  }, [i18n.language]);
+    // Ensure html lang matches on mount
+    document.documentElement.lang = lang === 'auto' ? 'fi' : lang;
+  }, []);
 
   return (
-    <div className={`inline-flex items-center gap-1 ${compact ? '' : 'px-2'}`} role="group" aria-label="Language switcher">
-      {langs.map(({ code, label }) => {
-        const active = i18n.language?.startsWith(code);
-        return (
-          <button
-            key={code}
-            type="button"
-            onClick={() => setLang(code)}
-            aria-pressed={active}
-            className={[
-              'text-sm px-2 py-1 rounded-md border transition',
-              active
-                ? 'font-semibold border-gray-400'
-                : 'border-transparent opacity-70 hover:opacity-100'
-            ].join(' ')}
-            title={label}
-          >
-            {label}
-          </button>
-        );
-      })}
+    <div className="flex items-center gap-2">
+      {LANGS.map((l) => (
+        <button
+          key={l.code}
+          onClick={() => setLang(l.code)}
+          className={`px-2.5 py-1 rounded-lg text-sm border transition ${
+            lang === l.code
+              ? 'bg-blue-600 text-white border-blue-700'
+              : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700'
+          }`}
+          title={l.label}
+        >
+          <span role="img" aria-label={l.label}>{l.emoji}</span>
+        </button>
+      ))}
     </div>
   );
 }
