@@ -1,203 +1,129 @@
-// /api/translate-recipe.js
-import { createClient } from '@supabase/supabase-js'
+// Serverless: Vercel /api
+// Env needed on Vercel: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DEEPL_API_KEY
+import { createClient } from '@supabase/supabase-js';
 
-// Required env:
-const SUPABASE_URL = process.env.SUPABASE_URL || ''
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const SUPABASE_URL =
+  process.env.VITE_SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL;
 
-// DeepL (primary)
-const DEEPL_KEY = process.env.DEEPL_API_KEY || ''
-const DEEPL_ENDPOINT = process.env.DEEPL_API_ENDPOINT || 'https://api-free.deepl.com/v2/translate'
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const DEEPL_API_KEY = process.env.DEEPL_API_KEY;
 
-// Azure (fallback)
-const AZURE_KEY = process.env.AZURE_TRANSLATOR_KEY || ''
-const AZURE_REGION = process.env.AZURE_TRANSLATOR_REGION || ''
-const AZURE_ENDPOINT = process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com'
-
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'content-type,authorization')
-}
-
-function normalizeUUID(s) {
-  return String(s || '').trim().replace(/^["'<\s]+|[">'\s]+$/g, '')
-}
-function isUUID(s) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)
-}
-
-function hashContent(rcp) {
-  const src = JSON.stringify({
-    title: rcp.title ?? '',
-    description: rcp.description ?? '',
-    ingredients: rcp.ingredients ?? [],
-    steps: rcp.steps ?? [],
-  })
-  let h = 5381
-  for (let i = 0; i < src.length; i++) h = (h * 33) ^ src.charCodeAt(i)
-  return (h >>> 0).toString(16)
-}
-
-// ---- DeepL ----
-async function deeplTranslateArray(texts, target, source) {
-  const params = new URLSearchParams()
-  texts.forEach(t => params.append('text', t))
-  params.append('target_lang', String(target).toUpperCase())
-  if (source && source !== 'auto') params.append('source_lang', String(source).toUpperCase())
-
-  const r = await fetch(DEEPL_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `DeepL-Auth-Key ${DEEPL_KEY}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params.toString(),
-  })
-  const body = await r.text()
-  if (!r.ok) {
-    const e = new Error(`deepl ${r.status}`)
-    e.body = body
-    throw e
-  }
-  const json = JSON.parse(body)
-  return (json.translations || []).map(t => t.text || '')
-}
-
-// ---- Azure ----
-async function azureTranslateArray(texts, target, source) {
-  const qs = new URLSearchParams({ 'api-version': '3.0', to: target })
-  if (source && source !== 'auto') qs.append('from', source)
-  const r = await fetch(`${AZURE_ENDPOINT}/translate?${qs.toString()}`, {
-    method: 'POST',
-    headers: {
-      'Ocp-Apim-Subscription-Key': AZURE_KEY,
-      'Ocp-Apim-Subscription-Region': AZURE_REGION,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(texts.map(t => ({ Text: t }))),
-  })
-  const body = await r.text()
-  if (!r.ok) {
-    const e = new Error(`azure ${r.status}`)
-    e.body = body
-    throw e
-  }
-  const json = JSON.parse(body)
-  return json.map(x => x?.translations?.[0]?.text || '')
-}
-
-async function translateArray(texts, target, source) {
-  if (DEEPL_KEY) {
-    try { return await deeplTranslateArray(texts, target, source) }
-    catch (e) {
-      if (!(AZURE_KEY && AZURE_REGION)) throw e
-      // fall through to Azure
-    }
-  }
-  if (AZURE_KEY && AZURE_REGION) return await azureTranslateArray(texts, target, source)
-  throw new Error('no_translator_configured')
-}
+// Use SERVICE ROLE to bypass RLS when writing translations
+const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 export default async function handler(req, res) {
-  cors(res)
-  if (req.method === 'OPTIONS') return res.status(204).end()
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'method_not_allowed' })
-  }
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(500).json({ error: 'supabase_env_missing' })
-  }
-
-  const isGet = req.method === 'GET'
-  const recipeIdRaw = isGet ? (req.query.recipeId || '') : (req.body?.recipeId || '')
-  const targetLang  = isGet ? (req.query.targetLang || '') : (req.body?.targetLang || '')
-  const sourceLang  = isGet ? (req.query.source || 'auto') : (req.body?.source || 'auto')
-  const force       = isGet ? (req.query.force === 'true') : !!req.body?.force
-  const debug       = isGet ? (req.query.debug === 'true') : !!req.body?.debug
-
-  const recipeId = normalizeUUID(recipeIdRaw)
-  if (!isUUID(recipeId) || !targetLang) {
-    return res.status(400).json({ error: 'bad_request', needed: ['recipeId(uuid)', 'targetLang'], received: { recipeId: recipeIdRaw, targetLang } })
-  }
-  if (!DEEPL_KEY && !(AZURE_KEY && AZURE_REGION)) {
-    return res.status(503).json({ error: 'translator_not_configured' })
-  }
-
-  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
-
   try {
-    // 1) Load base recipe (steps)
-    const { data: rcp, error: rErr } = await sb
+    if (req.method !== 'POST') {
+      res.setHeader('Allow', 'POST');
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const { recipeId, targetLang, force = false } = req.body || {};
+    if (!recipeId || !targetLang) {
+      return res.status(400).json({ error: 'recipeId and targetLang are required' });
+    }
+
+    // 1) Load base recipe
+    const { data: recipe, error: recErr } = await admin
       .from('recipes')
       .select('id,title,description,ingredients,steps')
       .eq('id', recipeId)
-      .single()
-    if (rErr || !rcp) {
-      return res.status(404).json({ error: 'recipe_not_found', recipeId, ...(debug ? { supabaseError: rErr?.message ?? null } : {}) })
+      .single();
+
+    if (recErr || !recipe) {
+      return res.status(404).json({ error: 'Recipe not found', details: recErr?.message });
     }
 
-    // 2) Cache check using NOT NULL content_hash
-    const contentHash = hashContent(rcp)
-    if (!force) {
-      const { data: cached } = await sb
-        .from('recipe_translations')
-        .select('title,description,ingredients,steps,content_hash')
-        .eq('recipe_id', recipeId)
-        .eq('lang', targetLang)
-        .maybeSingle()
-      if (cached && cached.content_hash === contentHash) {
-        return res.status(200).json({ cached: true, title: cached.title, description: cached.description, ingredients: cached.ingredients, steps: cached.steps })
+    // 2) If not forcing and we already have a translation, you could early-exit.
+    // We now rely on the client to call with force only when translatable changed,
+    // so we skip the hash logic here.
+
+    // 3) Collect strings to translate in ONE DeepL call
+    const src = {
+      title: recipe.title ?? '',
+      description: recipe.description ?? '',
+      steps: Array.isArray(recipe.steps) ? recipe.steps : [],
+      ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
+    };
+
+    const texts = [];
+    const mapIdx = { title: null, description: null, steps: [], ings: [] };
+
+    if (src.title.trim()) { mapIdx.title = texts.length; texts.push(src.title.trim()); }
+    if (src.description.trim()) { mapIdx.description = texts.length; texts.push(src.description.trim()); }
+
+    src.steps.forEach((s, i) => {
+      const v = (s?.text || '').trim();
+      if (v) { mapIdx.steps[i] = texts.length; texts.push(v); } else { mapIdx.steps[i] = null; }
+    });
+
+    src.ingredients.forEach((ing, i) => {
+      const v = (ing?.name || '').trim();
+      if (v) { mapIdx.ings[i] = texts.length; texts.push(v); } else { mapIdx.ings[i] = null; }
+    });
+
+    let translated = [];
+    if (texts.length && DEEPL_API_KEY) {
+      const params = new URLSearchParams();
+      params.set('auth_key', DEEPL_API_KEY);
+      params.set('target_lang', String(targetLang).toUpperCase());
+      texts.forEach((t) => params.append('text', t));
+
+      // Use api-free for DeepL Free; change to https://api.deepl.com/v2/translate for Pro
+      const resp = await fetch('https://api-free.deepl.com/v2/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString(),
+      });
+
+      const j = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        return res.status(502).json({ error: 'deepl_failed', details: j });
       }
+      translated = (j?.translations || []).map((x) => x.text);
     }
 
-    // 3) Gather arrays
-    const ingRows  = Array.isArray(rcp.ingredients) ? rcp.ingredients : []
-    const stepRows = Array.isArray(rcp.steps) ? rcp.steps : []
-    const ingNames  = ingRows.map(i => (typeof i === 'object' ? (i.name ?? '') : String(i ?? '')))
-    const stepTexts = stepRows.map(s => (typeof s === 'object' ? (s.text ?? '') : String(s ?? '')))
+    const pick = (i) => (i == null ? null : translated[i]);
 
-    // 4) Translate
-    const [titleTrArr, descTrArr, ingTrArr, stepsTrArr] = await Promise.all([
-      translateArray([rcp.title ?? ''], targetLang, sourceLang),
-      translateArray([rcp.description ?? ''], targetLang, sourceLang),
-      translateArray(ingNames, targetLang, sourceLang),
-      translateArray(stepTexts, targetLang, sourceLang),
-    ])
+    // 4) Rebuild translated payload
+    const tr = {
+      title: mapIdx.title != null ? pick(mapIdx.title) : null,
+      description: mapIdx.description != null ? pick(mapIdx.description) : null,
+      steps: src.steps.map((s, i) => ({
+        ...s,
+        text: mapIdx.steps[i] == null ? (s?.text || '') : pick(mapIdx.steps[i]) || '',
+      })),
+      ingredients: src.ingredients.map((ing, i) => ({
+        ...ing,
+        name: mapIdx.ings[i] == null ? (ing?.name || '') : pick(mapIdx.ings[i]) || '',
+      })),
+    };
 
-    const titleTr = titleTrArr[0] ?? rcp.title ?? ''
-    const descTr  = descTrArr[0] ?? rcp.description ?? ''
-
-    const ingredientsTr = ingRows.map((row, i) => {
-      const name = ingTrArr[i] ?? (typeof row === 'object' ? (row.name ?? '') : String(row ?? ''))
-      return typeof row === 'object' ? { ...row, name } : { name, amount: '', bakers_pct: '' }
-    })
-
-    const stepsTr = stepRows.map((row, i) => {
-      const text = stepsTrArr[i] ?? (typeof row === 'object' ? (row.text ?? '') : String(row ?? ''))
-      return typeof row === 'object' ? { ...row, text } : { position: i + 1, text }
-    })
-
-    // 5) Upsert (must include content_hash because table requires NOT NULL)
-    const payload = {
-      recipe_id: rcp.id,
-      lang: targetLang,
-      content_hash: contentHash,
-      title: titleTr,
-      description: descTr,
-      ingredients: ingredientsTr,
-      steps: stepsTr,
-    }
-
-    const { error: upErr } = await sb
+    // 5) Upsert translation row
+    const { data: up, error: upErr } = await admin
       .from('recipe_translations')
-      .upsert(payload, { onConflict: 'recipe_id,lang' })
+      .upsert(
+        {
+          recipe_id: recipeId,
+          lang: targetLang,
+          title: tr.title ?? null,
+          description: tr.description ?? null,
+          steps: tr.steps,           // JSONB
+          ingredients: tr.ingredients, // JSONB
+        },
+        { onConflict: 'recipe_id,lang' }
+      )
+      .select('recipe_id, lang')
+      .maybeSingle();
+
     if (upErr) {
-      return res.status(400).json({ error: 'upsert_failed', detail: upErr.message })
+      return res.status(500).json({ error: 'upsert_failed', details: upErr.message });
     }
 
-    return res.status(200).json({ cached: false, title: titleTr, description: descTr, ingredients: ingredientsTr, steps: stepsTr })
+    return res.status(200).json({ ok: true, translation: tr, up });
   } catch (e) {
-    return res.status(500).json({ error: 'internal_error', message: e?.message || String(e) })
+    return res.status(500).json({ error: 'unexpected', details: String(e?.message || e) });
   }
 }
