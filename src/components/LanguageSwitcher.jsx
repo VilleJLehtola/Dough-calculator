@@ -1,38 +1,53 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
-const LANGS = [
-  { code: 'auto', label: 'Auto', emoji: '🌐' },
-  { code: 'fi', label: 'FI', emoji: '🇫🇮' },
-  { code: 'en', label: 'EN', emoji: '🇬🇧' },
-  { code: 'sv', label: 'SV', emoji: '🇸🇪' },
-];
+export default function LanguageSwitcher({ compact = false }) {
+  const { i18n } = useTranslation();
 
-export default function LanguageSwitcher() {
-  const [lang, setLang] = useState(localStorage.getItem('lang') || 'auto');
+  const langs = useMemo(
+    () => [
+      { code: 'fi', label: 'FI' },
+      { code: 'en', label: 'EN' },
+      { code: 'sv', label: 'SV' },
+    ],
+    []
+  );
 
+  const setLang = (lng) => {
+    if (lng === i18n.language) return;
+    i18n.changeLanguage(lng);
+    try {
+      localStorage.setItem('lang', lng);
+    } catch {}
+  };
+
+  // keep <html lang=".."> in sync too (belt & suspenders)
   useEffect(() => {
-    localStorage.setItem('lang', lang);
-    // notify listeners (RecipeViewPage)
-    window.dispatchEvent(new CustomEvent('langchange', { detail: lang }));
-  }, [lang]);
+    document?.documentElement && (document.documentElement.lang = i18n.language || 'fi');
+  }, [i18n.language]);
 
   return (
-    <div className="flex items-center gap-2">
-      {LANGS.map((l) => (
-        <button
-          key={l.code}
-          type="button"
-          onClick={() => setLang(l.code)}
-          className={`px-2.5 py-1 rounded-lg text-sm border transition ${
-            lang === l.code
-              ? 'bg-blue-600 text-white border-blue-700'
-              : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-gray-700'
-          }`}
-          title={l.label}
-        >
-          <span role="img" aria-label={l.label}>{l.emoji}</span>
-        </button>
-      ))}
+    <div className={`inline-flex items-center gap-1 ${compact ? '' : 'px-2'}`} role="group" aria-label="Language switcher">
+      {langs.map(({ code, label }) => {
+        const active = i18n.language?.startsWith(code);
+        return (
+          <button
+            key={code}
+            type="button"
+            onClick={() => setLang(code)}
+            aria-pressed={active}
+            className={[
+              'text-sm px-2 py-1 rounded-md border transition',
+              active
+                ? 'font-semibold border-gray-400'
+                : 'border-transparent opacity-70 hover:opacity-100'
+            ].join(' ')}
+            title={label}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }
