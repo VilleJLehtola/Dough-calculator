@@ -1,5 +1,5 @@
 // /src/pages/EditRecipePage.jsx
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import ImagesUploader from '@/components/ImagesUploader';
@@ -303,10 +303,19 @@ export default function EditRecipePage() {
         cover_image: chosen,
       };
 
-      const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id);
+      // Return updated_at to ensure update actually happened (debug-friendly)
+      const { data: upd, error: updErr } = await supabase
+        .from('recipes')
+        .update(updatedRecipe)
+        .eq('id', id)
+        .select('id, updated_at')
+        .single();
+
       if (updErr) throw updErr;
+      // console.log('Recipe updated at', upd?.updated_at);
 
       // ---------- TRANSLATION via /api/translate-recipe ----------
+      // Force refresh translations so the view reflects edits immediately
       setTranslating(true);
       try {
         const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map((s) => s.text) ?? [])]
@@ -321,7 +330,7 @@ export default function EditRecipePage() {
           const r = await fetch('/api/translate-recipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipeId: id, targetLang: tgt, force: false, debug: true }),
+            body: JSON.stringify({ recipeId: id, targetLang: tgt, force: true, debug: true }),
           });
           if (!r.ok) {
             const j = await r.json().catch(() => ({}));
