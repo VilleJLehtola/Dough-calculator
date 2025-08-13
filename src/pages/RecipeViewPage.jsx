@@ -447,7 +447,7 @@ export default function RecipeViewPage() {
 
           {canEdit && (
             <Link
-              to={`/edit/${id}`}
+              to={`/recipe/${id}/edit`}
               className="ml-1 inline-flex items-center text-xs px-3 py-1 rounded-full bg-blue-600 text-white hover:bg-blue-700"
               title={t('edit', 'Edit')}
             >
