@@ -71,4 +71,21 @@
   "bakers_percent": "Leipurin %",
   "dutch_oven_bread": "Pataleipä",
   "copyright": "© 2025 Taikinalaskin"
+    "flour": "Jauho",
+  "water": "Vesi",
+  "amount_flour": "Määrä (jauho)",
+  "amount_water": "Määrä (vesi)",
+  "hydration_base": "Hydraatio (pohja)",
+  "salt": "Suola",
+  "starter": "Juuri",
+  "rye": "Ruis",
+  "seeds": "Siemenet",
+  "rye_pct_total_flour": "Ruis % kokonaisjauhosta",
+  "seeds_pct_total_flour": "Siemenet % kokonaisjauhosta",
+  "tipo00_flour": "Tipo 00 -jauho",
+  "white_flour": "Vehnäjauho",
+  "rye_flour": "Ruisjauho",
+  "oil": "Öljy",
+  "total_dough_weight": "Taikinan kokonaispaino"
+
 }
