@@ -44,13 +44,13 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const onTouchMove = (e) => {
     if (!dragging) return;
     dx.current = e.touches[0].clientX - startX.current;
-    setDragging((d) => d); // re-render for style recompute
+    setDragging((d) => d); // force style recompute
   };
   const onTouchEnd = () => {
     if (!dragging) return;
     const dist = dx.current;
     const w = widthRef.current;
-    const threshold = w * 0.2; // 20% swipe to switch
+    const threshold = w * 0.2;
     if (Math.abs(dist) > threshold) {
       go(dist > 0 ? -1 : 1);
     }
@@ -72,8 +72,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     );
   }
 
-  const offsetPct =
-    dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
+  const offsetPct = dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
 
   return (
     <div
@@ -132,9 +131,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
           <button
             key={i}
             aria-label={t('go_to_slide', { index: i + 1 })}
-            className={`w-2.5 h-2.5 rounded-full ${
-              i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'
-            }`}
+            className={`w-2.5 h-2.5 rounded-full ${i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'}`}
             onClick={() => setIdx(i)}
           />
         ))}
@@ -166,19 +163,16 @@ export default function RecipeViewPage() {
   const [author, setAuthor] = useState(null);
   const [images, setImages] = useState([]); // strings or {url}
 
-  // Tags (via join)
-  const [tagList, setTagList] = useState([]); // ['bread','pizza',…]
+  // Signed-in user (for edit permission)
+  const [sessionUserId, setSessionUserId] = useState(null);
 
   // Translation payload (if any)
   const [tData, setT] = useState(null);
 
-  // Current user (for Edit button)
-  const [sessionUser, setSessionUser] = useState(null);
-  const [myProfile, setMyProfile] = useState(null); // optional {is_admin}
-
   // UI language from sidebar (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
   const targetLang = useMemo(() => (uiLang === 'auto' ? 'fi' : uiLang), [uiLang]);
+
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
@@ -192,35 +186,25 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Load current user + profile
+  // Load session user
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      const u = data?.user || null;
-      setSessionUser(u || null);
-      if (u?.id) {
-        try {
-          const { data: prof } = await supabase
-            .from('users')
-            .select('id, username, is_admin')
-            .eq('id', u.id)
-            .maybeSingle();
-          setMyProfile(prof || null);
-        } catch {
-          setMyProfile(null);
-        }
-      }
-    })();
+    let mounted = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted) setSessionUserId(data?.user?.id ?? null);
+    });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Load recipe + author + images + tags
+  // Load recipe + author + images
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       if (!id) return;
 
-      // Use * to tolerate schema variations
+      // Use * to tolerate schema changes
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select('*')
@@ -237,34 +221,22 @@ export default function RecipeViewPage() {
 
       setRecipe(recRow ?? null);
 
-      // author (best-effort)
+      // author
       const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
       if (authorId) {
         try {
-          const { data: authRow } = await supabase
+          // Select only EXISTING columns on your users table
+          const { data: authRow, error: authErr } = await supabase
             .from('users')
-            .select('id, email, username, avatar_url')
+            .select('id,email,username,role,created_at')
             .eq('id', authorId)
             .maybeSingle();
-          setAuthor(authRow ?? null);
-        } catch {
-          setAuthor(null);
+          if (!authErr) setAuthor(authRow ?? null);
+        } catch (e) {
+          console.warn('author fetch skipped', e?.message || e);
         }
       } else {
         setAuthor(null);
-      }
-
-      // tags via join
-      try {
-        const { data: rt } = await supabase
-          .from('recipe_tags')
-          .select('tags ( name )')
-          .eq('recipe_id', id);
-        const names =
-          Array.isArray(rt) ? rt.map((r) => r.tags?.name).filter(Boolean) : [];
-        setTagList(names);
-      } catch {
-        setTagList([]);
       }
 
       // images: prefer explicit array; fallback to cover_image; else list folder
@@ -283,7 +255,7 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // Translation: prefer cached row; if missing, call serverless to create it
+  // Translation: prefer cached row; if missing, just show base (no API call here)
   useEffect(() => {
     let cancelled = false;
 
@@ -296,13 +268,18 @@ export default function RecipeViewPage() {
       }
 
       try {
-        // 1) Try cached translation
-        const { data: trRow } = await supabase
+        const { data: trRow, error: trErr } = await supabase
           .from('recipe_translations')
           .select('title,description,ingredients,steps')
           .eq('recipe_id', id)
           .eq('lang', targetLang)
           .maybeSingle();
+
+        if (trErr) {
+          console.warn('translation select error', trErr);
+        }
+
+        if (cancelled) return;
 
         if (trRow) {
           setT({
@@ -311,37 +288,11 @@ export default function RecipeViewPage() {
             ingredients: Array.isArray(trRow.ingredients) ? trRow.ingredients : undefined,
             steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
           });
-          return;
-        }
-
-        // 2) No cache → serverless (translate + upsert)
-        const resp = await fetch('/api/translate-recipe', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ recipeId: id, targetLang }),
-        });
-
-        const json = await resp.json().catch(() => ({}));
-
-        if (!resp.ok) {
-          console.warn('translate api failed', resp.status, json);
+        } else {
           setT(null);
-          return;
         }
-
-        const tr = json?.translation ?? null;
-        setT(
-          tr
-            ? {
-                title: tr.title ?? undefined,
-                description: tr.description ?? undefined,
-                ingredients: Array.isArray(tr.ingredients) ? tr.ingredients : undefined,
-                steps: Array.isArray(tr.steps) ? tr.steps : undefined,
-              }
-            : null
-        );
       } catch (e) {
-        console.warn('translate api error', e);
+        console.warn('translate select error', e);
         setT(null);
       }
     })();
@@ -354,6 +305,7 @@ export default function RecipeViewPage() {
   // Derive renderables
   const title = tData?.title ?? recipe?.title ?? recipe?.name ?? '';
   const description = tData?.description ?? recipe?.description ?? '';
+
   const ingredients = useMemo(() => {
     const base = tData?.ingredients ?? recipe?.ingredients ?? [];
     if (Array.isArray(base)) return base;
@@ -374,8 +326,7 @@ export default function RecipeViewPage() {
       .map((text, i) => ({ position: i + 1, text }));
   }, [tData, recipe]);
 
-  // legacy tag fallback (string)
-  const legacyTags = useMemo(
+  const tags = useMemo(
     () =>
       String(recipe?.tags ?? '')
         .split(',')
@@ -391,26 +342,36 @@ export default function RecipeViewPage() {
     return Number.isFinite(n) ? n : null;
   }, [recipe]);
 
-  // Can the current user edit?
-  const authorId = recipe?.author_id ?? recipe?.created_by ?? recipe?.user_id ?? null;
-  const canEdit =
-    !!sessionUser?.id &&
-    (sessionUser.id === authorId || myProfile?.is_admin === true);
+  const canEdit = useMemo(() => {
+    if (!sessionUserId || !recipe?.author_id) return false;
+    return sessionUserId === recipe.author_id;
+  }, [sessionUserId, recipe]);
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
-      {/* Breadcrumbs */}
-      <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-        <Link to="/browse" className="hover:underline">
-          {t('recipe_library')}
-        </Link>
-        <span className="px-2">/</span>
-        <span className="text-gray-900 dark:text-gray-100">
-          {title || t('open_recipe')}
-        </span>
+      {/* Breadcrumbs & Edit */}
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          <Link to="/browse" className="hover:underline">
+            {t('recipe_library')}
+          </Link>
+          <span className="px-2">/</span>
+          <span className="text-gray-900 dark:text-gray-100">
+            {title || t('open_recipe')}
+          </span>
+        </div>
+
+        {canEdit && (
+          <Link
+            to={`/recipe/${id}/edit`}
+            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+          >
+            {t('edit', 'Edit')}
+          </Link>
+        )}
       </div>
 
-      {/* Header: title + meta + edit */}
+      {/* Header: title + meta */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
@@ -431,30 +392,23 @@ export default function RecipeViewPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {totalTime != null ? (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-              <Clock className="w-3.5 h-3.5" />
-              {`${totalTime} ${t('minutes_short')}`}
-            </span>
-          ) : null}
-          {recipe?.servings ? (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-              <Users className="w-3.5 h-3.5" />
-              {recipe.servings}
-            </span>
-          ) : null}
-
-          {canEdit && (
-            <Link
-              to={`/recipe/${id}/edit`}
-              className="ml-1 inline-flex items-center text-xs px-3 py-1 rounded-full bg-blue-600 text-white hover:bg-blue-700"
-              title={t('edit', 'Edit')}
-            >
-              {t('edit', 'Edit')}
-            </Link>
-          )}
-        </div>
+        {/* Meta pills */}
+        {(totalTime != null || recipe?.servings) && (
+          <div className="flex items-center gap-2">
+            {totalTime != null ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                <Clock className="w-3.5 h-3.5" />
+                {`${totalTime} ${t('minutes_short')}`}
+              </span>
+            ) : null}
+            {recipe?.servings ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                <Users className="w-3.5 h-3.5" />
+                {recipe.servings}
+              </span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* HERO CAROUSEL with overlay */}
@@ -466,23 +420,14 @@ export default function RecipeViewPage() {
           (author?.username || author?.email || description) && (
             <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                {author?.avatar_url ? (
-                  <img
-                    src={author.avatar_url}
-                    alt={author?.username || author?.email}
-                    className="w-9 h-9 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-                    <ChefHat className="w-5 h-5" />
-                  </div>
-                )}
+                {/* No avatar_url column -> fallback bubble */}
+                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+                  <ChefHat className="w-5 h-5" />
+                </div>
 
                 <div className="text-sm">
                   <div className="font-medium">{author?.username || author?.email}</div>
-                  {description ? (
-                    <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div>
-                  ) : null}
+                  {description ? <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div> : null}
                 </div>
               </div>
             </div>
@@ -491,9 +436,9 @@ export default function RecipeViewPage() {
       />
 
       {/* Tags */}
-      {(tagList.length > 0 || legacyTags.length > 0) && (
+      {tags?.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          {(tagList.length ? tagList : legacyTags).map((tag, i) => (
+          {tags.map((tag, i) => (
             <span
               key={`${tag}-${i}`}
               className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -526,9 +471,7 @@ export default function RecipeViewPage() {
                 ))}
               </ul>
             ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {t('no_ingredients_listed', 'No ingredients listed.')}
-              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('no_ingredients_listed')}</div>
             )}
           </div>
         </section>
@@ -553,9 +496,7 @@ export default function RecipeViewPage() {
                 ))}
               </ol>
             ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {t('no_instructions_provided', 'No instructions provided.')}
-              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('no_instructions_provided')}</div>
             )}
           </div>
         </section>
