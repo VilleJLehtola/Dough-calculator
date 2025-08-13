@@ -11,6 +11,7 @@ import RecipeViewPage from './pages/RecipeViewPage';
 import supabase from './supabaseClient';
 import CreateRecipePage from './pages/CreateRecipePage';
 import EditRecipePage from '@/pages/EditRecipePage';
+import YourRecipesPage from './pages/YourRecipesPage';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage setUser={setUser} />} />
           <Route path="/create" element={<CreateRecipePage />} />
           <Route path="/recipe/:id/edit" element={<EditRecipePage />} />
+          <Route path="/your-recipes" element={<YourRecipesPage />} />
 
 
           {/* New canonical route */}
