@@ -4,6 +4,10 @@ import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 
+const USE_FTS =
+  (import.meta.env?.VITE_USE_FTS === 'true') ||
+  (import.meta.env?.VITE_USE_FTS === '1');
+
 export default function BrowsePage() {
   const { t } = useTranslation();
 
@@ -11,21 +15,34 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
 
-  // build query; when q is short, fetch latest; when long enough, server-filter
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
 
       try {
+        // Use the view that exposes username/email/tags
         let query = supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at')
+          .from('browse_recipes_v')
+          .select('id,title,description,cover_image,images,created_at,username,email,tags,tags_text')
           .order('created_at', { ascending: false });
 
-        if (q.trim().length >= 2) {
-          const term = `%${q.trim()}%`;
-          query = query.or(`title.ilike.${term},description.ilike.${term}`);
+        const needle = q.trim();
+        if (needle.length >= 2) {
+          if (USE_FTS) {
+            // Full-text search across title/description/ingredients/steps(+tags if you added them to the vector)
+            query = query.textSearch('search_vec', needle, { type: 'plain', config: 'simple' });
+          } else {
+            // ILIKE across multiple columns (simple and safe)
+            const term = `%${needle}%`;
+            query = query.or([
+              `title.ilike.${term}`,
+              `description.ilike.${term}`,
+              `username.ilike.${term}`,
+              `email.ilike.${term}`,
+              `tags_text.ilike.${term}`
+            ].join(','));
+          }
         }
 
         const { data, error } = await query.limit(60);
@@ -53,13 +70,10 @@ export default function BrowsePage() {
   }, [q]);
 
   const filtered = useMemo(() => {
-    if (q.trim().length < 2) return rows;
-    const needle = q.trim().toLowerCase();
-    return rows.filter((r) =>
-      (r.title || '').toLowerCase().includes(needle) ||
-      (r.description || '').toLowerCase().includes(needle)
-    );
-  }, [rows, q]);
+    // With server filtering in place, this is mostly a pass-through.
+    // Keep it in case you want extra client-side refinements later.
+    return rows;
+  }, [rows]);
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -160,6 +174,22 @@ export default function BrowsePage() {
                       {r.description}
                     </div>
                   ) : null}
+
+                  {/* Tags */}
+                  {Array.isArray(r.tags) && r.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {r.tags.slice(0, 6).map((tag) => (
+                        <button
+                          key={tag}
+                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                          onClick={(e) => { e.preventDefault(); setQ(tag); }}
+                          title={`#${tag}`}
+                        >
+                          #{tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </Link>
             );
