@@ -71,4 +71,20 @@
   "bakers_percent": "Baker's %",
   "dutch_oven_bread": "Dutch oven bread",
   "copyright": "© 2025 Taikinalaskin"
+  "flour": "Flour",
+  "water": "Water",
+  "amount_flour": "Amount (flour)",
+  "amount_water": "Amount (water)",
+  "hydration_base": "Hydration (base)",
+  "salt": "Salt",
+  "starter": "Starter",
+  "rye": "Rye",
+  "seeds": "Seeds",
+  "rye_pct_total_flour": "Rye % of total flour",
+  "seeds_pct_total_flour": "Seeds % of total flour",
+  "tipo00_flour": "Tipo 00 Flour",
+  "white_flour": "White Flour",
+  "rye_flour": "Rye Flour",
+  "oil": "Oil",
+  "total_dough_weight": "Total dough weight"
 }
