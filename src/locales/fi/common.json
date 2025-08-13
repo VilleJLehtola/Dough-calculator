@@ -86,6 +86,14 @@
   "white_flour": "Vehnäjauho",
   "rye_flour": "Ruisjauho",
   "oil": "Öljy",
-  "total_dough_weight": "Taikinan kokonaispaino"
+  "total_dough_weight": "Taikinan kokonaispaino",
+    "search_recipes": "Hae reseptejä",
+  "clear": "Tyhjennä",
+  "most_liked_recipes": "Tykkätyimmät reseptit",
+  "most_liked_subtitle": "Yhteisön suosituimmat reseptit",
+  "coming_soon": "Tulossa pian",
+  "no_ingredients_listed": "Ainesosia ei listattu.",
+  "no_instructions_provided": "Ohjeita ei annettu."
+}
 
 }
