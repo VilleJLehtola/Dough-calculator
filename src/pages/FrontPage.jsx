@@ -17,31 +17,11 @@ export default function FrontPage() {
     (async () => {
       setLoading(true);
 
-      // 1) Resolve admin user IDs by email
-      const { data: admins, error: adminErr } = await supabase
-        .from('users')
-        .select('id,email')
-        .in('email', ADMIN_EMAILS);
-
-      if (adminErr) {
-        console.warn('Admin lookup failed', adminErr);
-        setLatestAdminRecipes([]);
-        setLoading(false);
-        return;
-      }
-
-      const adminIds = (admins || []).map((a) => a.id).filter(Boolean);
-      if (adminIds.length === 0) {
-        setLatestAdminRecipes([]);
-        setLoading(false);
-        return;
-      }
-
-      // 2) Fetch only recipes authored by admins
+      // Query the browse view and filter by admin emails (author email in the view)
       const { data: rows, error: recErr } = await supabase
-        .from('recipes')
-        .select('id,title,description,cover_image,images,author_id,created_at')
-        .in('author_id', adminIds)
+        .from('browse_recipes_v')
+        .select('id,title,description,cover_image,images,created_at,username,email,tags')
+        .in('email', ADMIN_EMAILS)
         .order('created_at', { ascending: false })
         .limit(12);
 
@@ -55,7 +35,6 @@ export default function FrontPage() {
     })();
   }, []);
 
-  // Pick hero image: cover_image → first(images)
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
     if (Array.isArray(r?.images) && r.images.length) {
@@ -125,6 +104,20 @@ export default function FrontPage() {
                         {recipe.description}
                       </div>
                     ) : null}
+
+                    {/* Optional: show a few tags */}
+                    {Array.isArray(recipe.tags) && recipe.tags.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {recipe.tags.slice(0, 4).map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
