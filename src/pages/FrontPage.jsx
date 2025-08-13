@@ -66,7 +66,7 @@ export default function FrontPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* ===== Top: Latest admin recipes ===== */}
       <section className="mt-2">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
@@ -77,8 +77,8 @@ export default function FrontPage() {
         </p>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {[...Array(5)].map((_, i) => (
               <div
                 key={i}
                 className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
@@ -96,7 +96,7 @@ export default function FrontPage() {
             {t('no_recipes_found', 'No recipes found.')}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {latestAdminRecipes.map((recipe) => {
               const hero = heroFor(recipe);
               return (
@@ -149,8 +149,8 @@ export default function FrontPage() {
           </span>
         </div>
 
-        {/* Skeleton/feed placeholder */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Wider grid placeholder */}
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-6">
           {[...Array(6)].map((_, i) => (
             <div
               key={`ph-${i}`}
