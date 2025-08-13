@@ -8,10 +8,10 @@ import TagsInput from '@/components/common/TagsInput';
 import { detectLanguage } from '@/utils/translate';
 
 const BUCKET = 'recipe-images';
-const TARGET_LANGS = ['en', 'sv']; // extend here as needed
+const TARGET_LANGS = ['en', 'sv']; // add more if needed
 
 function newIngredient() {
-  return { name: '', amount: '', isFlour: false }; // bakers_pct is computed
+  return { name: '', amount: '', isFlour: false };
 }
 function newStep(i = 1) {
   return { position: i, text: '', time: '' };
@@ -19,7 +19,6 @@ function newStep(i = 1) {
 
 // ---- helpers ---------------------------------------------------------------
 
-// derive storage path from a public URL
 function urlToPath(url) {
   try {
     const u = new URL(url);
@@ -31,7 +30,6 @@ function urlToPath(url) {
   }
 }
 
-// list folder -> [{url, path}]
 async function listFolderUrls(folder) {
   const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 });
   if (error || !files?.length) return [];
@@ -44,7 +42,7 @@ async function listFolderUrls(folder) {
     });
 }
 
-// Build a stable snapshot of just the fields we translate (title, description, step texts)
+// Build a stable snapshot of only the translatable fields
 function translatableSnapshot({ title, description, steps }) {
   return JSON.stringify({
     t: (title || '').trim(),
@@ -79,7 +77,7 @@ export default function EditRecipePage() {
   const [hero, setHero] = useState(null);
   const [userPickedHero, setUserPickedHero] = useState(false);
 
-  // tags (UI state only; linking/unlinking handled in <TagsInput/>)
+  // tags (UI state, linking handled in <TagsInput/>)
   const [tags, setTags] = useState([]); // [{id, name}]
 
   // flags
@@ -94,16 +92,14 @@ export default function EditRecipePage() {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
   }, []);
 
-  // load recipe + tags
+  // load recipe (+ tags)
   useEffect(() => {
     let alive = true;
     (async () => {
       setError('');
       const { data: r, error: err } = await supabase
         .from('recipes')
-        .select(
-          'id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image'
-        )
+        .select('id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image')
         .eq('id', id)
         .single();
 
@@ -134,7 +130,7 @@ export default function EditRecipePage() {
       setUploaded(imgs);
       setHero(r.cover_image || imgs[0]?.url || null);
 
-      // tags (recipe_tags -> tags)
+      // tags
       try {
         const { data: rt, error: rtErr } = await supabase
           .from('recipe_tags')
@@ -158,7 +154,7 @@ export default function EditRecipePage() {
         console.warn('load tags error', e);
       }
 
-      // store baseline snapshot for change detection
+      // store baseline snapshot
       originalTranslatableRef.current = translatableSnapshot({
         title: r.title,
         description: r.description,
@@ -400,12 +396,23 @@ export default function EditRecipePage() {
 
           const targets = TARGET_LANGS.filter((l) => l !== src);
           for (const tgt of targets) {
-            // Force only when changed so cache refreshes, but save quota otherwise
-            await fetch('/api/translate-recipe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ recipeId: id, targetLang: tgt, force: true }),
-            }).catch(() => {});
+            try {
+              const r = await fetch('/api/translate-recipe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipeId: id, targetLang: tgt, force: true }),
+              });
+              const j = await r.json().catch(() => ({}));
+              if (!r.ok) {
+                console.error('translate-recipe FAILED', tgt, j);
+                setError(`translate-recipe failed (${tgt}): ${j?.error || r.status}`);
+              } else {
+                console.log('translate-recipe OK', tgt, j);
+              }
+            } catch (err) {
+              console.error('translate-recipe fetch error', tgt, err);
+              setError(`translate-recipe network error (${tgt})`);
+            }
           }
 
           // update baseline so subsequent saves without changes won’t re-translate
