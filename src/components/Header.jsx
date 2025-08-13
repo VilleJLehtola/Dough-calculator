@@ -14,7 +14,7 @@ export default function Header({ user, toggleMobileMenu }) {
 
         {/* Logo */}
         <Link to="/" className="text-xl font-bold text-gray-900 dark:text-white">
-          Taikinalaskin
+           
         </Link>
       </div>
 
@@ -44,3 +44,4 @@ export default function Header({ user, toggleMobileMenu }) {
     </header>
   );
 }
+
