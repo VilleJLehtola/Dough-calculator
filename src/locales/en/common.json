@@ -86,5 +86,12 @@
   "white_flour": "White Flour",
   "rye_flour": "Rye Flour",
   "oil": "Oil",
-  "total_dough_weight": "Total dough weight"
+  "total_dough_weight": "Total dough weight",
+    "search_recipes": "Search recipes",
+  "clear": "Clear",
+  "most_liked_recipes": "Most liked recipes",
+  "most_liked_subtitle": "Most liked community recipes",
+  "coming_soon": "Coming soon",
+  "no_ingredients_listed": "No ingredients listed.",
+  "no_instructions_provided": "No instructions provided."
 }
