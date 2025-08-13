@@ -183,7 +183,7 @@ export default function TagsInput({
               e.preventDefault();
               addByName(q);
             }
-          })}
+          }}
           className={`w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2 ${inputClassName}`}
           placeholder={t('type_to_search_tags','Type to search or add a tag…')}
         />
