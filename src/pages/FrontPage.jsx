@@ -1,9 +1,10 @@
+// src/pages/FrontPage.jsx
 import { useEffect, useState } from 'react';
 import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-// Adjust or extend this list if you add more admins
+// Add/extend this list when you designate more admins
 const ADMIN_EMAILS = ['ville.j.lehtola@gmail.com'];
 
 export default function FrontPage() {
@@ -16,7 +17,7 @@ export default function FrontPage() {
     (async () => {
       setLoading(true);
 
-      // 1) Find admin user ids by email (matches your existing admin logic)
+      // 1) Resolve admin user IDs by email
       const { data: admins, error: adminErr } = await supabase
         .from('users')
         .select('id,email')
@@ -29,9 +30,8 @@ export default function FrontPage() {
         return;
       }
 
-      const adminIds = (admins || []).map(a => a.id).filter(Boolean);
+      const adminIds = (admins || []).map((a) => a.id).filter(Boolean);
       if (adminIds.length === 0) {
-        // No known admins found → nothing to show
         setLatestAdminRecipes([]);
         setLoading(false);
         return;
@@ -55,7 +55,7 @@ export default function FrontPage() {
     })();
   }, []);
 
-  // Same hero picker approach as BrowsePage
+  // Pick hero image: cover_image → first(images)
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
     if (Array.isArray(r?.images) && r.images.length) {
@@ -66,55 +66,23 @@ export default function FrontPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
-        {t('latest_admin_recipes')}
-      </h1>
-      <p className="text-gray-600 dark:text-gray-400 mb-6">
-        {/* short subtitle; keep simple to avoid new keys */}
-        {t('recipe_library')}
-      </p>
+    <div className="max-w-6xl mx-auto px-4 md:px-6">
+      {/* ===== Top: Latest admin recipes ===== */}
+      <section className="mt-2">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {t('latest_admin_recipes', 'Latest admin recipes')}
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">
+          {t('recipe_library', 'Recipe library')}
+        </p>
 
-      {loading ? (
-        <div className="text-gray-600 dark:text-gray-300">{/* simple skeleton could go here */}Loading…</div>
-      ) : latestAdminRecipes.length === 0 ? (
-        <div className="text-gray-600 dark:text-gray-300">{t('no_recipes_found')}</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {latestAdminRecipes.map((recipe) => {
-            const hero = heroFor(recipe);
-            return (
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
               <div
-                key={recipe.id}
-                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow cursor-pointer"
-                onClick={() => navigate(`/recipe/${recipe.id}`)}
+                key={i}
+                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               >
-                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
-                  {hero ? (
-                    <img
-                      src={hero}
-                      alt={recipe.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  ) : null}
-                </div>
-                <div className="p-3">
-                  <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
-                    {recipe.title}
-                  </div>
-                  {recipe.description ? (
-                    <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                      {recipe.description}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
+                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+                <div className="p-3 space-y-2">
+                  <div className="h-5 w-2/3 bg-g
