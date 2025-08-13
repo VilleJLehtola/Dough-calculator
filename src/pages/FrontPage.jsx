@@ -4,7 +4,7 @@ import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-// Add/extend this list when you designate more admins
+// Extend this list if you add more admins
 const ADMIN_EMAILS = ['ville.j.lehtola@gmail.com'];
 
 export default function FrontPage() {
@@ -77,15 +77,15 @@ export default function FrontPage() {
         </p>
 
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-            {[...Array(5)].map((_, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+            {[...Array(4)].map((_, i) => (
               <div
                 key={i}
-                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               >
-                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
-                <div className="p-3 space-y-2">
-                  <div className="h-5 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
+                <div className="w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+                <div className="p-5 space-y-3">
+                  <div className="h-6 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                   <div className="h-4 w-4/5 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                 </div>
               </div>
@@ -96,16 +96,16 @@ export default function FrontPage() {
             {t('no_recipes_found', 'No recipes found.')}
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
             {latestAdminRecipes.map((recipe) => {
               const hero = heroFor(recipe);
               return (
                 <div
                   key={recipe.id}
-                  className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow cursor-pointer transition"
+                  className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow-lg cursor-pointer transition"
                   onClick={() => navigate(`/recipe/${recipe.id}`)}
                 >
-                  <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+                  <div className="w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900">
                     {hero ? (
                       <img
                         src={hero}
@@ -116,12 +116,12 @@ export default function FrontPage() {
                       />
                     ) : null}
                   </div>
-                  <div className="p-3">
-                    <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+                  <div className="p-5">
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-1">
                       {recipe.title}
                     </div>
                     {recipe.description ? (
-                      <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                      <div className="mt-1 text-[15px] text-gray-600 dark:text-gray-300 line-clamp-2">
                         {recipe.description}
                       </div>
                     ) : null}
@@ -134,7 +134,7 @@ export default function FrontPage() {
       </section>
 
       {/* ===== Placeholder: Most liked / social feed (coming soon) ===== */}
-      <section className="mt-12">
+      <section className="mt-14">
         <div className="flex items-baseline justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -149,17 +149,16 @@ export default function FrontPage() {
           </span>
         </div>
 
-        {/* Wider grid placeholder */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 2xl:grid-cols-6 gap-6">
-          {[...Array(6)].map((_, i) => (
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-8">
+          {[...Array(5)].map((_, i) => (
             <div
               key={`ph-${i}`}
-              className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+              className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
-              <div className="aspect-square bg-gray-100 dark:bg-slate-900 animate-pulse" />
-              <div className="p-3">
-                <div className="h-4 w-3/4 bg-gray-100 dark:bg-slate-700 rounded animate-pulse mb-2" />
-                <div className="h-3 w-1/2 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
+              <div className="aspect-[3/2] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+              <div className="p-5">
+                <div className="h-5 w-3/4 bg-gray-100 dark:bg-slate-700 rounded animate-pulse mb-2" />
+                <div className="h-4 w-1/2 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
               </div>
             </div>
           ))}
