@@ -5,8 +5,8 @@ import DarkModeToggle from './DarkModeToggle';
 import { useTranslation } from 'react-i18next';
 
 export default function MobileMenu({
-  isOpen,
-  setIsOpen,
+  isOpen,            // controlled open state from Layout
+  setIsOpen,         // controlled setter from Layout
   user,
   onLoginClick,
   onLogout,
@@ -19,26 +19,22 @@ export default function MobileMenu({
     { code: 'en', label: 'EN' },
     { code: 'sv', label: 'SV' },
   ];
-  const activeLang =
-    localStorage.getItem('lang') || i18n.language || 'fi';
+  const activeLang = localStorage.getItem('lang') || i18n.language || 'fi';
 
   const changeLang = (code) => {
-    try {
-      localStorage.setItem('lang', code);
-      i18n.changeLanguage(code);
-      // notify parts of the app that listen for language changes
-      window.dispatchEvent(new CustomEvent('langchange', { detail: code }));
-    } catch {}
+    localStorage.setItem('lang', code);
+    i18n.changeLanguage(code);
+    window.dispatchEvent(new CustomEvent('langchange', { detail: code }));
   };
 
   return (
     <>
       {/* Single global hamburger (mobile only) */}
       <button
-        className="fixed top-4 left-4 z-[60] p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md shadow-md md:hidden"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle menu"
         type="button"
+        className="fixed top-4 left-4 z-[60] p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md shadow-md md:hidden"
+        onClick={() => setIsOpen?.(!isOpen)}
+        aria-label="Toggle menu"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -46,10 +42,10 @@ export default function MobileMenu({
       {/* Dim overlay */}
       {isOpen && (
         <button
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setIsOpen(false)}
-          aria-label="Close menu"
           type="button"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setIsOpen?.(false)}
+          aria-label="Close menu"
         />
       )}
 
@@ -62,26 +58,15 @@ export default function MobileMenu({
         aria-modal="true"
       >
         <nav className="flex flex-col p-6 space-y-4 text-gray-900 dark:text-gray-100">
-          <Link to="/" onClick={() => setIsOpen(false)}>
-            {t('home', 'Home')}
-          </Link>
-          <Link to="/browse" onClick={() => setIsOpen(false)}>
-            {t('browse', 'Browse')}
-          </Link>
-          <Link to="/calculator" onClick={() => setIsOpen(false)}>
-            {t('calculator', 'Calculator')}
-          </Link>
-          <Link to="/favorites" onClick={() => setIsOpen(false)}>
-            {t('favorites', 'Favorites')}
-          </Link>
-          <Link to="/profile" onClick={() => setIsOpen(false)}>
-            {t('your_profile', 'Your profile')}
-          </Link>
+          <Link to="/" onClick={() => setIsOpen?.(false)}>{t('home','Home')}</Link>
+          <Link to="/browse" onClick={() => setIsOpen?.(false)}>{t('browse','Browse')}</Link>
+          <Link to="/calculator" onClick={() => setIsOpen?.(false)}>{t('calculator','Calculator')}</Link>
+          <Link to="/profile" onClick={() => setIsOpen?.(false)}>{t('your_profile','Your profile')}</Link>
 
           {/* Language selector */}
           <div className="pt-4 mt-2 border-t border-gray-200 dark:border-slate-700">
             <div className="mb-2 text-xs uppercase tracking-wide opacity-70">
-              {t('language', 'Language')}
+              {t('language','Language')}
             </div>
             <div className="flex gap-2">
               {langs.map((l) => (
@@ -108,7 +93,7 @@ export default function MobileMenu({
             ) : (
               <Sun className="w-5 h-5 text-blue-500" />
             )}
-            <span className="text-sm">{t('dark_mode', 'Dark mode')}</span>
+            <span className="text-sm">{t('dark_mode','Dark mode')}</span>
             <DarkModeToggle />
           </div>
 
@@ -116,27 +101,21 @@ export default function MobileMenu({
           <div className="pt-6 border-t border-gray-200 dark:border-slate-700 mt-2">
             {user ? (
               <button
-                onClick={() => {
-                  onLogout?.();
-                  setIsOpen(false);
-                }}
-                className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline"
                 type="button"
+                onClick={() => { onLogout?.(); setIsOpen?.(false); }}
+                className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline"
               >
                 <LogOut className="w-4 h-4" />
-                {t('logout', 'Log out')}
+                {t('logout','Log out')}
               </button>
             ) : (
               <button
-                onClick={() => {
-                  onLoginClick?.();
-                  setIsOpen(false);
-                }}
-                className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 type="button"
+                onClick={() => { onLoginClick?.(); setIsOpen?.(false); }}
+                className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
               >
                 <LogIn className="w-4 h-4" />
-                {t('login', 'Login')}
+                {t('login','Login')}
               </button>
             )}
           </div>
