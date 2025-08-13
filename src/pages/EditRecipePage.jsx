@@ -1,5 +1,5 @@
 // /src/pages/EditRecipePage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import ImagesUploader from '@/components/ImagesUploader';
@@ -7,12 +7,13 @@ import TagsInput from '@/components/common/TagsInput';
 import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images';
+const TARGET_LANGS = ['en', 'sv']; // extend if needed
 
 function newIngredient() {
   return { name: '', amount: '', isFlour: false }; // bakers_pct is computed
 }
 function newStep(i = 1) {
-  return { position: i, text: '', time: '' }; // '' -> null on save
+  return { position: i, text: '', time: '' };
 }
 
 // derive storage path from a public URL
@@ -40,6 +41,26 @@ async function listFolderUrls(folder) {
     });
 }
 
+// shallow helpers to snapshot the *translatable* fields only
+function buildTextSnapshot({ title, description, ingredients, steps }) {
+  return {
+    title: (title || '').trim(),
+    description: (description || '').trim(),
+    ingNames: (ingredients || []).map((i) => (i?.name || '').trim()),
+    stepTexts: (steps || []).map((s) => (s?.text || '').trim()),
+  };
+}
+function sameSnapshot(a, b) {
+  if (!a || !b) return false;
+  if (a.title !== b.title) return false;
+  if (a.description !== b.description) return false;
+  if (a.ingNames.length !== b.ingNames.length) return false;
+  if (a.stepTexts.length !== b.stepTexts.length) return false;
+  for (let i = 0; i < a.ingNames.length; i++) if (a.ingNames[i] !== b.ingNames[i]) return false;
+  for (let i = 0; i < a.stepTexts.length; i++) if (a.stepTexts[i] !== b.stepTexts[i]) return false;
+  return true;
+}
+
 export default function EditRecipePage() {
   const { t } = useTranslation();
   const nav = useNavigate();
@@ -52,9 +73,9 @@ export default function EditRecipePage() {
   // basics
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [totalTime, setTotalTime] = useState(''); // -> prep_time_minutes
+  const [totalTime, setTotalTime] = useState('');
   const [servings, setServings] = useState('');
-  const [difficulty, setDifficulty] = useState(''); // easy | medium | hard
+  const [difficulty, setDifficulty] = useState('');
 
   // json
   const [ingredients, setIngredients] = useState([newIngredient()]);
@@ -65,26 +86,28 @@ export default function EditRecipePage() {
   const [hero, setHero] = useState(null);
   const [userPickedHero, setUserPickedHero] = useState(false);
 
-  // tags (TagsInput handles persistence)
+  // tags
   const [tags, setTags] = useState([]); // [{id, name}]
 
+  // flags
   const [isLoaded, setIsLoaded] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
-  // auth
+  // original text snapshot (to detect changes)
+  const originalSnapshotRef = useRef(null);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
   }, []);
 
-  // load recipe + current tags
+  // load recipe + tags
   useEffect(() => {
     let alive = true;
     (async () => {
       setError('');
       const { data: r, error: err } = await supabase
         .from('recipes')
-        .select(
-          'id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image'
-        )
+        .select('*')
         .eq('id', id)
         .single();
 
@@ -94,15 +117,26 @@ export default function EditRecipePage() {
       }
       if (!alive) return;
 
+      // basics
       setTitle(r.title || '');
       setDescription(r.description || '');
       setTotalTime(r.prep_time_minutes ?? '');
       setServings(r.servings ?? '');
       setDifficulty(r.difficulty || '');
 
+      // json
       setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()]);
       setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)]);
 
+      // snapshot original translatable parts
+      originalSnapshotRef.current = buildTextSnapshot({
+        title: r.title || '',
+        description: r.description || '',
+        ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
+        steps: Array.isArray(r.steps) ? r.steps : [],
+      });
+
+      // images
       let imgs = [];
       if (Array.isArray(r.images) && r.images.length) {
         imgs = r.images.map((u) => ({ url: u, path: urlToPath(u) }));
@@ -112,13 +146,12 @@ export default function EditRecipePage() {
       setUploaded(imgs);
       setHero(r.cover_image || imgs[0]?.url || null);
 
-      // fetch tags
+      // tags (recipe_tags -> tags)
       try {
         const { data: rt, error: rtErr } = await supabase
           .from('recipe_tags')
           .select('tag_id, tags ( id, name )')
           .eq('recipe_id', id);
-
         if (!rtErr && Array.isArray(rt)) {
           const uniq = [];
           const seen = new Set();
@@ -158,7 +191,7 @@ export default function EditRecipePage() {
       ingredients.map((ing) => {
         const amt = Number(ing.amount);
         if (Number.isNaN(amt) || !totalFlour) return { ...ing, bakers_pct: null };
-        const rounded = Math.round(((amt / totalFlour) * 100) * 10) / 10;
+        const rounded = Math.round((amt / totalFlour) * 100 * 10) / 10;
         return { ...ing, bakers_pct: rounded };
       }),
     [ingredients, totalFlour]
@@ -177,7 +210,7 @@ export default function EditRecipePage() {
   const removeStep = (i) =>
     setSteps((prev) => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, position: idx + 1 })));
 
-  // helper: auto-mark flour rows by name (jauho/flour)
+  // flour helper
   const autoMarkFlour = () => {
     const re = /(jauho|flour)/i;
     setIngredients((prev) =>
@@ -202,7 +235,7 @@ export default function EditRecipePage() {
     if (!userPickedHero) setHero(chosen);
   };
 
-  // drag & drop
+  // dnd
   const [dragIndex, setDragIndex] = useState(null);
   const onDragStart = (idx) => () => setDragIndex(idx);
   const onDragOver = (e) => e.preventDefault();
@@ -251,7 +284,33 @@ export default function EditRecipePage() {
       .eq('id', id);
   };
 
-  // save (UPDATE) — no auto-translation (quota friendly)
+  // --- translation trigger (only when translatable fields changed) ---
+  async function triggerTranslations(recipeId) {
+    setTranslating(true);
+    try {
+      await Promise.all(
+        TARGET_LANGS.map((tgt) =>
+          fetch('/api/translate-recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipeId,
+              targetLang: tgt,
+              skipTranslate: false, // actually call DeepL
+            }),
+          }).then(async (r) => {
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) console.warn('translate-recipe failed', tgt, j);
+            else console.log('translate-recipe ok', tgt, j?.up);
+          })
+        )
+      );
+    } finally {
+      setTranslating(false);
+    }
+  }
+
+  // save (UPDATE) + conditional translations
   const handleSave = async () => {
     setError('');
     if (!title.trim()) {
@@ -290,7 +349,7 @@ export default function EditRecipePage() {
       const updatedRecipe = {
         title: title.trim(),
         description: description || null,
-        author_id: userId || null, // keep as-is normally
+        author_id: userId || null, // stays the same normally
         prep_time_minutes: totalTime ? Number(totalTime) : null,
         servings: servings ? Number(servings) : null,
         difficulty: difficulty || null,
@@ -303,7 +362,20 @@ export default function EditRecipePage() {
       const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id);
       if (updErr) throw updErr;
 
-      // Optional future: call translate API if you re-enable it
+      // compare snapshots → only translate when the translatable parts changed
+      const currentSnapshot = buildTextSnapshot({
+        title: updatedRecipe.title,
+        description: updatedRecipe.description,
+        ingredients: ing,
+        steps: stp,
+      });
+      const originalSnapshot = originalSnapshotRef.current;
+
+      if (!sameSnapshot(originalSnapshot, currentSnapshot)) {
+        await triggerTranslations(id);
+        // refresh the baseline so repeated saves don’t re-trigger
+        originalSnapshotRef.current = currentSnapshot;
+      }
 
       nav(`/recipe/${id}`);
     } catch (e) {
@@ -319,17 +391,19 @@ export default function EditRecipePage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('edit_recipe', 'Edit recipe')}</h1>
         <div className="flex gap-2 items-center">
-          <Link
-            to={`/recipe/${id}`}
-            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200"
-          >
+          {translating && (
+            <span
+              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+              title={t('generating_translations', 'Generating translations in background')}
+            >
+              <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
+              {t('translating', 'Translating…')}
+            </span>
+          )}
+          <Link to={`/recipe/${id}`} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200">
             {t('cancel', 'Cancel')}
           </Link>
-          <button
-            onClick={handleSave}
-            disabled={saving || !isLoaded}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-          >
+          <button onClick={handleSave} disabled={saving || !isLoaded} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
             {saving ? t('saving', 'Saving…') : t('save_changes', 'Save changes')}
           </button>
         </div>
@@ -407,15 +481,10 @@ export default function EditRecipePage() {
               onClick={autoMarkFlour}
               className="px-3 py-1 rounded-lg border border-gray-300 dark:border-slate-600 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
               title={t('auto_mark_flour_tip', 'Mark rows as flour if name contains “jauho” or “flour”')}
-              type="button"
             >
               {t('auto_mark_flour', 'Auto-mark flour')}
             </button>
-            <button
-              onClick={addIngredient}
-              className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
-              type="button"
-            >
+            <button onClick={addIngredient} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
               + {t('add_ingredient', 'Add ingredient')}
             </button>
           </div>
@@ -461,12 +530,10 @@ export default function EditRecipePage() {
                 value={ing.bakers_pct === null ? '' : `${ing.bakers_pct}%`}
                 className="sm:col-span-3 rounded-lg border p-2 bg-gray-50 dark:bg-slate-700/60"
                 placeholder={t('bakers_pct_auto', "Baker's % (auto)")}
-                title={t('bakers_pct_tip', 'Auto-calculated relative to total flour')}
               />
               <button
                 onClick={() => removeIngredient(idx)}
                 className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-                type="button"
               >
                 –
               </button>
@@ -479,13 +546,6 @@ export default function EditRecipePage() {
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{t('instructions', 'Instructions')}</h2>
-          <button
-            onClick={addStep}
-            className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
-            type="button"
-          >
-            + {t('add_step', 'Add step')}
-          </button>
         </div>
 
         <div className="space-y-2">
@@ -509,19 +569,31 @@ export default function EditRecipePage() {
                 onChange={(e) => updateStepTime(idx, e.target.value)}
                 title={t('time_from_start_tip', 'Optional minutes from start; leave empty for null')}
               />
-              <button
-                onClick={() => removeStep(idx)}
-                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-                type="button"
-              >
-                –
-              </button>
+              <div className="sm:col-span-1 flex items-center">
+                <button
+                  onClick={() => removeStep(idx)}
+                  className="px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  –
+                </button>
+              </div>
+              {idx === steps.length - 1 && (
+                <div className="sm:col-span-12">
+                  <button
+                    onClick={addStep}
+                    className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+                    type="button"
+                  >
+                    + {t('add_step', 'Add step')}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Tags (reusable component) */}
+      {/* Tags */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <h2 className="font-semibold">{t('tags', 'Tags')}</h2>
         <TagsInput recipeId={id} value={tags} onChange={setTags} />
