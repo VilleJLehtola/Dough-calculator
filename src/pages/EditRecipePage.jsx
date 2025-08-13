@@ -1,35 +1,142 @@
-// /src/pages/EditRecipePage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+// /src/pages/RecipeViewPage.jsx
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
-import ImagesUploader from '@/components/ImagesUploader';
-import TagsInput from '@/components/common/TagsInput';
-import { detectLanguage } from '@/utils/translate';
+import { Clock, Users, ChefHat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images';
-const TARGET_LANGS = ['en', 'sv']; // extend here
 
-function newIngredient() {
-  return { name: '', amount: '', isFlour: false }; // bakers_pct is computed
-}
-function newStep(i = 1) {
-  return { position: i, text: '', time: '' };
-}
+/* ---------------------- Smooth, touch-enabled carousel ---------------------- */
+function HeroCarousel({ items = [], title = '', overlay = null, t }) {
+  const urls = (items || [])
+    .map((im) => (typeof im === 'string' ? im : im?.url))
+    .filter(Boolean);
 
-// derive storage path from a public URL
-function urlToPath(url) {
-  try {
-    const u = new URL(url);
-    const ix = u.pathname.indexOf(`/object/public/${BUCKET}/`);
-    if (ix === -1) return null;
-    return u.pathname.slice(ix + `/object/public/${BUCKET}/`.length);
-  } catch {
-    return null;
+  const [idx, setIdx] = useState(0);
+  const containerRef = useRef(null);
+
+  // drag state
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef(0);
+  const dx = useRef(0);
+  const widthRef = useRef(1);
+
+  const go = (n) => {
+    if (!urls.length) return;
+    setIdx((prev) => (prev + n + urls.length) % urls.length);
+  };
+
+  const onKey = (e) => {
+    if (e.key === 'ArrowLeft') go(-1);
+    if (e.key === 'ArrowRight') go(1);
+  };
+
+  // touch handlers
+  const onTouchStart = (e) => {
+    if (!urls.length) return;
+    const w = containerRef.current?.clientWidth || window.innerWidth || 1;
+    widthRef.current = w;
+    startX.current = e.touches[0].clientX;
+    dx.current = 0;
+    setDragging(true);
+  };
+  const onTouchMove = (e) => {
+    if (!dragging) return;
+    dx.current = e.touches[0].clientX - startX.current;
+    setDragging((d) => d); // force style recompute
+  };
+  const onTouchEnd = () => {
+    if (!dragging) return;
+    const dist = dx.current;
+    const w = widthRef.current;
+    const threshold = w * 0.2; // 20% swipe
+    if (Math.abs(dist) > threshold) {
+      go(dist > 0 ? -1 : 1);
+    }
+    setDragging(false);
+    dx.current = 0;
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  if (!urls?.length) {
+    return (
+      <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
+        <div className="text-gray-500 dark:text-gray-400">{title || ''}</div>
+        {overlay}
+      </div>
+    );
   }
+
+  const offsetPct = dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full aspect-video rounded-xl overflow-hidden"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      <div
+        className={[
+          'w-full h-full flex',
+          dragging ? 'transition-none' : 'transition-transform duration-500 ease-out',
+        ].join(' ')}
+        style={{
+          transform: `translateX(calc(${-idx * 100}% + ${offsetPct}%))`,
+          willChange: 'transform',
+        }}
+      >
+        {urls.map((u, i) => (
+          <img
+            key={`${u}-${i}`}
+            src={u}
+            alt={title || `Slide ${i + 1}`}
+            className="w-full h-full object-cover flex-shrink-0"
+            loading="lazy"
+            decoding="async"
+            draggable="false"
+          />
+        ))}
+      </div>
+
+      {overlay}
+
+      <button
+        aria-label="Previous image"
+        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
+        onClick={() => go(-1)}
+      >
+        ‹
+      </button>
+      <button
+        aria-label="Next image"
+        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
+        onClick={() => go(1)}
+      >
+        ›
+      </button>
+
+      <div className="absolute bottom-2 w-full flex items-center justify-center gap-2">
+        {urls.map((_, i) => (
+          <button
+            key={i}
+            aria-label={t('go_to_slide', { index: i + 1 })}
+            className={`w-2.5 h-2.5 rounded-full ${i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'}`}
+            onClick={() => setIdx(i)}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
-// list folder -> [{url, path}]
+/* ------------------------------- helpers -------------------------------- */
 async function listFolderUrls(folder) {
   const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 });
   if (error || !files?.length) return [];
@@ -42,592 +149,373 @@ async function listFolderUrls(folder) {
     });
 }
 
-export default function EditRecipePage() {
+function normalizeSteps(base) {
+  if (Array.isArray(base)) {
+    return base.map((s, i) => ({
+      position: s?.position ?? i + 1,
+      text: typeof s?.text === 'string' ? s.text : String(s ?? ''),
+      time: s?.time ?? null,
+    }));
+  }
+  // allow legacy newline string
+  return String(base || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((text, i) => ({ position: i + 1, text, time: null }));
+}
+
+function mergeSteps(base, tr) {
+  const b = normalizeSteps(base);
+  const t = Array.isArray(tr) ? normalizeSteps(tr) : [];
+  if (!t.length) return b;
+  const len = Math.max(b.length, t.length);
+  const out = [];
+  for (let i = 0; i < len; i++) {
+    const bi = b[i];
+    const ti = t[i];
+    if (ti && ti.text) out.push({ ...bi, ...ti, text: ti.text ?? bi?.text });
+    else if (bi) out.push(bi);
+  }
+  return out;
+}
+
+/* ---------------------------------- Page ----------------------------------- */
+export default function RecipeViewPage() {
   const { t } = useTranslation();
-  const nav = useNavigate();
   const { id } = useParams();
 
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [userId, setUserId] = useState(null);
+  const [recipe, setRecipe] = useState(null);
+  const [author, setAuthor] = useState(null);
+  const [images, setImages] = useState([]);
+  const [tData, setT] = useState(null);
 
-  // basics
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [totalTime, setTotalTime] = useState('');
-  const [servings, setServings] = useState('');
-  const [difficulty, setDifficulty] = useState('');
-
-  // json
-  const [ingredients, setIngredients] = useState([newIngredient()]);
-  const [steps, setSteps] = useState([newStep(1)]);
-
-  // images
-  const [uploaded, setUploaded] = useState([]); // [{url, path}]
-  const [hero, setHero] = useState(null);
-  const [userPickedHero, setUserPickedHero] = useState(false);
-
-  // tags
-  const [tags, setTags] = useState([]); // [{id, name}]
-
-  // flags
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [translating, setTranslating] = useState(false);
-
+  // UI language from localStorage + custom event
+  const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
+  const targetLang = useMemo(() => (uiLang === 'auto' ? 'fi' : uiLang), [uiLang]);
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
+    const onStorage = (e) => {
+      if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
+    };
+    const onLangChange = (e) => setUiLang(e.detail || localStorage.getItem('lang') || 'auto');
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('langchange', onLangChange);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('langchange', onLangChange);
+    };
   }, []);
 
-  // load recipe + tags
+  // Load recipe + author + images
   useEffect(() => {
-    let alive = true;
+    let cancelled = false;
+
     (async () => {
-      setError('');
-      const { data: r, error: err } = await supabase
+      if (!id) return;
+      const { data: recRow, error: recErr } = await supabase
         .from('recipes')
-        .select(
-          'id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image'
-        )
+        .select('*')
         .eq('id', id)
         .single();
-      if (err) {
-        setError(err.message);
+
+      if (cancelled) return;
+      if (recErr) {
+        console.warn('recipe select error', recErr);
+        setRecipe(null);
         return;
       }
-      if (!alive) return;
 
-      // basics
-      setTitle(r.title || '');
-      setDescription(r.description || '');
-      setTotalTime(r.prep_time_minutes ?? '');
-      setServings(r.servings ?? '');
-      setDifficulty(r.difficulty || '');
+      setRecipe(recRow ?? null);
 
-      // json
-      setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()]);
-      setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)]);
-
-      // images
-      let imgs = [];
-      if (Array.isArray(r.images) && r.images.length) {
-        imgs = r.images.map((u) => ({ url: u, path: urlToPath(u) }));
-      } else {
-        imgs = await listFolderUrls(`recipes/${id}`);
-      }
-      setUploaded(imgs);
-      setHero(r.cover_image || imgs[0]?.url || null);
-
-      // tags (recipe_tags -> tags)
-      try {
-        const { data: rt, error: rtErr } = await supabase
-          .from('recipe_tags')
-          .select('tag_id, tags ( id, name )')
-          .eq('recipe_id', id);
-        if (!rtErr && Array.isArray(rt)) {
-          const uniq = [];
-          const seen = new Set();
-          for (const row of rt) {
-            const tid = row.tags?.id ?? row.tag_id;
-            const nm = row.tags?.name ?? '';
-            if (tid && nm && !seen.has(tid)) {
-              seen.add(tid);
-              uniq.push({ id: tid, name: nm });
-            }
-          }
-          setTags(uniq);
+      const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
+      if (authorId) {
+        try {
+          const { data: authRow, error: authErr } = await supabase
+            .from('users')
+            .select('id, email, username, avatar_url')
+            .eq('id', authorId)
+            .maybeSingle();
+          if (!authErr) setAuthor(authRow ?? null);
+        } catch (e) {
+          console.warn('author fetch skipped', e?.message || e);
         }
-      } catch (e) {
-        console.warn('load tags error', e);
+      } else {
+        setAuthor(null);
       }
 
-      setIsLoaded(true);
+      if (Array.isArray(recRow?.images) && recRow.images.length) {
+        setImages(recRow.images);
+      } else if (recRow?.cover_image) {
+        setImages([recRow.cover_image]);
+      } else {
+        const list = await listFolderUrls(`recipes/${id}`);
+        if (!cancelled) setImages(list.map((x) => x.url));
+      }
     })();
+
     return () => {
-      alive = false;
+      cancelled = true;
     };
   }, [id]);
 
-  // ---------- Baker’s % ----------
-  const totalFlour = useMemo(
-    () =>
-      ingredients.reduce((sum, ing) => {
-        const amt = Number(ing.amount);
-        return sum + (ing.isFlour && !Number.isNaN(amt) ? amt : 0);
-      }, 0),
-    [ingredients]
-  );
+  // Translation: prefer cached row; refresh if stale; else generate; then MERGE
+  useEffect(() => {
+    let cancelled = false;
 
-  const withBakersPct = useMemo(
-    () =>
-      ingredients.map((ing) => {
-        const amt = Number(ing.amount);
-        if (Number.isNaN(amt) || !totalFlour) return { ...ing, bakers_pct: null };
-        const rounded = Math.round((amt / totalFlour) * 100 * 10) / 10;
-        return { ...ing, bakers_pct: rounded };
-      }),
-    [ingredients, totalFlour]
-  );
+    (async () => {
+      if (!id) return;
 
-  // ingredient ops
-  const updateIngredient = (i, k, v) =>
-    setIngredients((prev) => prev.map((row, idx) => (idx === i ? { ...row, [k]: v } : row)));
-  const addIngredient = () => setIngredients((prev) => [...prev, newIngredient()]);
-  const removeIngredient = (i) => setIngredients((prev) => prev.filter((_, idx) => idx !== i));
-
-  // steps ops
-  const updateStepText = (i, v) => setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, text: v } : s)));
-  const updateStepTime = (i, v) => setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, time: v } : s)));
-  const addStep = () => setSteps((prev) => [...prev, newStep(prev.length + 1)]);
-  const removeStep = (i) => setSteps((prev) => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, position: idx + 1 })));
-
-  // flour helper
-  const autoMarkFlour = () => {
-    const re = /(jauho|flour)/i;
-    setIngredients((prev) =>
-      prev.map((ing) => ({
-        ...ing,
-        isFlour: re.test(ing.name || '') ? true : ing.isFlour,
-      }))
-    );
-  };
-
-  // uploads
-  const handleImagesUploaded = async (files) => {
-    if (!files?.length) return;
-    const next = [...uploaded, ...files];
-    setUploaded(next);
-    if (!userPickedHero && !hero && next[0]) setHero(next[0].url);
-
-    // persist immediately
-    const urls = next.map((f) => f.url);
-    const chosen = userPickedHero ? hero : urls[0] || null;
-    await supabase.from('recipes').update({ images: urls, cover_image: chosen }).eq('id', id);
-    if (!userPickedHero) setHero(chosen);
-  };
-
-  // dnd
-  const [dragIndex, setDragIndex] = useState(null);
-  const onDragStart = (idx) => () => setDragIndex(idx);
-  const onDragOver = (e) => e.preventDefault();
-  const onDrop = (idx) => async (e) => {
-    e.preventDefault();
-    if (dragIndex === null || dragIndex === idx) return;
-    const next = [...uploaded];
-    const [moved] = next.splice(dragIndex, 1);
-    next.splice(idx, 0, moved);
-    setUploaded(next);
-
-    const urls = next.map((f) => f.url);
-    await supabase
-      .from('recipes')
-      .update({
-        images: urls,
-        cover_image: userPickedHero ? hero : urls[0] || null,
-      })
-      .eq('id', id);
-    if (!userPickedHero) setHero(urls[0] || null);
-    setDragIndex(null);
-  };
-
-  // delete image
-  const deleteImage = async (idx) => {
-    const target = uploaded[idx];
-    if (!target) return;
-    if (target.path) {
-      await supabase.storage.from(BUCKET).remove([target.path]);
-    }
-    const next = uploaded.filter((_, i) => i !== idx);
-    setUploaded(next);
-
-    let nextHero = hero;
-    if (hero === target.url) {
-      nextHero = next[0]?.url || null;
-      setHero(nextHero);
-      setUserPickedHero(false);
-    }
-    await supabase
-      .from('recipes')
-      .update({
-        images: next.map((f) => f.url),
-        cover_image: nextHero || null,
-      })
-      .eq('id', id);
-  };
-
-  // save (UPDATE) + translations via serverless
-  const handleSave = async () => {
-    setError('');
-    if (!title.trim()) {
-      setError(t('title_required', 'Title is required.'));
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const ing = withBakersPct
-        .filter((i) => i.name.trim() && i.amount !== '')
-        .map((i) => ({
-          name: i.name.trim(),
-          amount: Number(i.amount),
-          isFlour: Boolean(i.isFlour),
-          bakers_pct: i.bakers_pct === null ? null : Number(i.bakers_pct),
-        }));
-
-      const stp = steps
-        .filter((s) => s.text.trim())
-        .map((s, idx) => ({
-          position: idx + 1,
-          text: s.text.trim(),
-          time: s.time === '' ? null : Number(s.time),
-        }));
-
-      // hydrate from storage if needed
-      let effective = uploaded;
-      if (effective.length === 0) {
-        effective = await listFolderUrls(`recipes/${id}`);
-        if (effective.length) setUploaded(effective);
+      if (uiLang === 'auto') {
+        setT(null);
+        return;
       }
-      const urls = effective.map((f) => f.url);
-      const chosen = userPickedHero ? hero || urls[0] || null : urls[0] || null;
 
-      const updatedRecipe = {
-        title: title.trim(),
-        description: description || null,
-        author_id: userId || null, // stays the same normally
-        prep_time_minutes: totalTime ? Number(totalTime) : null,
-        servings: servings ? Number(servings) : null,
-        difficulty: difficulty || null,
-        ingredients: ing,
-        steps: stp,
-        images: urls,
-        cover_image: chosen,
-      };
-
-      // Return updated_at to ensure update actually happened (debug-friendly)
-      const { data: upd, error: updErr } = await supabase
-        .from('recipes')
-        .update(updatedRecipe)
-        .eq('id', id)
-        .select('id, updated_at')
-        .single();
-
-      if (updErr) throw updErr;
-      // console.log('Recipe updated at', upd?.updated_at);
-
-      // ---------- TRANSLATION via /api/translate-recipe ----------
-      // Force refresh translations so the view reflects edits immediately
-      setTranslating(true);
       try {
-        const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map((s) => s.text) ?? [])]
-          .filter(Boolean)
-          .join('\n');
+        const { data: trRow } = await supabase
+          .from('recipe_translations')
+          .select('title,description,ingredients,steps,updated_at')
+          .eq('recipe_id', id)
+          .eq('lang', targetLang)
+          .maybeSingle();
 
-        let src = await detectLanguage(sample);
-        if (!src) src = 'fi'; // reasonable default
+        const recUpdated = recipe?.updated_at ? new Date(recipe.updated_at).getTime() : 0;
+        const trUpdated = trRow?.updated_at ? new Date(trRow.updated_at).getTime() : 0;
 
-        const targets = TARGET_LANGS.filter((l) => l !== src);
-        for (const tgt of targets) {
-          const r = await fetch('/api/translate-recipe', {
+        if (!trRow || trUpdated < recUpdated) {
+          // stale or missing => (re)generate
+          const resp = await fetch('/api/translate-recipe', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipeId: id, targetLang: tgt, force: true, debug: true }),
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ recipeId: id, targetLang, force: true }),
           });
-          if (!r.ok) {
-            const j = await r.json().catch(() => ({}));
-            console.warn('translate-recipe failed', tgt, j);
-          }
-        }
-      } finally {
-        setTranslating(false);
-      }
+          const json = await resp.json().catch(() => ({}));
+          if (cancelled) return;
 
-      nav(`/recipe/${id}`);
-    } catch (e) {
-      console.error(e);
-      setError(e.message || t('update_failed', 'Update failed.'));
-    } finally {
-      setSaving(false);
-    }
-  };
+          if (resp.ok && json?.translation) {
+            setT({
+              title: json.translation.title ?? undefined,
+              description: json.translation.description ?? undefined,
+              ingredients: Array.isArray(json.translation.ingredients) ? json.translation.ingredients : undefined,
+              steps: Array.isArray(json.translation.steps) ? json.translation.steps : undefined,
+            });
+          } else {
+            // fall back to base if translation failed
+            setT(null);
+          }
+        } else {
+          setT({
+            title: trRow.title ?? undefined,
+            description: trRow.description ?? undefined,
+            ingredients: Array.isArray(trRow.ingredients) ? trRow.ingredients : undefined,
+            steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
+          });
+        }
+      } catch (e) {
+        console.warn('translate api error', e);
+        setT(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, uiLang, targetLang, recipe?.updated_at]);
+
+  // ----- Derive renderables (with safe merge) -----
+  const title = tData?.title ?? recipe?.title ?? recipe?.name ?? '';
+  const description = tData?.description ?? recipe?.description ?? '';
+
+  const ingredients = useMemo(() => {
+    const base = tData?.ingredients ?? recipe?.ingredients ?? [];
+    if (Array.isArray(base)) return base;
+    return String(base || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((name) => ({ name }));
+  }, [tData, recipe]);
+
+  const renderSteps = useMemo(() => {
+    return mergeSteps(recipe?.steps ?? [], tData?.steps ?? []);
+  }, [recipe?.steps, tData?.steps]);
+
+  const tags = useMemo(
+    () =>
+      String(recipe?.tags ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [recipe]
+  );
+
+  const totalTime = useMemo(() => {
+    const raw = recipe?.prep_time_minutes ?? recipe?.total_time ?? recipe?.time ?? null;
+    if (raw == null) return null;
+    const n = Number(String(raw).replace(/[^\d.,]/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  }, [recipe]);
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('edit_recipe', 'Edit recipe')}</h1>
-        <div className="flex gap-2 items-center">
-          {translating && (
-            <span
-              className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
-              title={t('generating_translations', 'Generating translations in background')}
-            >
-              <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-              {t('translating', 'Translating…')}
-            </span>
-          )}
-          <Link to={`/recipe/${id}`} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200">
-            {t('cancel', 'Cancel')}
-          </Link>
-          <button onClick={handleSave} disabled={saving || !isLoaded} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
-            {saving ? t('saving', 'Saving…') : t('save_changes', 'Save changes')}
-          </button>
-        </div>
+    <div className="max-w-5xl mx-auto p-4 md:p-6">
+      {/* Breadcrumbs */}
+      <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        <Link to="/browse" className="hover:underline">
+          {t('recipe_library')}
+        </Link>
+        <span className="px-2">/</span>
+        <span className="text-gray-900 dark:text-gray-100">
+          {title || t('open_recipe')}
+        </span>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 dark:bg-red-900/20 dark:border-red-700 p-3 text-sm text-red-700 dark:text-red-300">
-          {error}
+      {/* Header: title + meta */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+            {title || t('open_recipe')}
+          </h1>
+
+          {(author?.username || author?.email || description) && (
+            <div className="mt-2 flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+              {author?.username || author?.email ? (
+                <div className="flex items-center gap-2">
+                  <ChefHat className="w-4 h-4" />
+                  <span>{author?.username || author?.email}</span>
+                </div>
+              ) : null}
+
+              {description ? <div className="line-clamp-2">{description}</div> : null}
+            </div>
+          )}
+        </div>
+
+        {(totalTime != null || recipe?.servings) && (
+          <div className="flex items-center gap-2">
+            {totalTime != null ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                <Clock className="w-3.5 h-3.5" />
+                {`${totalTime} ${t('minutes_short')}`}
+              </span>
+            ) : null}
+            {recipe?.servings ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                <Users className="w-3.5 h-3.5" />
+                {recipe.servings}
+              </span>
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      {/* HERO CAROUSEL */}
+      <HeroCarousel
+        title={title}
+        items={images}
+        t={t}
+        overlay={
+          (author?.username || author?.email || description) && (
+            <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                {author?.avatar_url ? (
+                  <img
+                    src={author.avatar_url}
+                    alt={author?.username || author?.email}
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+                    <ChefHat className="w-5 h-5" />
+                  </div>
+                )}
+
+                <div className="text-sm">
+                  <div className="font-medium">{author?.username || author?.email}</div>
+                  {description ? <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div> : null}
+                </div>
+              </div>
+            </div>
+          )
+        }
+      />
+
+      {/* Tags */}
+      {tags?.length > 0 && (
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          {tags.map((tag, i) => (
+            <span
+              key={`${tag}-${i}`}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            >
+              # {tag}
+            </span>
+          ))}
         </div>
       )}
 
-      {/* Basics */}
-      <section className="grid gap-4 sm:grid-cols-1">
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('title', 'Title')}</label>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            placeholder="Pataleipä"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('short_description', 'Short description')}</label>
-          <textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            placeholder="Valkosipulinen pataleipä…"
-          />
-        </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('servings', 'Servings')}</label>
-          <input
-            type="number"
-            value={servings}
-            onChange={(e) => setServings(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('total_time_min', 'Total time (min)')}</label>
-          <input
-            type="number"
-            value={totalTime}
-            onChange={(e) => setTotalTime(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('difficulty', 'Difficulty')}</label>
-          <select
-            value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-          >
-            <option value="">{t('select_dash', '– select –')}</option>
-            <option value="easy">{t('easy', 'easy')}</option>
-            <option value="medium">{t('medium', 'medium')}</option>
-            <option value="hard">{t('hard', 'hard')}</option>
-          </select>
-        </div>
-      </section>
-
-      {/* Ingredients */}
-      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('ingredients', 'Ingredients')}</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={autoMarkFlour}
-              className="px-3 py-1 rounded-lg border border-gray-300 dark:border-slate-600 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-              title={t('auto_mark_flour_tip', 'Mark rows as flour if name contains “jauho” or “flour”')}
-            >
-              {t('auto_mark_flour', 'Auto-mark flour')}
-            </button>
-            <button onClick={addIngredient} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
-              + {t('add_ingredient', 'Add ingredient')}
-            </button>
+      {/* Two-column layout */}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Ingredients */}
+        <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3 text-sm">
-          <span className="opacity-70">
-            {t('total_flour', 'Total flour')}: <span className="font-medium">{totalFlour || 0}</span> g
-          </span>
-          {totalFlour === 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-              ⚠️ {t('set_at_least_one_flour', 'Set at least one flour amount')}
-            </span>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          {withBakersPct.map((ing, idx) => (
-            <div key={idx} className="grid gap-2 sm:grid-cols-12 items-center">
-              <input
-                className="sm:col-span-4 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('name', 'Name')}
-                value={ing.name}
-                onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
-              />
-              <input
-                type="number"
-                className="sm:col-span-2 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('amount_g', 'Amount (g)')}
-                value={ingredients[idx].amount}
-                onChange={(e) => updateIngredient(idx, 'amount', e.target.value)}
-              />
-              <label className="sm:col-span-2 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={ingredients[idx].isFlour || false}
-                  onChange={(e) => updateIngredient(idx, 'isFlour', e.target.checked)}
-                />
-                {t('flour', 'Flour')}
-              </label>
-              <input
-                disabled
-                value={ing.bakers_pct === null ? '' : `${ing.bakers_pct}%`}
-                className="sm:col-span-3 rounded-lg border p-2 bg-gray-50 dark:bg-slate-700/60"
-                placeholder={t('bakers_pct_auto', "Baker's % (auto)")}
-              />
-              <button
-                onClick={() => removeIngredient(idx)}
-                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-              >
-                –
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Steps */}
-      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('instructions', 'Instructions')}</h2>
-          <button onClick={addStep} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
-            + {t('add_step', 'Add step')}
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {steps.map((s, idx) => (
-            <div key={idx} className="grid gap-2 sm:grid-cols-12 items-start">
-              <span className="sm:col-span-1 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700">
-                {idx + 1}
-              </span>
-              <textarea
-                rows={2}
-                className="sm:col-span-8 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('write_step', 'Write the step…')}
-                value={s.text}
-                onChange={(e) => updateStepText(idx, e.target.value)}
-              />
-              <input
-                type="number"
-                className="sm:col-span-2 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('time_min', 'Time (min)')}
-                value={s.time}
-                onChange={(e) => updateStepTime(idx, e.target.value)}
-                title={t('time_from_start_tip', 'Optional minutes from start; leave empty for null')}
-              />
-              <button
-                onClick={() => removeStep(idx)}
-                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-              >
-                –
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Tags (reusable component) */}
-      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
-        <h2 className="font-semibold">{t('tags', 'Tags')}</h2>
-        <TagsInput recipeId={id} value={tags} onChange={setTags} />
-      </section>
-
-      {/* Images */}
-      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('images', 'Images')}</h2>
-        </div>
-
-        <ImagesUploader recipeId={id} userId={userId} draftId={id} onUploaded={handleImagesUploaded} />
-
-        {uploaded.length > 0 && (
-          <>
-            <div className="space-y-2">
-              <h3 className="font-semibold">{t('hero_image', 'Hero image')}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {uploaded.map((f) => (
-                  <label key={f.url} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="hero"
-                      checked={hero === f.url}
-                      onChange={async () => {
-                        setHero(f.url);
-                        setUserPickedHero(true);
-                        await supabase.from('recipes').update({ cover_image: f.url }).eq('id', id);
-                      }}
-                    />
-                    <span className="text-sm truncate">
-                      {(() => {
-                        try {
-                          return new URL(f.url).pathname.split('/').pop();
-                        } catch {
-                          return 'image';
-                        }
-                      })()}
-                    </span>
-                  </label>
+          <div className="p-4 overflow-x-auto">
+            {(tData?.ingredients ?? recipe?.ingredients)?.length ? (
+              <ul className="space-y-2">
+                {(tData?.ingredients ?? recipe?.ingredients)?.map?.((ing, i) => (
+                  <li key={i} className="flex items-center justify-between">
+                    <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
+                    {ing.amount != null && (
+                      <span className="text-gray-600 dark:text-gray-300">
+                        {ing.amount} {ing.unit ?? ''}
+                      </span>
+                    )}
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ul>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('no_ingredients_listed','No ingredients listed.')}</div>
+            )}
+          </div>
+        </section>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {uploaded.map((f, idx) => (
-                <div
-                  key={f.url}
-                  className="relative group rounded-lg overflow-hidden border"
-                  draggable
-                  onDragStart={onDragStart(idx)}
-                  onDragOver={onDragOver}
-                  onDrop={onDrop(idx)}
-                  title={t('drag_to_reorder', 'Drag to reorder')}
-                >
-                  <img src={f.url} alt="" className="h-28 w-full object-cover" />
-                  <div className="absolute top-1 left-1 px-1.5 py-0.5 text-xs rounded bg-black/60 text-white">
-                    {idx + 1}
-                    {hero === f.url ? ` • ${t('hero', 'hero')}` : ''}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => deleteImage(idx)}
-                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition px-2 py-1 text-xs rounded bg-red-600 text-white"
-                    title={t('delete_image', 'Delete image')}
-                  >
-                    {t('delete', 'Delete')}
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs opacity-70">
-              {t(
-                'drag_tip',
-                'Tip: drag thumbnails to reorder. First image is used as hero unless you pick one above.'
-              )}
-            </p>
-          </>
-        )}
-      </section>
+        {/* Instructions (merged) */}
+        <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('instructions')}</h2>
+          </div>
+          <div className="p-4">
+            {renderSteps.length ? (
+              <ol className="list-decimal pl-5 space-y-2">
+                {renderSteps.map((s, i) => (
+                  <li key={i} className="text-gray-800 dark:text-gray-100">
+                    {s.text}
+                    {s.time != null && (
+                      <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
+                        +{s.time} {t('minutes_short')}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('no_instructions_provided','No instructions provided.')}</div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {/* Back link */}
+      <div className="mt-6 flex items-center gap-3">
+        <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          ← {t('back_to_recipes')}
+        </Link>
+
+        {/* Optional Edit button (uncomment if you want it here too) */}
+        {/* <Link to={`/recipe/${id}/edit`} className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
+          {t('edit_recipe','Edit recipe')}
+        </Link> */}
+      </div>
     </div>
   );
 }
