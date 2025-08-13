@@ -295,7 +295,7 @@ export default function EditRecipePage() {
     }
   };
 
-  // save (UPDATE) + translations via serverless
+  // save (UPDATE) + cache-aware translation trigger (no force)
   const handleSave = async () => {
     setError('');
     if (!title.trim()) {
@@ -348,33 +348,34 @@ export default function EditRecipePage() {
         .from('recipes')
         .update(updatedRecipe)
         .eq('id', id)
-        .select('id')
+        .select('id, updated_at')
         .maybeSingle();
 
       if (updErr) throw updErr;
       if (!updated) throw new Error(t('no_permission_update', 'Could not update recipe (no permission or not found).'));
 
-      // ---------- TRANSLATION via /api/translate-recipe ----------
+      // ---------- TRANSLATION via /api/translate-recipe (cache-aware, no force) ----------
       setTranslating(true);
       try {
-        const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map((s) => s.text) ?? [])]
+        const sample = [
+          updatedRecipe.title ?? '',
+          updatedRecipe.description ?? '',
+          ...(updatedRecipe.steps?.map((s) => s.text) ?? []),
+        ]
           .filter(Boolean)
           .join('\n');
 
         let src = await detectLanguage(sample);
-        if (!src) src = 'fi'; // reasonable default
+        if (!src) src = 'fi';
 
         const targets = TARGET_LANGS.filter((l) => l !== src);
         for (const tgt of targets) {
-          const r = await fetch('/api/translate-recipe', {
+          // No "force": API should upsert only if stale/missing
+          await fetch('/api/translate-recipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipeId: id, targetLang: tgt, force: true, debug: true }),
-          });
-          if (!r.ok) {
-            const j = await r.json().catch(() => ({}));
-            console.warn('translate-recipe failed', tgt, j);
-          }
+            body: JSON.stringify({ recipeId: id, targetLang: tgt }),
+          }).catch(() => {});
         }
       } finally {
         setTranslating(false);
