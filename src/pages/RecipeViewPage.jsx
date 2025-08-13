@@ -3,9 +3,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /* ---------------------- Small, dependency-free carousel ---------------------- */
-function HeroCarousel({ items = [], title = '', overlay = null }) {
+function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const urls = (items || [])
     .map((im) => (typeof im === 'string' ? im : im?.url))
     .filter(Boolean);
@@ -14,13 +15,11 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
   const touchStartX = useRef(null);
   const touchDeltaX = useRef(0);
 
-  useEffect(() => {
-    if (idx >= urls.length) setIdx(0);
-  }, [urls.length, idx]);
+  const go = (next) => {
+    if (urls.length === 0) return;
+    setIdx((p) => (p + next + urls.length) % urls.length);
+  };
 
-  if (!urls.length) return null;
-
-  const go = (n) => setIdx((prev) => (prev + n + urls.length) % urls.length);
   const onKey = (e) => {
     if (e.key === 'ArrowLeft') go(-1);
     if (e.key === 'ArrowRight') go(1);
@@ -35,86 +34,118 @@ function HeroCarousel({ items = [], title = '', overlay = null }) {
     touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
   };
   const onTouchEnd = () => {
-    const dx = touchDeltaX.current;
+    if (Math.abs(touchDeltaX.current) > 30) {
+      go(touchDeltaX.current > 0 ? -1 : 1);
+    }
     touchStartX.current = null;
     touchDeltaX.current = 0;
-    if (Math.abs(dx) > 40) go(dx > 0 ? -1 : 1);
   };
+
+  useEffect(() => {
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  if (!urls?.length) {
+    return (
+      <div className="relative w-full aspect-video bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center">
+        <div className="text-gray-500 dark:text-gray-400">{title || ''}</div>
+        {overlay}
+      </div>
+    );
+  }
 
   return (
     <div
-      className="mt-4 relative rounded-xl overflow-hidden"
-      tabIndex={0}
-      onKeyDown={onKey}
+      className="relative w-full aspect-video rounded-xl overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      aria-roledescription="carousel"
-      aria-label="Recipe images"
     >
-      <div className="w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 relative">
-        {urls.map((src, i) => (
-          <img
-            key={src + i}
-            src={src}
-            alt={title}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-              i === idx ? 'opacity-100' : 'opacity-0'
-            }`}
-            aria-hidden={i !== idx}
+      <img
+        src={urls[idx]}
+        alt={title || `Slide ${idx + 1}`}
+        className="w-full h-full object-cover"
+      />
+
+      {/* Overlay (author, description, etc) */}
+      {overlay}
+
+      {/* Prev/Next */}
+      <button
+        aria-label="Previous image"
+        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
+        onClick={() => go(-1)}
+      >
+        ‹
+      </button>
+      <button
+        aria-label="Next image"
+        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
+        onClick={() => go(1)}
+      >
+        ›
+      </button>
+
+      {/* Dots */}
+      <div className="absolute bottom-2 w-full flex items-center justify-center gap-2">
+        {urls.map((_, i) => (
+          <button
+            key={i}
+            aria-label={t('go_to_slide', { index: i + 1 })}
+            className={`w-2.5 h-2.5 rounded-full ${i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'}`}
+            onClick={() => setIdx(i)}
           />
         ))}
-        {overlay}
-        {urls.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={() => go(-1)}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/45 text-white px-2 py-2 hover:bg-black/60 focus:outline-none"
-              aria-label="Previous image"
-            >
-              ‹
-            </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/45 text-white px-2 py-2 hover:bg-black/60 focus:outline-none"
-              aria-label="Next image"
-            >
-              ›
-            </button>
-          </>
-        )}
-        {urls.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-            {urls.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setIdx(i)}
-                className={`h-2 w-2 rounded-full transition ${
-                  i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'
-                }`}
-                aria-label={`Go to slide ${i + 1}`}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
 }
-/* ---------------------------------------------------------------------------- */
 
+/* ---------------------------------- Utils ---------------------------------- */
+const parseIngredients = (text) => {
+  // supports lines: "300 g flour" or "Flour: 300 g" etc
+  return String(text ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const mG = line.match(/(\d+(?:[.,]\d+)?)\s*g\b/i);
+      const mMl = line.match(/(\d+(?:[.,]\d+)?)\s*ml\b/i);
+      const mPct = line.match(/(\d+(?:[.,]\d+)?)\s*%\b/);
+      const amount =
+        mG?.[1]?.replace(',', '.') ??
+        mMl?.[1]?.replace(',', '.') ??
+        mPct?.[1]?.replace(',', '.');
+
+      return {
+        name: line.replace(/[:\-–]\s*\d.+$/, '').replace(/\s+\d.+$/, '').trim(),
+        amount: amount ? Number(amount) : null,
+        unit: mG ? 'g' : mMl ? 'ml' : mPct ? '%' : null,
+      };
+    });
+};
+
+const parseSteps = (text) =>
+  String(text ?? '')
+    .split('\n')
+    .map((line) => String(line ?? '').trim())
+    .filter(Boolean);
+
+/* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
+  const { t } = useTranslation();
   const { id } = useParams();
-  const [recipe, setRecipe] = useState(null);
-  const [ingredients, setIngredients] = useState([]);
-  const [steps, setSteps] = useState([]);
-  const [images, setImages] = useState([]); // [{url}] or strings
-  const [author, setAuthor] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  // Logged-in user (for "Edit" button)
+  // Recipe + author
+  const [recipe, setRecipe] = useState(null);
+  const [author, setAuthor] = useState(null);
+  const [images, setImages] = useState([]);
+
+  // Translation data (if any)
+  const [tr, setTr] = useState(null);
+
+  // Auth (optional for likes)
   const [uid, setUid] = useState(null);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -124,11 +155,13 @@ export default function RecipeViewPage() {
 
   // UI language from sidebar (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
+  const targetLang = useMemo(() => (uiLang === 'auto' ? 'fi' : uiLang), [uiLang]);
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
     };
     const onLangChange = (e) => setUiLang(e.detail || localStorage.getItem('lang') || 'auto');
+
     window.addEventListener('storage', onStorage);
     window.addEventListener('langchange', onLangChange);
     return () => {
@@ -137,298 +170,200 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Normalizers
-  const normalizeIngredients = (ingRaw) => {
-    if (!ingRaw) return [];
-    if (Array.isArray(ingRaw) && ingRaw.every((x) => typeof x === 'object')) return ingRaw;
-    if (Array.isArray(ingRaw)) {
-      return ingRaw.map((line) => ({
-        name: String(line ?? '').trim(),
-        amount: '',
-        bakers_pct: '',
-      }));
-    }
-    if (typeof ingRaw === 'string') {
-      return ingRaw
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => {
-          const [name, amount, bakers] = line.split(';').map((s) => s?.trim());
-          return { name: name || '', amount: amount || '', bakers_pct: bakers || '' };
-        });
-    }
-    return [];
-  };
-
-  const normalizeSteps = (raw) => {
-    if (!raw) return [];
-    if (Array.isArray(raw) && raw.every((x) => typeof x === 'object')) {
-      return raw.map((s, i) => ({
-        position: s.position ?? i + 1,
-        text: s.text ?? s.content ?? s.description ?? String(s ?? ''),
-        time: s.time ?? s.minutes ?? null,
-      }));
-    }
-    if (Array.isArray(raw)) return raw.map((t, i) => ({ position: i + 1, text: String(t ?? '') }));
-    if (typeof raw === 'string') {
-      return raw
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((text, idx) => ({ position: idx + 1, text }));
-    }
-    return [];
-  };
-
+  // Load recipe + author + images
   useEffect(() => {
-    let isMounted = true;
+    let alive = true;
 
-    async function load() {
-      setLoading(true);
-
-      const { data: rcp, error: rErr } = await supabase
+    (async () => {
+      // base recipe
+      const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select(
-          'id,title,description,author_id,prep_time_minutes,servings,difficulty,cover_image,images,ingredients,steps,created_at'
+          `
+          id, user_id, title, description, ingredients, steps, tags, total_time, active_time, servings, mode,
+          created_at, updated_at
+        `
         )
         .eq('id', id)
         .single();
 
-      if (rErr) {
-        console.error('Recipe fetch error:', rErr.message);
-        if (isMounted) setLoading(false);
-        return;
+      if (recErr) {
+        console.warn('recipe select error', recErr);
       }
+      if (!alive) return;
 
-      // Legacy tables (ignored if missing)
-      let ing = [];
-      {
-        const { data, error } = await supabase
-          .from('recipe_ingredients')
-          .select('name, amount, bakers_pct, position')
-          .eq('recipe_id', id)
-          .order('position', { ascending: true });
-        if (!error && data?.length) ing = data;
-      }
+      setRecipe(recRow ?? null);
 
-      let st = [];
-      {
-        const { data, error } = await supabase
-          .from('recipe_steps')
-          .select('text, position, time')
-          .eq('recipe_id', id)
-          .order('position', { ascending: true });
-        if (!error && data?.length) st = data;
-      }
-
-      let img = [];
-      {
-        const { data, error } = await supabase
-          .from('recipe_images')
-          .select('url, position')
-          .eq('recipe_id', id)
-          .order('position', { ascending: true });
-        if (!error && data?.length) img = data;
-      }
-
-      // Fallbacks to inline fields (new schema first)
-      if (!ing?.length) ing = normalizeIngredients(rcp.ingredients);
-      if (!st?.length) st = normalizeSteps(rcp.steps || rcp.instructions);
-
-      let imgs = [];
-      if (Array.isArray(rcp.images) && rcp.images.length) {
-        imgs = rcp.images.map((u) => (typeof u === 'string' ? { url: u } : u));
-      } else if (img?.length) {
-        imgs = img;
-      } else if (rcp.cover_image) {
-        imgs = [{ url: rcp.cover_image }];
-      }
-
-      // Author (optional)
-      let profile = null;
-      try {
-        const userId = rcp.author_id || rcp.user_id || rcp.created_by;
-        if (userId) {
-          const { data: u } = await supabase
-            .from('users')
-            .select('id, email, username, avatar_url')
-            .eq('id', userId)
-            .single();
-          profile = u || null;
+      // author
+      if (recRow?.user_id) {
+        const { data: authRow, error: authErr } = await supabase
+          .from('users')
+          .select('id, email, username, avatar_url')
+          .eq('id', recRow.user_id)
+          .single();
+        if (authErr) {
+          console.warn('author select error', authErr);
         }
-      } catch (_) {}
-
-      if (isMounted) {
-        setRecipe(rcp);
-        setIngredients(ing || []);
-        setSteps(st || []);
-        setImages(imgs || []);
-        setAuthor(profile);
-        setLoading(false);
+        if (!alive) return;
+        setAuthor(authRow ?? null);
       }
-    }
 
-    load();
+      // images (may be empty)
+      const { data: imageRows, error: imgErr } = await supabase
+        .from('recipe_images')
+        .select('id, url, created_at')
+        .eq('recipe_id', id)
+        .order('created_at', { ascending: true });
+
+      if (imgErr) {
+        console.warn('images select error', imgErr);
+      }
+      if (!alive) return;
+      setImages(imageRows ?? []);
+    })();
+
     return () => {
-      isMounted = false;
+      alive = false;
     };
   }, [id]);
 
-  // Translation: prefer cached row; if missing, call serverless to create it
-  const [t, setT] = useState(null);
-
+  // Load translation (or clear to original if auto)
   useEffect(() => {
-    let cancelled = false;
+    let alive = true;
 
     (async () => {
-      if (!id) return;
-
-      // Auto = show base recipe as-is
       if (uiLang === 'auto') {
-        setT(null);
+        setTr(null);
         return;
       }
 
+      // 1) Check if we already have a stored translation
+      const { data: trRow, error: trErr } = await supabase
+        .from('recipe_translations')
+        .select('title,description,ingredients,steps')
+        .eq('recipe_id', id)
+        .eq('lang', targetLang)
+        .single();
+
+      if (trErr && trErr?.code !== 'PGRST116') {
+        // PGRST116 = not found (single returns no rows)
+        console.warn('translation select error', trErr);
+      }
+
+      if (trRow) {
+        if (!alive) return;
+        setTr(trRow);
+        return;
+      }
+
+      // 2) Else request a fresh translation via the API
       try {
-        // 1) Try cached translation
-        const { data: trRow, error: trErr } = await supabase
-          .from('recipe_translations')
-          .select('title,description,ingredients,steps')
-          .eq('recipe_id', id)
-          .eq('lang', uiLang)
-          .maybeSingle();
-
-        if (cancelled) return;
-
-        if (trErr) {
-          console.warn('translation select error', trErr);
-        }
-
-        if (trRow) {
-          setT({
-            title: trRow.title ?? undefined,
-            description: trRow.description ?? undefined,
-            ingredients: Array.isArray(trRow.ingredients) ? trRow.ingredients : undefined,
-            steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
-          });
-          return;
-        }
-
-        // 2) No cache → serverless (translate + upsert)
-        const resp = await fetch('/api/translate-recipe', {
+        const res = await fetch('/api/translate-recipe', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ recipeId: id, targetLang: uiLang }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipeId: id, targetLang }),
         });
 
-        const data = await resp.json().catch(() => ({}));
-        if (cancelled) return;
-
-        if (resp.ok) {
-          setT({
-            title: data.title ?? undefined,
-            description: data.description ?? undefined,
-            ingredients: Array.isArray(data.ingredients) ? data.ingredients : undefined,
-            steps: Array.isArray(data.steps) ? data.steps : undefined,
-          });
-        } else {
-          console.warn('translate-recipe failed', data);
-          setT(null);
-        }
+        if (!res.ok) throw new Error(`Translate API failed: ${res.status}`);
+        const json = await res.json();
+        if (!alive) return;
+        setTr(json?.translation ?? null);
       } catch (e) {
-        console.warn('translation flow error', e);
-        if (!cancelled) setT(null);
+        console.warn('translate api error', e);
+        if (!alive) return;
+        setTr(null);
       }
     })();
 
     return () => {
-      cancelled = true;
+      alive = false;
     };
   }, [id, uiLang]);
 
-  const title = t?.title ?? recipe?.title ?? 'Resepti';
-  const description = t?.description ?? recipe?.description ?? '';
-  const servings = recipe?.servings ?? null;
-  const totalTime =
-    recipe?.prep_time_minutes ??
-    recipe?.total_time ??
-    recipe?.bake_time ??
-    recipe?.time_total ??
-    null;
-  const difficulty = recipe?.difficulty ?? null;
+  // Render the chosen view (original vs translated)
+  const title = tr?.title ?? recipe?.title ?? '';
+  const description = tr?.description ?? recipe?.description ?? '';
+  const ingredients = useMemo(() => parseIngredients(tr?.ingredients ?? recipe?.ingredients ?? ''), [tr, recipe]);
+  const steps = useMemo(() => parseSteps(tr?.steps ?? recipe?.steps ?? ''), [tr, recipe]);
 
-  const hasAnyStats = !!(servings || totalTime || difficulty);
-
-  const statChips = useMemo(
-    () =>
-      [
-        servings != null ? { icon: Users, label: `${servings} annosta` } : null,
-        totalTime != null ? { icon: Clock, label: `${totalTime} min` } : null,
-        difficulty ? { icon: ChefHat, label: difficulty } : null,
-      ].filter(Boolean),
-    [servings, totalTime, difficulty]
+  // Derive some layout bits
+  const tags = useMemo(
+    () => String(recipe?.tags ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    [recipe]
   );
 
-  const ingredientsToRender = t?.ingredients ?? ingredients;
-  const stepsToRender = t?.steps ?? steps;
-
-  const sortedSteps = useMemo(
-    () =>
-      (stepsToRender || [])
-        .slice()
-        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
-    [stepsToRender]
-  );
-
-  if (loading) {
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-48 rounded-xl bg-gray-200 dark:bg-gray-800" />
-          <div className="h-6 w-1/3 bg-gray-200 dark:bg-gray-800 rounded" />
-          <div className="h-4 w-2/3 bg-gray-200 dark:bg-gray-800 rounded" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!recipe) {
-    return (
-      <div className="max-w-4xl mx-auto p-6">
-        <p className="text-gray-700 dark:text-gray-300">Recipe not found.</p>
-        <Link to="/browse" className="text-blue-600 dark:text-blue-400 underline">
-          ← Back to recipes
-        </Link>
-      </div>
-    );
-  }
+  const timeParts = useMemo(() => {
+    const total = recipe?.total_time ? String(recipe.total_time) : '';
+    const active = recipe?.active_time ? String(recipe.active_time) : '';
+    const asNum = (s) => Number(String(s).replace(/[^\d.,]/g, '').replace(',', '.')) || null;
+    return {
+      total,
+      active,
+      totalNum: asNum(total),
+      activeNum: asNum(active),
+    };
+  }, [recipe]);
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6">
-      {/* Title + Edit */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{title}</h1>
+    <div className="max-w-5xl mx-auto p-4 md:p-6">
+      {/* Breadcrumbs */}
+      <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        <Link to="/browse" className="hover:underline">
+          {t('recipe_library')}
+        </Link>
+        <span className="px-2">/</span>
+        <span className="text-gray-900 dark:text-gray-100">
+          {title || t('open_recipe')}
+        </span>
+      </div>
 
-          {/* Shows when a translation is applied */}
-          {uiLang !== 'auto' && t && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
-              title={`Viewing ${uiLang.toUpperCase()} translation`}
-            >
-              {uiLang.toUpperCase()}
-            </span>
+      {/* Header: title + meta */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+            {title || t('open_recipe')}
+          </h1>
+
+          {(author?.username || author?.email || description) && (
+            <div className="mt-2 flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+              {author?.username || author?.email ? (
+                <div className="flex items-center gap-2">
+                  <ChefHat className="w-4 h-4" />
+                  <span>{author?.username || author?.email}</span>
+                </div>
+              ) : null}
+
+              {description ? (
+                <div className="line-clamp-2">{description}</div>
+              ) : null}
+            </div>
           )}
         </div>
 
-        {uid && recipe?.author_id === uid && (
-          <Link
-            to={`/recipe/${recipe.id}/edit`}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
-          >
-            Edit
-          </Link>
+        {/* Meta pills */}
+        {(timeParts.totalNum || timeParts.activeNum || recipe?.servings) && (
+          <div className="flex items-center gap-2">
+            {timeParts.totalNum ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                <Clock className="w-3.5 h-3.5" />
+                {timeParts.totalNum} {t('minutes_short')}
+              </span>
+            ) : null}
+            {timeParts.activeNum ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                ⏱ {timeParts.activeNum} {t('minutes_short')} active
+              </span>
+            ) : null}
+            {recipe?.servings ? (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+                <Users className="w-3.5 h-3.5" />
+                {recipe.servings}
+              </span>
+            ) : null}
+          </div>
         )}
       </div>
 
@@ -436,6 +371,7 @@ export default function RecipeViewPage() {
       <HeroCarousel
         title={title}
         items={images}
+        t={t}
         overlay={
           (author?.username || author?.email || description) && (
             <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
@@ -443,19 +379,24 @@ export default function RecipeViewPage() {
                 {author?.avatar_url ? (
                   <img
                     src={author.avatar_url}
-                    alt={author.username || author.email}
-                    className="w-8 h-8 rounded-full object-cover"
+                    alt={author?.username || author?.email}
+                    className="w-9 h-9 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-8 h-8 rounded-full bg-white/30 flex items-center justify-center text-xs">
-                    {((author?.username || author?.email || 'U') ?? 'U').slice(0, 1).toUpperCase()}
+                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+                    <ChefHat className="w-5 h-5" />
                   </div>
                 )}
-                <div className="text-sm leading-tight">
-                  <div className="font-semibold">
-                    {author?.username || author?.email || 'Unknown author'}
+
+                <div className="text-sm">
+                  <div className="font-medium">
+                    {author?.username || author?.email}
                   </div>
-                  {description ? <div className="opacity-90 line-clamp-1">{description}</div> : null}
+                  {description ? (
+                    <div className="opacity-90 line-clamp-2 max-w-[50ch]">
+                      {description}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -463,93 +404,79 @@ export default function RecipeViewPage() {
         }
       />
 
-      {/* Stat chips */}
-      {hasAnyStats && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {statChips.map(({ icon: Icon, label }, i) => (
-            <div
-              key={i}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shadow-sm text-sm text-gray-700 dark:text-gray-200"
+      {/* Tags */}
+      {tags?.length > 0 && (
+        <div className="mt-6 flex flex-wrap items-center gap-2">
+          {tags.map((tag, i) => (
+            <span
+              key={`${tag}-${i}`}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
             >
-              <Icon className="w-4 h-4" />
-              {label}
-            </div>
+              # {tag}
+            </span>
           ))}
         </div>
       )}
 
-      {/* Grid: Ingredients / Instructions */}
-      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ingredients */}
-        <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Ingredients</h2>
-          </div>
-          <div className="p-4 overflow-x-auto">
-            {ingredientsToRender?.length ? (
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-500 dark:text-gray-400">
-                    <th className="py-2 pr-4 font-medium">Name</th>
-                    <th className="py-2 pr-4 font-medium text-right">Amount</th>
-                    <th className="py-2 font-medium text-right">Baker&apos;s %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ingredientsToRender.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className={idx % 2 ? 'bg-gray-50 dark:bg-slate-900/40' : 'bg-transparent'}
-                    >
-                      <td className="py-2 pr-4 text-gray-800 dark:text-gray-200">{row.name ?? ''}</td>
-                      <td className="py-2 pr-4 text-gray-800 dark:text-gray-200 text-right">
-                        {row.amount ?? ''}
-                      </td>
-                      <td className="py-2 text-gray-800 dark:text-gray-200 text-right">
-                        {row.bakers_pct ?? ''}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="text-gray-600 dark:text-gray-300">No ingredients listed.</p>
-            )}
-          </div>
+      {/* Translation badge */}
+      <div className="mt-4">
+        {uiLang !== 'auto' && tr && (
+          <span
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
+            title={`Viewing ${uiLang.toUpperCase()} translation`}
+          >
+            🌐 {uiLang.toUpperCase()}
+          </span>
+        )}
+      </div>
+
+      {/* Two-column layout: ingredients + steps */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+          <h2 className="text-lg font-semibold mb-3">{t('ingredients')}</h2>
+          {ingredients?.length ? (
+            <ul className="space-y-2">
+              {ingredients.map((ing, i) => (
+                <li key={i} className="flex items-center justify-between">
+                  <span className="text-gray-800 dark:text-gray-100">{ing.name}</span>
+                  {ing.amount != null && (
+                    <span className="text-gray-600 dark:text-gray-300">
+                      {ing.amount}{' '}
+                      {ing.unit || ''}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {t('no_ingredients_listed')}
+            </div>
+          )}
         </section>
 
-        {/* Instructions */}
-        <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Instructions</h2>
-          </div>
-          <div className="p-4">
-            {sortedSteps.length ? (
-              <ol className="space-y-2 list-decimal pl-5 marker:text-gray-500 dark:marker:text-gray-400">
-                {sortedSteps.map((s, i) => (
-                  <li key={i} className="text-gray-800 dark:text-gray-200">
-                    <div className="flex items-start gap-2">
-                      <span className="flex-1">{s.text || s}</span>
-                      {s.time != null && s.time !== '' && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
-                          +{s.time} min
-                        </span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p className="text-gray-600 dark:text-gray-300">No instructions provided.</p>
-            )}
-          </div>
+        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
+          <h2 className="text-lg font-semibold mb-3">{t('instructions')}</h2>
+          {steps?.length ? (
+            <ol className="list-decimal pl-5 space-y-2">
+              {steps.map((s, i) => (
+                <li key={i} className="text-gray-800 dark:text-gray-100">
+                  {s}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              {t('no_instructions_provided')}
+            </div>
+          )}
         </section>
       </div>
 
       {/* Back link */}
       <div className="mt-6">
         <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
-          ← Back to recipes
+          ← {t('back_to_recipes')}
         </Link>
       </div>
     </div>
