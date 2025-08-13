@@ -1,5 +1,4 @@
-// Serverless: Vercel /api
-// Env needed on Vercel: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DEEPL_API_KEY
+// /api/translate-recipe.js
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL =
@@ -10,7 +9,6 @@ const SUPABASE_URL =
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DEEPL_API_KEY = process.env.DEEPL_API_KEY;
 
-// Use SERVICE ROLE to bypass RLS when writing translations
 const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 export default async function handler(req, res) {
@@ -20,9 +18,12 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { recipeId, targetLang, force = false } = req.body || {};
+    const { recipeId, targetLang } = req.body || {};
     if (!recipeId || !targetLang) {
       return res.status(400).json({ error: 'recipeId and targetLang are required' });
+    }
+    if (!SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({ error: 'missing_service_role_key' });
     }
 
     // 1) Load base recipe
@@ -33,14 +34,10 @@ export default async function handler(req, res) {
       .single();
 
     if (recErr || !recipe) {
-      return res.status(404).json({ error: 'Recipe not found', details: recErr?.message });
+      return res.status(404).json({ error: 'recipe_not_found', details: recErr?.message });
     }
 
-    // 2) If not forcing and we already have a translation, you could early-exit.
-    // We now rely on the client to call with force only when translatable changed,
-    // so we skip the hash logic here.
-
-    // 3) Collect strings to translate in ONE DeepL call
+    // 2) Build translation batch
     const src = {
       title: recipe.title ?? '',
       description: recipe.description ?? '',
@@ -71,7 +68,6 @@ export default async function handler(req, res) {
       params.set('target_lang', String(targetLang).toUpperCase());
       texts.forEach((t) => params.append('text', t));
 
-      // Use api-free for DeepL Free; change to https://api.deepl.com/v2/translate for Pro
       const resp = await fetch('https://api-free.deepl.com/v2/translate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -87,7 +83,6 @@ export default async function handler(req, res) {
 
     const pick = (i) => (i == null ? null : translated[i]);
 
-    // 4) Rebuild translated payload
     const tr = {
       title: mapIdx.title != null ? pick(mapIdx.title) : null,
       description: mapIdx.description != null ? pick(mapIdx.description) : null,
@@ -101,7 +96,6 @@ export default async function handler(req, res) {
       })),
     };
 
-    // 5) Upsert translation row
     const { data: up, error: upErr } = await admin
       .from('recipe_translations')
       .upsert(
@@ -110,8 +104,8 @@ export default async function handler(req, res) {
           lang: targetLang,
           title: tr.title ?? null,
           description: tr.description ?? null,
-          steps: tr.steps,           // JSONB
-          ingredients: tr.ingredients, // JSONB
+          steps: tr.steps,
+          ingredients: tr.ingredients,
         },
         { onConflict: 'recipe_id,lang' }
       )
@@ -122,7 +116,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'upsert_failed', details: upErr.message });
     }
 
-    return res.status(200).json({ ok: true, translation: tr, up });
+    return res.status(200).json({ ok: true, up, translation: tr, counts: { texts: texts.length } });
   } catch (e) {
     return res.status(500).json({ error: 'unexpected', details: String(e?.message || e) });
   }
