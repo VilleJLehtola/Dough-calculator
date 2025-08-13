@@ -86,5 +86,12 @@
   "white_flour": "Vitt mjöl",
   "rye_flour": "Rågmjöl",
   "oil": "Olja",
-  "total_dough_weight": "Total degvikt"
+  "total_dough_weight": "Total degvikt",
+    "search_recipes": "Sök recept",
+  "clear": "Rensa",
+  "most_liked_recipes": "Mest gillade recept",
+  "most_liked_subtitle": "Communityns mest gillade recept",
+  "coming_soon": "Kommer snart",
+  "no_ingredients_listed": "Inga ingredienser angivna.",
+  "no_instructions_provided": "Inga instruktioner angivna."
 }
