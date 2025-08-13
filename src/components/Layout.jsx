@@ -1,43 +1,50 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import Header from './Header';
 import Sidebar from './Sidebar';
+import Header from './Header';
 import MobileMenu from './MobileMenu';
 import DarkModeToggle from './DarkModeToggle';
 
-const Layout = ({ children, user, onLoginClick, onLogout }) => {
-  const location = useLocation();
-  const [isMobile, setIsMobile] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+const Layout = ({ children, user, onLoginClick }) => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setSidebarOpen(!mobile);
     };
 
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(prev => !prev);
-  };
+  const toggleSidebar = () => setSidebarOpen((prev) => !prev);
+  const toggleMobileMenu = () => setMobileMenuOpen((prev) => !prev);
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 dark:from-slate-900 dark:to-slate-800 text-gray-900 dark:text-gray-100 transition-colors duration-500">
-      {isMobile ? (
-        <MobileMenu
-          isOpen={isMobileMenuOpen}
-          setIsOpen={setIsMobileMenuOpen}
-          user={user}
-          onLoginClick={onLoginClick}
-          onLogout={onLogout}
-        />
-      ) : (
-        <Sidebar user={user} onLogout={onLogout} />
+    <div className="min-h-screen flex bg-gray-50 dark:bg-gray-950">
+      {/* Sidebar (desktop) */}
+      {!isMobile && (
+        <aside className={`transition-all duration-300 ${sidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800`}>
+          <Sidebar
+            user={user}
+            collapsed={!sidebarOpen}
+            toggleSidebar={toggleSidebar}
+          />
+        </aside>
       )}
 
+      {/* Mobile menu (overlay) */}
+      {isMobile && (
+        <MobileMenu
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Main content */}
       <div className="flex-1 flex flex-col">
         <Header user={user} toggleMobileMenu={toggleMobileMenu} onLoginClick={onLoginClick} />
         <main className="flex-1 p-4">{children}</main>
