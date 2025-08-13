@@ -1,375 +1,294 @@
 // /src/pages/EditRecipePage.jsx
-import React, { useEffect, useMemo, useState, useRef } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
-import supabase from '@/supabaseClient'
-import ImagesUploader from '@/components/ImagesUploader'
-import { detectLanguage } from '@/utils/translate' // we only need detect to skip source
-import { useTranslation } from 'react-i18next'
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
+import supabase from '@/supabaseClient';
+import ImagesUploader from '@/components/ImagesUploader';
+import TagsInput from '@/components/common/TagsInput';
+import { detectLanguage } from '@/utils/translate';
+import { useTranslation } from 'react-i18next';
 
-const BUCKET = 'recipe-images'
-const TARGET_LANGS = ['en', 'sv'] // extend here
+const BUCKET = 'recipe-images';
+const TARGET_LANGS = ['en', 'sv']; // extend here
 
 function newIngredient() {
-  return { name: '', amount: '', isFlour: false } // bakers_pct is computed
+  return { name: '', amount: '', isFlour: false }; // bakers_pct is computed
 }
 function newStep(i = 1) {
-  return { position: i, text: '', time: '' }
+  return { position: i, text: '', time: '' };
 }
 
 // derive storage path from a public URL
 function urlToPath(url) {
   try {
-    const u = new URL(url)
-    const ix = u.pathname.indexOf(`/object/public/${BUCKET}/`)
-    if (ix === -1) return null
-    return u.pathname.slice(ix + `/object/public/${BUCKET}/`.length)
+    const u = new URL(url);
+    const ix = u.pathname.indexOf(`/object/public/${BUCKET}/`);
+    if (ix === -1) return null;
+    return u.pathname.slice(ix + `/object/public/${BUCKET}/`.length);
   } catch {
-    return null
+    return null;
   }
 }
 
 // list folder -> [{url, path}]
 async function listFolderUrls(folder) {
-  const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 })
-  if (error || !files?.length) return []
+  const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 });
+  if (error || !files?.length) return [];
   return files
-    .filter(f => !f.name.startsWith('.'))
-    .map(f => {
-      const path = `${folder}/${f.name}`
-      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path)
-      return { url: pub.publicUrl, path }
-    })
+    .filter((f) => !f.name.startsWith('.'))
+    .map((f) => {
+      const path = `${folder}/${f.name}`;
+      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      return { url: pub.publicUrl, path };
+    });
 }
 
 export default function EditRecipePage() {
-  const { t } = useTranslation()
-  const nav = useNavigate()
-  const { id } = useParams()
+  const { t } = useTranslation();
+  const nav = useNavigate();
+  const { id } = useParams();
 
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [userId, setUserId] = useState(null)
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [userId, setUserId] = useState(null);
 
   // basics
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [totalTime, setTotalTime] = useState('')
-  const [servings, setServings] = useState('')
-  const [difficulty, setDifficulty] = useState('')
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [totalTime, setTotalTime] = useState('');
+  const [servings, setServings] = useState('');
+  const [difficulty, setDifficulty] = useState('');
 
   // json
-  const [ingredients, setIngredients] = useState([newIngredient()])
-  const [steps, setSteps] = useState([newStep(1)])
+  const [ingredients, setIngredients] = useState([newIngredient()]);
+  const [steps, setSteps] = useState([newStep(1)]);
 
   // images
-  const [uploaded, setUploaded] = useState([])    // [{url, path}]
-  const [hero, setHero] = useState(null)
-  const [userPickedHero, setUserPickedHero] = useState(false)
+  const [uploaded, setUploaded] = useState([]); // [{url, path}]
+  const [hero, setHero] = useState(null);
+  const [userPickedHero, setUserPickedHero] = useState(false);
 
   // tags
-  const [tags, setTags] = useState([]) // [{id, name}]
-  const [tagInput, setTagInput] = useState('')
-  const [suggestions, setSuggestions] = useState([]) // [{id, name}]
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
-  const suggestTimer = useRef(null)
+  const [tags, setTags] = useState([]); // [{id, name}]
 
   // flags
-  const [isLoaded, setIsLoaded] = useState(false)
-  const [translating, setTranslating] = useState(false)
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [translating, setTranslating] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null))
-  }, [])
+    supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
+  }, []);
 
   // load recipe + tags
   useEffect(() => {
-    let alive = true
-    ;(async () => {
-      setError('')
+    let alive = true;
+    (async () => {
+      setError('');
       const { data: r, error: err } = await supabase
         .from('recipes')
-        .select('id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image,updated_at')
+        .select(
+          'id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image'
+        )
         .eq('id', id)
-        .single()
-      if (err) { setError(err.message); return }
-      if (!alive) return
+        .single();
+      if (err) {
+        setError(err.message);
+        return;
+      }
+      if (!alive) return;
 
       // basics
-      setTitle(r.title || '')
-      setDescription(r.description || '')
-      setTotalTime(r.prep_time_minutes ?? '')
-      setServings(r.servings ?? '')
-      setDifficulty(r.difficulty || '')
+      setTitle(r.title || '');
+      setDescription(r.description || '');
+      setTotalTime(r.prep_time_minutes ?? '');
+      setServings(r.servings ?? '');
+      setDifficulty(r.difficulty || '');
 
       // json
-      setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()])
-      setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)])
+      setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()]);
+      setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)]);
 
       // images
-      let imgs = []
+      let imgs = [];
       if (Array.isArray(r.images) && r.images.length) {
-        imgs = r.images.map(u => ({ url: u, path: urlToPath(u) }))
+        imgs = r.images.map((u) => ({ url: u, path: urlToPath(u) }));
       } else {
-        imgs = await listFolderUrls(`recipes/${id}`)
+        imgs = await listFolderUrls(`recipes/${id}`);
       }
-      setUploaded(imgs)
-      setHero(r.cover_image || imgs[0]?.url || null)
+      setUploaded(imgs);
+      setHero(r.cover_image || imgs[0]?.url || null);
 
-      // tags (load via join on recipe_tags -> tags)
+      // tags (recipe_tags -> tags)
       try {
         const { data: rt, error: rtErr } = await supabase
           .from('recipe_tags')
           .select('tag_id, tags ( id, name )')
-          .eq('recipe_id', id)
+          .eq('recipe_id', id);
         if (!rtErr && Array.isArray(rt)) {
-          const uniq = []
-          const seen = new Set()
+          const uniq = [];
+          const seen = new Set();
           for (const row of rt) {
-            const tid = row.tags?.id ?? row.tag_id
-            const nm = row.tags?.name ?? ''
+            const tid = row.tags?.id ?? row.tag_id;
+            const nm = row.tags?.name ?? '';
             if (tid && nm && !seen.has(tid)) {
-              seen.add(tid)
-              uniq.push({ id: tid, name: nm })
+              seen.add(tid);
+              uniq.push({ id: tid, name: nm });
             }
           }
-          setTags(uniq)
+          setTags(uniq);
         }
       } catch (e) {
-        console.warn('load tags error', e)
+        console.warn('load tags error', e);
       }
 
-      setIsLoaded(true)
-    })()
-    return () => { alive = false }
-  }, [id])
+      setIsLoaded(true);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   // ---------- Baker’s % ----------
-  const totalFlour = useMemo(() =>
-    ingredients.reduce((sum, ing) => {
-      const amt = Number(ing.amount)
-      return sum + (ing.isFlour && !Number.isNaN(amt) ? amt : 0)
-    }, 0)
-  , [ingredients])
+  const totalFlour = useMemo(
+    () =>
+      ingredients.reduce((sum, ing) => {
+        const amt = Number(ing.amount);
+        return sum + (ing.isFlour && !Number.isNaN(amt) ? amt : 0);
+      }, 0),
+    [ingredients]
+  );
 
-  const withBakersPct = useMemo(() =>
-    ingredients.map((ing) => {
-      const amt = Number(ing.amount)
-      if (Number.isNaN(amt) || !totalFlour) return { ...ing, bakers_pct: null }
-      const rounded = Math.round(((amt / totalFlour) * 100) * 10) / 10
-      return { ...ing, bakers_pct: rounded }
-    })
-  , [ingredients, totalFlour])
+  const withBakersPct = useMemo(
+    () =>
+      ingredients.map((ing) => {
+        const amt = Number(ing.amount);
+        if (Number.isNaN(amt) || !totalFlour) return { ...ing, bakers_pct: null };
+        const rounded = Math.round((amt / totalFlour) * 100 * 10) / 10;
+        return { ...ing, bakers_pct: rounded };
+      }),
+    [ingredients, totalFlour]
+  );
 
   // ingredient ops
   const updateIngredient = (i, k, v) =>
-    setIngredients(prev => prev.map((row, idx) => (idx === i ? { ...row, [k]: v } : row)))
-  const addIngredient = () => setIngredients(prev => [...prev, newIngredient()])
-  const removeIngredient = (i) => setIngredients(prev => prev.filter((_, idx) => idx !== i))
+    setIngredients((prev) => prev.map((row, idx) => (idx === i ? { ...row, [k]: v } : row)));
+  const addIngredient = () => setIngredients((prev) => [...prev, newIngredient()]);
+  const removeIngredient = (i) => setIngredients((prev) => prev.filter((_, idx) => idx !== i));
 
   // steps ops
-  const updateStepText = (i, v) =>
-    setSteps(prev => prev.map((s, idx) => (idx === i ? { ...s, text: v } : s)))
-  const updateStepTime = (i, v) =>
-    setSteps(prev => prev.map((s, idx) => (idx === i ? { ...s, time: v } : s)))
-  const addStep = () => setSteps(prev => [...prev, newStep(prev.length + 1)])
-  const removeStep = (i) =>
-    setSteps(prev => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, position: idx + 1 })))
+  const updateStepText = (i, v) => setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, text: v } : s)));
+  const updateStepTime = (i, v) => setSteps((prev) => prev.map((s, idx) => (idx === i ? { ...s, time: v } : s)));
+  const addStep = () => setSteps((prev) => [...prev, newStep(prev.length + 1)]);
+  const removeStep = (i) => setSteps((prev) => prev.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, position: idx + 1 })));
 
   // flour helper
   const autoMarkFlour = () => {
-    const re = /(jauho|flour)/i
-    setIngredients(prev => prev.map(ing => ({
-      ...ing,
-      isFlour: re.test(ing.name || '') ? true : ing.isFlour
-    })))
-  }
+    const re = /(jauho|flour)/i;
+    setIngredients((prev) =>
+      prev.map((ing) => ({
+        ...ing,
+        isFlour: re.test(ing.name || '') ? true : ing.isFlour,
+      }))
+    );
+  };
 
   // uploads
   const handleImagesUploaded = async (files) => {
-    if (!files?.length) return
-    const next = [...uploaded, ...files]
-    setUploaded(next)
-    if (!userPickedHero && !hero && next[0]) setHero(next[0].url)
+    if (!files?.length) return;
+    const next = [...uploaded, ...files];
+    setUploaded(next);
+    if (!userPickedHero && !hero && next[0]) setHero(next[0].url);
 
     // persist immediately
-    const urls = next.map(f => f.url)
-    const chosen = userPickedHero ? hero : (urls[0] || null)
-    await supabase.from('recipes').update({ images: urls, cover_image: chosen }).eq('id', id)
-    if (!userPickedHero) setHero(chosen)
-  }
+    const urls = next.map((f) => f.url);
+    const chosen = userPickedHero ? hero : urls[0] || null;
+    await supabase.from('recipes').update({ images: urls, cover_image: chosen }).eq('id', id);
+    if (!userPickedHero) setHero(chosen);
+  };
 
-  // drag & drop
-  const [dragIndex, setDragIndex] = useState(null)
-  const onDragStart = (idx) => () => setDragIndex(idx)
-  const onDragOver = (e) => e.preventDefault()
+  // dnd
+  const [dragIndex, setDragIndex] = useState(null);
+  const onDragStart = (idx) => () => setDragIndex(idx);
+  const onDragOver = (e) => e.preventDefault();
   const onDrop = (idx) => async (e) => {
-    e.preventDefault()
-    if (dragIndex === null || dragIndex === idx) return
-    const next = [...uploaded]
-    const [moved] = next.splice(dragIndex, 1)
-    next.splice(idx, 0, moved)
-    setUploaded(next)
+    e.preventDefault();
+    if (dragIndex === null || dragIndex === idx) return;
+    const next = [...uploaded];
+    const [moved] = next.splice(dragIndex, 1);
+    next.splice(idx, 0, moved);
+    setUploaded(next);
 
-    const urls = next.map(f => f.url)
-    await supabase.from('recipes').update({
-      images: urls,
-      cover_image: userPickedHero ? hero : (urls[0] || null),
-    }).eq('id', id)
-    if (!userPickedHero) setHero(urls[0] || null)
-    setDragIndex(null)
-  }
+    const urls = next.map((f) => f.url);
+    await supabase
+      .from('recipes')
+      .update({
+        images: urls,
+        cover_image: userPickedHero ? hero : urls[0] || null,
+      })
+      .eq('id', id);
+    if (!userPickedHero) setHero(urls[0] || null);
+    setDragIndex(null);
+  };
 
   // delete image
   const deleteImage = async (idx) => {
-    const target = uploaded[idx]
-    if (!target) return
+    const target = uploaded[idx];
+    if (!target) return;
     if (target.path) {
-      await supabase.storage.from(BUCKET).remove([target.path])
+      await supabase.storage.from(BUCKET).remove([target.path]);
     }
-    const next = uploaded.filter((_, i) => i !== idx)
-    setUploaded(next)
+    const next = uploaded.filter((_, i) => i !== idx);
+    setUploaded(next);
 
-    let nextHero = hero
+    let nextHero = hero;
     if (hero === target.url) {
-      nextHero = next[0]?.url || null
-      setHero(nextHero)
-      setUserPickedHero(false)
+      nextHero = next[0]?.url || null;
+      setHero(nextHero);
+      setUserPickedHero(false);
     }
-    await supabase.from('recipes').update({
-      images: next.map(f => f.url),
-      cover_image: nextHero || null,
-    }).eq('id', id)
-  }
-
-  // ---------- TAGS: helpers ----------
-  const normalizeTagName = (s) => s.trim().replace(/\s+/g, ' ')
-  const hasTagName = (name) =>
-    tags.some(tg => tg.name.toLowerCase() === name.toLowerCase())
-
-  const bumpRecipeUpdatedAt = async () => {
-    // Try to bump updated_at to refresh search_vec (if you enabled it)
-    try {
-      await supabase.from('recipes').update({ updated_at: new Date().toISOString() }).eq('id', id)
-    } catch (e) {
-      // ignore if column missing
-    }
-  }
-
-  const addTagByName = async (raw) => {
-    const name = normalizeTagName(raw)
-    if (!name) return
-    if (hasTagName(name)) {
-      setTagInput('')
-      setSuggestions([])
-      return
-    }
-
-    // 1) Upsert into tags (name is citext unique)
-    const { data: tagRow, error: tagErr } = await supabase
-      .from('tags')
-      .upsert([{ name }], { onConflict: 'name' })
-      .select('id, name')
-      .single()
-
-    if (tagErr || !tagRow?.id) {
-      console.warn('tag upsert error', tagErr)
-      return
-    }
-
-    // 2) Link in recipe_tags (composite PK; use upsert to ignore duplicates)
-    const { error: linkErr } = await supabase
-      .from('recipe_tags')
-      .upsert([{ recipe_id: id, tag_id: tagRow.id }], { onConflict: 'recipe_id,tag_id' })
-
-    if (linkErr) {
-      console.warn('recipe_tags upsert error', linkErr)
-      return
-    }
-
-    setTags(prev => [...prev, { id: tagRow.id, name: tagRow.name }])
-    setTagInput('')
-    setSuggestions([])
-
-    await bumpRecipeUpdatedAt()
-  }
-
-  const removeTag = async (tagId) => {
-    const { error: delErr } = await supabase
-      .from('recipe_tags')
-      .delete()
-      .eq('recipe_id', id)
-      .eq('tag_id', tagId)
-
-    if (delErr) {
-      console.warn('recipe_tags delete error', delErr)
-      return
-    }
-    setTags(prev => prev.filter(t => t.id !== tagId))
-    await bumpRecipeUpdatedAt()
-  }
-
-  // Suggest tags as you type (debounced)
-  useEffect(() => {
-    if (suggestTimer.current) clearTimeout(suggestTimer.current)
-    const q = tagInput.trim()
-    if (!q) { setSuggestions([]); return }
-    suggestTimer.current = setTimeout(async () => {
-      setLoadingSuggestions(true)
-      try {
-        const { data, error } = await supabase
-          .from('tags')
-          .select('id,name')
-          .ilike('name', `%${q}%`)
-          .order('name', { ascending: true })
-          .limit(10)
-        if (!error && Array.isArray(data)) {
-          // Hide already added tags
-          const taken = new Set(tags.map(t => t.name.toLowerCase()))
-          setSuggestions(data.filter(d => !taken.has(d.name.toLowerCase())))
-        } else {
-          setSuggestions([])
-        }
-      } catch {
-        setSuggestions([])
-      } finally {
-        setLoadingSuggestions(false)
-      }
-    }, 180)
-    return () => suggestTimer.current && clearTimeout(suggestTimer.current)
-  }, [tagInput, tags])
+    await supabase
+      .from('recipes')
+      .update({
+        images: next.map((f) => f.url),
+        cover_image: nextHero || null,
+      })
+      .eq('id', id);
+  };
 
   // save (UPDATE) + translations via serverless
   const handleSave = async () => {
-    setError('')
-    if (!title.trim()) { setError('Title is required.'); return }
+    setError('');
+    if (!title.trim()) {
+      setError(t('title_required', 'Title is required.'));
+      return;
+    }
 
-    setSaving(true)
+    setSaving(true);
     try {
       const ing = withBakersPct
-        .filter(i => i.name.trim() && i.amount !== '')
-        .map(i => ({
+        .filter((i) => i.name.trim() && i.amount !== '')
+        .map((i) => ({
           name: i.name.trim(),
           amount: Number(i.amount),
           isFlour: Boolean(i.isFlour),
           bakers_pct: i.bakers_pct === null ? null : Number(i.bakers_pct),
-        }))
+        }));
 
       const stp = steps
-        .filter(s => s.text.trim())
+        .filter((s) => s.text.trim())
         .map((s, idx) => ({
           position: idx + 1,
           text: s.text.trim(),
           time: s.time === '' ? null : Number(s.time),
-        }))
+        }));
 
       // hydrate from storage if needed
-      let effective = uploaded
+      let effective = uploaded;
       if (effective.length === 0) {
-        effective = await listFolderUrls(`recipes/${id}`)
-        if (effective.length) setUploaded(effective)
+        effective = await listFolderUrls(`recipes/${id}`);
+        if (effective.length) setUploaded(effective);
       }
-      const urls = effective.map(f => f.url)
-      const chosen = userPickedHero ? (hero || urls[0] || null) : (urls[0] || null)
+      const urls = effective.map((f) => f.url);
+      const chosen = userPickedHero ? hero || urls[0] || null : urls[0] || null;
 
       const updatedRecipe = {
         title: title.trim(),
@@ -382,74 +301,65 @@ export default function EditRecipePage() {
         steps: stp,
         images: urls,
         cover_image: chosen,
-      }
+      };
 
-      const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id)
-      if (updErr) throw updErr
+      const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id);
+      if (updErr) throw updErr;
 
       // ---------- TRANSLATION via /api/translate-recipe ----------
-      setTranslating(true)
+      setTranslating(true);
       try {
-        const sample = [
-          updatedRecipe.title ?? '',
-          updatedRecipe.description ?? '',
-          ...(updatedRecipe.steps?.map(s => s.text) ?? []),
-        ].filter(Boolean).join('\n')
+        const sample = [updatedRecipe.title ?? '', updatedRecipe.description ?? '', ...(updatedRecipe.steps?.map((s) => s.text) ?? [])]
+          .filter(Boolean)
+          .join('\n');
 
-        let src = await detectLanguage(sample)
-        if (!src) src = 'fi' // reasonable default
+        let src = await detectLanguage(sample);
+        if (!src) src = 'fi'; // reasonable default
 
-        const targets = TARGET_LANGS.filter(l => l !== src)
+        const targets = TARGET_LANGS.filter((l) => l !== src);
         for (const tgt of targets) {
           const r = await fetch('/api/translate-recipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ recipeId: id, targetLang: tgt, force: false, debug: true }),
-          })
+          });
           if (!r.ok) {
-            const j = await r.json().catch(() => ({}))
-            console.warn('translate-recipe failed', tgt, j)
+            const j = await r.json().catch(() => ({}));
+            console.warn('translate-recipe failed', tgt, j);
           }
         }
       } finally {
-        setTranslating(false)
+        setTranslating(false);
       }
 
-      nav(`/recipe/${id}`)
+      nav(`/recipe/${id}`);
     } catch (e) {
-      console.error(e)
-      setError(e.message || 'Update failed.')
+      console.error(e);
+      setError(e.message || t('update_failed', 'Update failed.'));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('edit_recipe','Edit recipe')}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('edit_recipe', 'Edit recipe')}</h1>
         <div className="flex gap-2 items-center">
           {translating && (
             <span
               className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
-              title={t('generating_translations','Generating translations in background')}
+              title={t('generating_translations', 'Generating translations in background')}
             >
               <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
-              {t('translating','Translating…')}
+              {t('translating', 'Translating…')}
             </span>
           )}
-          <Link
-            to={`/recipe/${id}`}
-            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200"
-          >
-            {t('cancel','Cancel')}
+          <Link to={`/recipe/${id}`} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200">
+            {t('cancel', 'Cancel')}
           </Link>
-          <button
-            onClick={handleSave}
-            disabled={saving || !isLoaded}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {saving ? t('saving','Saving…') : t('save_changes','Save changes')}
+          <button onClick={handleSave} disabled={saving || !isLoaded} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60">
+            {saving ? t('saving', 'Saving…') : t('save_changes', 'Save changes')}
           </button>
         </div>
       </div>
@@ -463,7 +373,7 @@ export default function EditRecipePage() {
       {/* Basics */}
       <section className="grid gap-4 sm:grid-cols-1">
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('title','Title')}</label>
+          <label className="text-sm text-gray-600 dark:text-gray-300">{t('title', 'Title')}</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -472,7 +382,7 @@ export default function EditRecipePage() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('short_description','Short description')}</label>
+          <label className="text-sm text-gray-600 dark:text-gray-300">{t('short_description', 'Short description')}</label>
           <textarea
             rows={3}
             value={description}
@@ -485,23 +395,34 @@ export default function EditRecipePage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('servings','Servings')}</label>
-          <input type="number" value={servings} onChange={(e) => setServings(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2" />
+          <label className="text-sm text-gray-600 dark:text-gray-300">{t('servings', 'Servings')}</label>
+          <input
+            type="number"
+            value={servings}
+            onChange={(e) => setServings(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
+          />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('total_time_min','Total time (min)')}</label>
-          <input type="number" value={totalTime} onChange={(e) => setTotalTime(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2" />
+          <label className="text-sm text-gray-600 dark:text-gray-300">{t('total_time_min', 'Total time (min)')}</label>
+          <input
+            type="number"
+            value={totalTime}
+            onChange={(e) => setTotalTime(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
+          />
         </div>
         <div className="space-y-2">
-          <label className="text-sm text-gray-600 dark:text-gray-300">{t('difficulty','Difficulty')}</label>
-          <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2">
-            <option value="">{t('select_dash','– select –')}</option>
-            <option value="easy">{t('easy','easy')}</option>
-            <option value="medium">{t('medium','medium')}</option>
-            <option value="hard">{t('hard','hard')}</option>
+          <label className="text-sm text-gray-600 dark:text-gray-300">{t('difficulty', 'Difficulty')}</label>
+          <select
+            value={difficulty}
+            onChange={(e) => setDifficulty(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
+          >
+            <option value="">{t('select_dash', '– select –')}</option>
+            <option value="easy">{t('easy', 'easy')}</option>
+            <option value="medium">{t('medium', 'medium')}</option>
+            <option value="hard">{t('hard', 'hard')}</option>
           </select>
         </div>
       </section>
@@ -509,21 +430,28 @@ export default function EditRecipePage() {
       {/* Ingredients */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('ingredients','Ingredients')}</h2>
+          <h2 className="font-semibold">{t('ingredients', 'Ingredients')}</h2>
           <div className="flex items-center gap-2">
-            <button onClick={autoMarkFlour}
+            <button
+              onClick={autoMarkFlour}
               className="px-3 py-1 rounded-lg border border-gray-300 dark:border-slate-600 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-              title={t('auto_mark_flour_tip','Mark rows as flour if name contains “jauho” or “flour”')}>{t('auto_mark_flour','Auto-mark flour')}</button>
-            <button onClick={addIngredient}
-              className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">+ {t('add_ingredient','Add ingredient')}</button>
+              title={t('auto_mark_flour_tip', 'Mark rows as flour if name contains “jauho” or “flour”')}
+            >
+              {t('auto_mark_flour', 'Auto-mark flour')}
+            </button>
+            <button onClick={addIngredient} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
+              + {t('add_ingredient', 'Add ingredient')}
+            </button>
           </div>
         </div>
 
         <div className="flex items-center gap-3 text-sm">
-          <span className="opacity-70">{t('total_flour','Total flour')}: <span className="font-medium">{totalFlour || 0}</span> g</span>
+          <span className="opacity-70">
+            {t('total_flour', 'Total flour')}: <span className="font-medium">{totalFlour || 0}</span> g
+          </span>
           {totalFlour === 0 && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-              ⚠️ {t('set_at_least_one_flour','Set at least one flour amount')}
+              ⚠️ {t('set_at_least_one_flour', 'Set at least one flour amount')}
             </span>
           )}
         </div>
@@ -531,21 +459,39 @@ export default function EditRecipePage() {
         <div className="space-y-2">
           {withBakersPct.map((ing, idx) => (
             <div key={idx} className="grid gap-2 sm:grid-cols-12 items-center">
-              <input className="sm:col-span-4 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('name','Name')} value={ing.name}
-                onChange={(e) => updateIngredient(idx, 'name', e.target.value)} />
-              <input type="number" className="sm:col-span-2 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('amount_g','Amount (g)')} value={ingredients[idx].amount}
-                onChange={(e) => updateIngredient(idx, 'amount', e.target.value)} />
+              <input
+                className="sm:col-span-4 rounded-lg border p-2 bg-white dark:bg-gray-700"
+                placeholder={t('name', 'Name')}
+                value={ing.name}
+                onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
+              />
+              <input
+                type="number"
+                className="sm:col-span-2 rounded-lg border p-2 bg-white dark:bg-gray-700"
+                placeholder={t('amount_g', 'Amount (g)')}
+                value={ingredients[idx].amount}
+                onChange={(e) => updateIngredient(idx, 'amount', e.target.value)}
+              />
               <label className="sm:col-span-2 flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={ingredients[idx].isFlour || false}
-                  onChange={(e) => updateIngredient(idx, 'isFlour', e.target.checked)} />
-                {t('flour','Flour')}
+                <input
+                  type="checkbox"
+                  checked={ingredients[idx].isFlour || false}
+                  onChange={(e) => updateIngredient(idx, 'isFlour', e.target.checked)}
+                />
+                {t('flour', 'Flour')}
               </label>
-              <input disabled value={ing.bakers_pct === null ? '' : `${ing.bakers_pct}%`}
-                className="sm:col-span-3 rounded-lg border p-2 bg-gray-50 dark:bg-slate-700/60" placeholder={t('bakers_pct_auto',"Baker's % (auto)")} />
-              <button onClick={() => removeIngredient(idx)}
-                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50">–</button>
+              <input
+                disabled
+                value={ing.bakers_pct === null ? '' : `${ing.bakers_pct}%`}
+                className="sm:col-span-3 rounded-lg border p-2 bg-gray-50 dark:bg-slate-700/60"
+                placeholder={t('bakers_pct_auto', "Baker's % (auto)")}
+              />
+              <button
+                onClick={() => removeIngredient(idx)}
+                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+              >
+                –
+              </button>
             </div>
           ))}
         </div>
@@ -554,121 +500,62 @@ export default function EditRecipePage() {
       {/* Steps */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('instructions','Instructions')}</h2>
-          <button onClick={addStep}
-            className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">+ {t('add_step','Add step')}</button>
+          <h2 className="font-semibold">{t('instructions', 'Instructions')}</h2>
+          <button onClick={addStep} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
+            + {t('add_step', 'Add step')}
+          </button>
         </div>
 
         <div className="space-y-2">
           {steps.map((s, idx) => (
             <div key={idx} className="grid gap-2 sm:grid-cols-12 items-start">
-              <span className="sm:col-span-1 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700">{idx + 1}</span>
-              <textarea rows={2} className="sm:col-span-8 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('write_step','Write the step…')} value={s.text}
-                onChange={(e) => updateStepText(idx, e.target.value)} />
-              <input type="number" className="sm:col-span-2 rounded-lg border p-2 bg-white dark:bg-gray-700"
-                placeholder={t('time_min','Time (min)')} value={s.time}
-                onChange={(e) => updateStepTime(idx, e.target.value)} title={t('time_from_start_tip','Optional minutes from start; leave empty for null')} />
-              <button onClick={() => removeStep(idx)}
-                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50">–</button>
+              <span className="sm:col-span-1 w-10 h-10 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700">
+                {idx + 1}
+              </span>
+              <textarea
+                rows={2}
+                className="sm:col-span-8 rounded-lg border p-2 bg-white dark:bg-gray-700"
+                placeholder={t('write_step', 'Write the step…')}
+                value={s.text}
+                onChange={(e) => updateStepText(idx, e.target.value)}
+              />
+              <input
+                type="number"
+                className="sm:col-span-2 rounded-lg border p-2 bg-white dark:bg-gray-700"
+                placeholder={t('time_min', 'Time (min)')}
+                value={s.time}
+                onChange={(e) => updateStepTime(idx, e.target.value)}
+                title={t('time_from_start_tip', 'Optional minutes from start; leave empty for null')}
+              />
+              <button
+                onClick={() => removeStep(idx)}
+                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+              >
+                –
+              </button>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Tags */}
+      {/* Tags (reusable component) */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('tags','Tags')}</h2>
-        </div>
-
-        {/* Existing tags as chips */}
-        <div className="flex flex-wrap gap-2">
-          {tags.length === 0 ? (
-            <span className="text-sm text-gray-500 dark:text-gray-400">{t('no_tags_yet','No tags yet')}</span>
-          ) : (
-            tags.map((tg) => (
-              <span
-                key={tg.id}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-600"
-              >
-                #{tg.name}
-                <button
-                  type="button"
-                  className="ml-1 rounded p-0.5 hover:bg-gray-200 dark:hover:bg-gray-600"
-                  title={t('remove_tag','Remove tag')}
-                  onClick={() => removeTag(tg.id)}
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
-        </div>
-
-        {/* Add tag input + suggestions */}
-        <div className="relative max-w-md">
-          <input
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                addTagByName(tagInput)
-              }
-            }}
-            className="w-full rounded-lg border border-gray-300 dark:border-slate-600 text-gray-900 dark:text-white bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-500 p-2"
-            placeholder={t('type_to_search_tags','Type to search or add a tag…')}
-          />
-          {/* Suggestions dropdown */}
-          {(tagInput.trim() || loadingSuggestions) && (suggestions.length > 0 || loadingSuggestions) && (
-            <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow">
-              {loadingSuggestions ? (
-                <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">{t('loading','Loading…')}</div>
-              ) : (
-                suggestions.map(s => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => addTagByName(s.name)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-700"
-                  >
-                    #{s.name}
-                  </button>
-                ))
-              )}
-              {/* Create new tag option */}
-              {!loadingSuggestions && tagInput.trim() && !hasTagName(tagInput) && (
-                <button
-                  type="button"
-                  onClick={() => addTagByName(tagInput)}
-                  className="w-full text-left px-3 py-2 text-sm border-t border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700"
-                >
-                  {t('create_tag','Create tag')}: “{normalizeTagName(tagInput)}”
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <h2 className="font-semibold">{t('tags', 'Tags')}</h2>
+        <TagsInput recipeId={id} value={tags} onChange={setTags} />
       </section>
 
       {/* Images */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold">{t('images','Images')}</h2>
+          <h2 className="font-semibold">{t('images', 'Images')}</h2>
         </div>
 
-        <ImagesUploader
-          recipeId={id}
-          userId={userId}
-          draftId={id}
-          onUploaded={handleImagesUploaded}
-        />
+        <ImagesUploader recipeId={id} userId={userId} draftId={id} onUploaded={handleImagesUploaded} />
 
         {uploaded.length > 0 && (
           <>
             <div className="space-y-2">
-              <h3 className="font-semibold">{t('hero_image','Hero image')}</h3>
+              <h3 className="font-semibold">{t('hero_image', 'Hero image')}</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {uploaded.map((f) => (
                   <label key={f.url} className="flex items-center gap-2 cursor-pointer">
@@ -677,13 +564,19 @@ export default function EditRecipePage() {
                       name="hero"
                       checked={hero === f.url}
                       onChange={async () => {
-                        setHero(f.url)
-                        setUserPickedHero(true)
-                        await supabase.from('recipes').update({ cover_image: f.url }).eq('id', id)
+                        setHero(f.url);
+                        setUserPickedHero(true);
+                        await supabase.from('recipes').update({ cover_image: f.url }).eq('id', id);
                       }}
                     />
                     <span className="text-sm truncate">
-                      {(() => { try { return new URL(f.url).pathname.split('/').pop() } catch { return 'image' } })()}
+                      {(() => {
+                        try {
+                          return new URL(f.url).pathname.split('/').pop();
+                        } catch {
+                          return 'image';
+                        }
+                      })()}
                     </span>
                   </label>
                 ))}
@@ -692,27 +585,40 @@ export default function EditRecipePage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {uploaded.map((f, idx) => (
-                <div key={f.url}
+                <div
+                  key={f.url}
                   className="relative group rounded-lg overflow-hidden border"
                   draggable
                   onDragStart={onDragStart(idx)}
                   onDragOver={onDragOver}
                   onDrop={onDrop(idx)}
-                  title={t('drag_to_reorder','Drag to reorder')}>
+                  title={t('drag_to_reorder', 'Drag to reorder')}
+                >
                   <img src={f.url} alt="" className="h-28 w-full object-cover" />
                   <div className="absolute top-1 left-1 px-1.5 py-0.5 text-xs rounded bg-black/60 text-white">
-                    {idx + 1}{hero === f.url ? ` • ${t('hero','hero')}` : ''}
+                    {idx + 1}
+                    {hero === f.url ? ` • ${t('hero', 'hero')}` : ''}
                   </div>
-                  <button type="button" onClick={() => deleteImage(idx)}
+                  <button
+                    type="button"
+                    onClick={() => deleteImage(idx)}
                     className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition px-2 py-1 text-xs rounded bg-red-600 text-white"
-                    title={t('delete_image','Delete image')}>{t('delete','Delete')}</button>
+                    title={t('delete_image', 'Delete image')}
+                  >
+                    {t('delete', 'Delete')}
+                  </button>
                 </div>
               ))}
             </div>
-            <p className="text-xs opacity-70">{t('drag_tip','Tip: drag thumbnails to reorder. First image is used as hero unless you pick one above.')}</p>
+            <p className="text-xs opacity-70">
+              {t(
+                'drag_tip',
+                'Tip: drag thumbnails to reorder. First image is used as hero unless you pick one above.'
+              )}
+            </p>
           </>
         )}
       </section>
     </div>
-  )
+  );
 }
