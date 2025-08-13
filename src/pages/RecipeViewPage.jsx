@@ -7,39 +7,56 @@ import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images';
 
-/* ---------------------- Small, dependency-free carousel ---------------------- */
+/* ---------------------- Smooth, touch-enabled carousel ---------------------- */
 function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const urls = (items || [])
     .map((im) => (typeof im === 'string' ? im : im?.url))
     .filter(Boolean);
 
   const [idx, setIdx] = useState(0);
-  const touchStartX = useRef(null);
-  const touchDeltaX = useRef(0);
+  const containerRef = useRef(null);
+
+  // drag state
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef(0);
+  const dx = useRef(0);
+  const widthRef = useRef(1);
 
   const go = (n) => {
     if (!urls.length) return;
     setIdx((prev) => (prev + n + urls.length) % urls.length);
   };
+
   const onKey = (e) => {
     if (e.key === 'ArrowLeft') go(-1);
     if (e.key === 'ArrowRight') go(1);
   };
 
+  // touch handlers
   const onTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchDeltaX.current = 0;
+    if (!urls.length) return;
+    const w = containerRef.current?.clientWidth || window.innerWidth || 1;
+    widthRef.current = w;
+    startX.current = e.touches[0].clientX;
+    dx.current = 0;
+    setDragging(true);
   };
   const onTouchMove = (e) => {
-    if (touchStartX.current == null) return;
-    touchDeltaX.current = e.touches[0].clientX - touchStartX.current;
+    if (!dragging) return;
+    dx.current = e.touches[0].clientX - startX.current;
+    // request a re-render by toggling state cheaply:
+    setDragging((d) => d); // no-op but forces style recompute
   };
   const onTouchEnd = () => {
-    if (Math.abs(touchDeltaX.current) > 30) {
-      go(touchDeltaX.current > 0 ? -1 : 1);
+    if (!dragging) return;
+    const dist = dx.current;
+    const w = widthRef.current;
+    const threshold = w * 0.2; // 20% swipe to switch
+    if (Math.abs(dist) > threshold) {
+      go(dist > 0 ? -1 : 1);
     }
-    touchStartX.current = null;
-    touchDeltaX.current = 0;
+    setDragging(false);
+    dx.current = 0;
   };
 
   useEffect(() => {
@@ -56,18 +73,42 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     );
   }
 
+  // percent offset while dragging
+  const offsetPct = dragging && widthRef.current
+    ? (dx.current / widthRef.current) * 100
+    : 0;
+
   return (
     <div
+      ref={containerRef}
       className="relative w-full aspect-video rounded-xl overflow-hidden"
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      <img
-        src={urls[idx]}
-        alt={title || `Slide ${idx + 1}`}
-        className="w-full h-full object-cover"
-      />
+      {/* Sliding track */}
+      <div
+        className={[
+          'w-full h-full flex',
+          dragging ? 'transition-none' : 'transition-transform duration-500 ease-out',
+        ].join(' ')}
+        style={{
+          transform: `translateX(calc(${-idx * 100}% + ${offsetPct}%))`,
+          willChange: 'transform',
+        }}
+      >
+        {urls.map((u, i) => (
+          <img
+            key={`${u}-${i}`}
+            src={u}
+            alt={title || `Slide ${i + 1}`}
+            className="w-full h-full object-cover flex-shrink-0"
+            loading="lazy"
+            decoding="async"
+            draggable="false"
+          />
+        ))}
+      </div>
 
       {/* Overlay (author, description, etc) */}
       {overlay}
@@ -180,7 +221,6 @@ export default function RecipeViewPage() {
             .maybeSingle();
           if (!authErr) setAuthor(authRow ?? null);
         } catch (e) {
-          // table may not exist; ignore
           console.warn('author fetch skipped', e?.message || e);
         }
       } else {
@@ -282,7 +322,6 @@ export default function RecipeViewPage() {
   const ingredients = useMemo(() => {
     const base = tData?.ingredients ?? recipe?.ingredients ?? [];
     if (Array.isArray(base)) return base;
-    // handle text blob fallback
     return String(base || '')
       .split('\n')
       .map((l) => l.trim())
@@ -422,9 +461,9 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
           </div>
           <div className="p-4 overflow-x-auto">
-            {ingredients?.length ? (
+            { (tData?.ingredients ?? recipe?.ingredients)?.length ? (
               <ul className="space-y-2">
-                {ingredients.map((ing, i) => (
+                { (tData?.ingredients ?? recipe?.ingredients)?.map?.((ing, i) => (
                   <li key={i} className="flex items-center justify-between">
                     <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
                     {ing.amount != null && (
@@ -447,9 +486,9 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('instructions')}</h2>
           </div>
           <div className="p-4">
-            {steps?.length ? (
+            {(tData?.steps ?? recipe?.steps)?.length ? (
               <ol className="list-decimal pl-5 space-y-2">
-                {steps.map((s, i) => (
+                {(tData?.steps ?? recipe?.steps)?.map?.((s, i) => (
                   <li key={i} className="text-gray-800 dark:text-gray-100">
                     {s.text ?? String(s ?? '')}
                     {s.time != null && (
