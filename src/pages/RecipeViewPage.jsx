@@ -5,6 +5,8 @@ import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+const BUCKET = 'recipe-images';
+
 /* ---------------------- Small, dependency-free carousel ---------------------- */
 function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const urls = (items || [])
@@ -15,7 +17,10 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const touchStartX = useRef(null);
   const touchDeltaX = useRef(0);
 
-  const go = (n) => setIdx((prev) => (prev + n + urls.length) % urls.length);
+  const go = (n) => {
+    if (!urls.length) return;
+    setIdx((prev) => (prev + n + urls.length) % urls.length);
+  };
   const onKey = (e) => {
     if (e.key === 'ArrowLeft') go(-1);
     if (e.key === 'ArrowRight') go(1);
@@ -98,6 +103,19 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   );
 }
 
+/* ------------------------------- helpers -------------------------------- */
+async function listFolderUrls(folder) {
+  const { data: files, error } = await supabase.storage.from(BUCKET).list(folder, { limit: 200 });
+  if (error || !files?.length) return [];
+  return files
+    .filter((f) => !f.name.startsWith('.'))
+    .map((f) => {
+      const path = `${folder}/${f.name}`;
+      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      return { url: pub.publicUrl, path };
+    });
+}
+
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
   const { t } = useTranslation();
@@ -106,18 +124,10 @@ export default function RecipeViewPage() {
   // Recipe + author + images
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
-  const [images, setImages] = useState([]); // [{url}] or strings
+  const [images, setImages] = useState([]); // strings or {url}
 
   // Translation payload (if any)
   const [tData, setT] = useState(null);
-
-  // Auth (optional for likes)
-  const [uid, setUid] = useState(null);
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUid(data?.user?.id ?? null);
-    });
-  }, []);
 
   // UI language from sidebar (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
@@ -127,7 +137,6 @@ export default function RecipeViewPage() {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
     };
     const onLangChange = (e) => setUiLang(e.detail || localStorage.getItem('lang') || 'auto');
-
     window.addEventListener('storage', onStorage);
     window.addEventListener('langchange', onLangChange);
     return () => {
@@ -136,44 +145,6 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  /* ----------------------------- Normalizers ----------------------------- */
-  // These are your original normalizers — unchanged.
-  const normalizeIngredients = (ingRaw) => {
-    try {
-      if (!ingRaw) return [];
-      // Allow array, JSON, or plain text
-      if (Array.isArray(ingRaw)) return ingRaw;
-      if (typeof ingRaw === 'object') return Object.values(ingRaw);
-      const text = String(ingRaw ?? '');
-      return text
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .map((line) => ({ name: line }));
-    } catch {
-      return [];
-    }
-  };
-
-  const normalizeSteps = (stepsRaw) => {
-    try {
-      if (!stepsRaw) return [];
-      if (Array.isArray(stepsRaw)) return stepsRaw;
-      if (typeof stepsRaw === 'object') return Object.values(stepsRaw);
-      const text = String(stepsRaw ?? '');
-      return text
-        .split('\n')
-        .map((l) => l.trim())
-        .filter(Boolean)
-        .map((line, i) => ({ i: i + 1, text: line }));
-    } catch {
-      return [];
-    }
-  };
-
-  const [ingredients, setIngredients] = useState([]);
-  const [steps, setSteps] = useState([]);
-
   // Load recipe + author + images
   useEffect(() => {
     let cancelled = false;
@@ -181,50 +152,49 @@ export default function RecipeViewPage() {
     (async () => {
       if (!id) return;
 
+      // Use * to avoid column mismatches across schema versions
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
-        .select(
-          `
-          id, user_id, title, description, ingredients, steps, tags, total_time, active_time, servings, mode, difficulty,
-          created_at, updated_at
-        `
-        )
+        .select('*')
         .eq('id', id)
-        .maybeSingle();
+        .single();
 
       if (cancelled) return;
 
       if (recErr) {
         console.warn('recipe select error', recErr);
+        setRecipe(null);
+        return;
       }
 
       setRecipe(recRow ?? null);
-      setIngredients(normalizeIngredients(recRow?.ingredients));
-      setSteps(normalizeSteps(recRow?.steps));
 
-      // author
-      if (recRow?.user_id) {
-        const { data: authRow, error: authErr } = await supabase
-          .from('users')
-          .select('id, email, username, avatar_url')
-          .eq('id', recRow.user_id)
-          .maybeSingle();
-        if (!cancelled) {
-          if (authErr) console.warn('author select error', authErr);
-          setAuthor(authRow ?? null);
+      // author (best-effort; skip if missing)
+      const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
+      if (authorId) {
+        try {
+          const { data: authRow, error: authErr } = await supabase
+            .from('users')
+            .select('id, email, username, avatar_url')
+            .eq('id', authorId)
+            .maybeSingle();
+          if (!authErr) setAuthor(authRow ?? null);
+        } catch (e) {
+          // table may not exist; ignore
+          console.warn('author fetch skipped', e?.message || e);
         }
+      } else {
+        setAuthor(null);
       }
 
-      // images
-      const { data: imageRows, error: imgErr } = await supabase
-        .from('recipe_images')
-        .select('id, url, created_at')
-        .eq('recipe_id', id)
-        .order('created_at', { ascending: true });
-
-      if (!cancelled) {
-        if (imgErr) console.warn('images select error', imgErr);
-        setImages(imageRows ?? []);
+      // images: prefer explicit array; fallback to cover_image; else list folder
+      if (Array.isArray(recRow?.images) && recRow.images.length) {
+        setImages(recRow.images);
+      } else if (recRow?.cover_image) {
+        setImages([recRow.cover_image]);
+      } else {
+        const list = await listFolderUrls(`recipes/${id}`);
+        if (!cancelled) setImages(list.map((x) => x.url));
       }
     })();
 
@@ -255,8 +225,6 @@ export default function RecipeViewPage() {
           .eq('lang', targetLang)
           .maybeSingle();
 
-        if (cancelled) return;
-
         if (trErr) {
           console.warn('translation select error', trErr);
         }
@@ -279,7 +247,6 @@ export default function RecipeViewPage() {
         });
 
         const json = await resp.json().catch(() => ({}));
-        if (cancelled) return;
 
         if (!resp.ok) {
           console.warn('translate api failed', resp.status, json);
@@ -288,17 +255,19 @@ export default function RecipeViewPage() {
         }
 
         const tr = json?.translation ?? null;
-        setT(tr ? {
-          title: tr.title ?? undefined,
-          description: tr.description ?? undefined,
-          ingredients: Array.isArray(tr.ingredients) ? tr.ingredients : undefined,
-          steps: Array.isArray(tr.steps) ? tr.steps : undefined,
-        } : null);
+        setT(
+          tr
+            ? {
+                title: tr.title ?? undefined,
+                description: tr.description ?? undefined,
+                ingredients: Array.isArray(tr.ingredients) ? tr.ingredients : undefined,
+                steps: Array.isArray(tr.steps) ? tr.steps : undefined,
+              }
+            : null
+        );
       } catch (e) {
-        if (!cancelled) {
-          console.warn('translate api error', e);
-          setT(null);
-        }
+        console.warn('translate api error', e);
+        setT(null);
       }
     })();
 
@@ -307,28 +276,45 @@ export default function RecipeViewPage() {
     };
   }, [id, uiLang, targetLang]);
 
-  // Merge translated view over base
-  const title = tData?.title ?? recipe?.title ?? '';
+  // Derive renderables
+  const title = tData?.title ?? recipe?.title ?? recipe?.name ?? '';
   const description = tData?.description ?? recipe?.description ?? '';
-  const ingredientsToRender = tData?.ingredients ?? ingredients;
-  const stepsToRender = tData?.steps ?? steps;
+  const ingredients = useMemo(() => {
+    const base = tData?.ingredients ?? recipe?.ingredients ?? [];
+    if (Array.isArray(base)) return base;
+    // handle text blob fallback
+    return String(base || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((name) => ({ name }));
+  }, [tData, recipe]);
 
-  // tags + times
+  const steps = useMemo(() => {
+    const base = tData?.steps ?? recipe?.steps ?? [];
+    if (Array.isArray(base)) return base;
+    return String(base || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .map((text, i) => ({ position: i + 1, text }));
+  }, [tData, recipe]);
+
   const tags = useMemo(
-    () => String(recipe?.tags ?? '')
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
+    () =>
+      String(recipe?.tags ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     [recipe]
   );
 
   const totalTime = useMemo(() => {
-    const raw = recipe?.total_time ? String(recipe.total_time) : '';
+    const raw = recipe?.prep_time_minutes ?? recipe?.total_time ?? recipe?.time ?? null;
+    if (raw == null) return null;
     const n = Number(String(raw).replace(/[^\d.,]/g, '').replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }, [recipe]);
-
-  const difficulty = recipe?.difficulty || null;
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
@@ -359,26 +345,18 @@ export default function RecipeViewPage() {
                 </div>
               ) : null}
 
-              {description ? (
-                <div className="line-clamp-2">{description}</div>
-              ) : null}
+              {description ? <div className="line-clamp-2">{description}</div> : null}
             </div>
           )}
         </div>
 
         {/* Meta pills */}
-        {(totalTime != null || difficulty || recipe?.servings) && (
+        {(totalTime != null || recipe?.servings) && (
           <div className="flex items-center gap-2">
             {totalTime != null ? (
               <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                 <Clock className="w-3.5 h-3.5" />
                 {`${totalTime} ${t('minutes_short')}`}
-              </span>
-            ) : null}
-            {difficulty ? (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                <ChefHat className="w-3.5 h-3.5" />
-                {difficulty}
               </span>
             ) : null}
             {recipe?.servings ? (
@@ -413,14 +391,8 @@ export default function RecipeViewPage() {
                 )}
 
                 <div className="text-sm">
-                  <div className="font-medium">
-                    {author?.username || author?.email}
-                  </div>
-                  {description ? (
-                    <div className="opacity-90 line-clamp-2 max-w-[50ch]">
-                      {description}
-                    </div>
-                  ) : null}
+                  <div className="font-medium">{author?.username || author?.email}</div>
+                  {description ? <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div> : null}
                 </div>
               </div>
             </div>
@@ -450,23 +422,21 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
           </div>
           <div className="p-4 overflow-x-auto">
-            {ingredientsToRender?.length ? (
+            {ingredients?.length ? (
               <ul className="space-y-2">
-                {ingredientsToRender.map((ing, i) => (
+                {ingredients.map((ing, i) => (
                   <li key={i} className="flex items-center justify-between">
                     <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ing.amount}{' '}{ing.unit ?? ''}
+                        {ing.amount} {ing.unit ?? ''}
                       </span>
                     )}
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {t('no_ingredients_listed')}
-              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('no_ingredients_listed')}</div>
             )}
           </div>
         </section>
@@ -477,9 +447,9 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('instructions')}</h2>
           </div>
           <div className="p-4">
-            {stepsToRender?.length ? (
+            {steps?.length ? (
               <ol className="list-decimal pl-5 space-y-2">
-                {stepsToRender.map((s, i) => (
+                {steps.map((s, i) => (
                   <li key={i} className="text-gray-800 dark:text-gray-100">
                     {s.text ?? String(s ?? '')}
                     {s.time != null && (
@@ -491,9 +461,7 @@ export default function RecipeViewPage() {
                 ))}
               </ol>
             ) : (
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                {t('no_instructions_provided')}
-              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('no_instructions_provided')}</div>
             )}
           </div>
         </section>
