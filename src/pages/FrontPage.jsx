@@ -85,4 +85,86 @@ export default function FrontPage() {
               >
                 <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
                 <div className="p-3 space-y-2">
-                  <div className="h-5 w-2/3 bg-g
+                  <div className="h-5 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
+                  <div className="h-4 w-4/5 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : latestAdminRecipes.length === 0 ? (
+          <div className="text-gray-600 dark:text-gray-300">
+            {t('no_recipes_found', 'No recipes found.')}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {latestAdminRecipes.map((recipe) => {
+              const hero = heroFor(recipe);
+              return (
+                <div
+                  key={recipe.id}
+                  className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow cursor-pointer transition"
+                  onClick={() => navigate(`/recipe/${recipe.id}`)}
+                >
+                  <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+                    {hero ? (
+                      <img
+                        src={hero}
+                        alt={recipe.title}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="p-3">
+                    <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+                      {recipe.title}
+                    </div>
+                    {recipe.description ? (
+                      <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                        {recipe.description}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ===== Placeholder: Most liked / social feed (coming soon) ===== */}
+      <section className="mt-12">
+        <div className="flex items-baseline justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {t('most_liked_recipes', 'Most liked recipes')}
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              {t('most_liked_subtitle', 'Most liked community recipes')}
+            </p>
+          </div>
+          <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-slate-700">
+            {t('coming_soon', 'Coming soon')}
+          </span>
+        </div>
+
+        {/* Skeleton/feed placeholder */}
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={`ph-${i}`}
+              className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+            >
+              <div className="aspect-square bg-gray-100 dark:bg-slate-900 animate-pulse" />
+              <div className="p-3">
+                <div className="h-4 w-3/4 bg-gray-100 dark:bg-slate-700 rounded animate-pulse mb-2" />
+                <div className="h-3 w-1/2 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
