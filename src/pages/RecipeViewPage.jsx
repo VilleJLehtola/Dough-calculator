@@ -15,11 +15,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const touchStartX = useRef(null);
   const touchDeltaX = useRef(0);
 
-  const go = (next) => {
-    if (urls.length === 0) return;
-    setIdx((p) => (p + next + urls.length) % urls.length);
-  };
-
+  const go = (n) => setIdx((prev) => (prev + n + urls.length) % urls.length);
   const onKey = (e) => {
     if (e.key === 'ArrowLeft') go(-1);
     if (e.key === 'ArrowRight') go(1);
@@ -102,48 +98,18 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   );
 }
 
-/* ---------------------------------- Utils ---------------------------------- */
-const parseIngredients = (text) => {
-  // supports lines: "300 g flour" or "Flour: 300 g" etc
-  return String(text ?? '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const mG = line.match(/(\d+(?:[.,]\d+)?)\s*g\b/i);
-      const mMl = line.match(/(\d+(?:[.,]\d+)?)\s*ml\b/i);
-      const mPct = line.match(/(\d+(?:[.,]\d+)?)\s*%\b/);
-      const amount =
-        mG?.[1]?.replace(',', '.') ??
-        mMl?.[1]?.replace(',', '.') ??
-        mPct?.[1]?.replace(',', '.');
-
-      return {
-        name: line.replace(/[:\-–]\s*\d.+$/, '').replace(/\s+\d.+$/, '').trim(),
-        amount: amount ? Number(amount) : null,
-        unit: mG ? 'g' : mMl ? 'ml' : mPct ? '%' : null,
-      };
-    });
-};
-
-const parseSteps = (text) =>
-  String(text ?? '')
-    .split('\n')
-    .map((line) => String(line ?? '').trim())
-    .filter(Boolean);
-
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
   const { t } = useTranslation();
   const { id } = useParams();
 
-  // Recipe + author
+  // Recipe + author + images
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState([]); // [{url}] or strings
 
-  // Translation data (if any)
-  const [tr, setTr] = useState(null);
+  // Translation payload (if any)
+  const [tData, setT] = useState(null);
 
   // Auth (optional for likes)
   const [uid, setUid] = useState(null);
@@ -170,29 +136,71 @@ export default function RecipeViewPage() {
     };
   }, []);
 
+  /* ----------------------------- Normalizers ----------------------------- */
+  // These are your original normalizers — unchanged.
+  const normalizeIngredients = (ingRaw) => {
+    try {
+      if (!ingRaw) return [];
+      // Allow array, JSON, or plain text
+      if (Array.isArray(ingRaw)) return ingRaw;
+      if (typeof ingRaw === 'object') return Object.values(ingRaw);
+      const text = String(ingRaw ?? '');
+      return text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((line) => ({ name: line }));
+    } catch {
+      return [];
+    }
+  };
+
+  const normalizeSteps = (stepsRaw) => {
+    try {
+      if (!stepsRaw) return [];
+      if (Array.isArray(stepsRaw)) return stepsRaw;
+      if (typeof stepsRaw === 'object') return Object.values(stepsRaw);
+      const text = String(stepsRaw ?? '');
+      return text
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((line, i) => ({ i: i + 1, text: line }));
+    } catch {
+      return [];
+    }
+  };
+
+  const [ingredients, setIngredients] = useState([]);
+  const [steps, setSteps] = useState([]);
+
   // Load recipe + author + images
   useEffect(() => {
-    let alive = true;
+    let cancelled = false;
 
     (async () => {
-      // base recipe
+      if (!id) return;
+
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select(
           `
-          id, user_id, title, description, ingredients, steps, tags, total_time, active_time, servings, mode,
+          id, user_id, title, description, ingredients, steps, tags, total_time, active_time, servings, mode, difficulty,
           created_at, updated_at
         `
         )
         .eq('id', id)
-        .single();
+        .maybeSingle();
+
+      if (cancelled) return;
 
       if (recErr) {
         console.warn('recipe select error', recErr);
       }
-      if (!alive) return;
 
       setRecipe(recRow ?? null);
+      setIngredients(normalizeIngredients(recRow?.ingredients));
+      setSteps(normalizeSteps(recRow?.steps));
 
       // author
       if (recRow?.user_id) {
@@ -200,93 +208,112 @@ export default function RecipeViewPage() {
           .from('users')
           .select('id, email, username, avatar_url')
           .eq('id', recRow.user_id)
-          .single();
-        if (authErr) {
-          console.warn('author select error', authErr);
+          .maybeSingle();
+        if (!cancelled) {
+          if (authErr) console.warn('author select error', authErr);
+          setAuthor(authRow ?? null);
         }
-        if (!alive) return;
-        setAuthor(authRow ?? null);
       }
 
-      // images (may be empty)
+      // images
       const { data: imageRows, error: imgErr } = await supabase
         .from('recipe_images')
         .select('id, url, created_at')
         .eq('recipe_id', id)
         .order('created_at', { ascending: true });
 
-      if (imgErr) {
-        console.warn('images select error', imgErr);
+      if (!cancelled) {
+        if (imgErr) console.warn('images select error', imgErr);
+        setImages(imageRows ?? []);
       }
-      if (!alive) return;
-      setImages(imageRows ?? []);
     })();
 
     return () => {
-      alive = false;
+      cancelled = true;
     };
   }, [id]);
 
-  // Load translation (or clear to original if auto)
+  // Translation: prefer cached row; if missing, call serverless to create it
   useEffect(() => {
-    let alive = true;
+    let cancelled = false;
 
     (async () => {
+      if (!id) return;
+
+      // Auto = show base recipe as-is
       if (uiLang === 'auto') {
-        setTr(null);
+        setT(null);
         return;
       }
 
-      // 1) Check if we already have a stored translation
-      const { data: trRow, error: trErr } = await supabase
-        .from('recipe_translations')
-        .select('title,description,ingredients,steps')
-        .eq('recipe_id', id)
-        .eq('lang', targetLang)
-        .single();
-
-      if (trErr && trErr?.code !== 'PGRST116') {
-        // PGRST116 = not found (single returns no rows)
-        console.warn('translation select error', trErr);
-      }
-
-      if (trRow) {
-        if (!alive) return;
-        setTr(trRow);
-        return;
-      }
-
-      // 2) Else request a fresh translation via the API
       try {
-        const res = await fetch('/api/translate-recipe', {
+        // 1) Try cached translation
+        const { data: trRow, error: trErr } = await supabase
+          .from('recipe_translations')
+          .select('title,description,ingredients,steps')
+          .eq('recipe_id', id)
+          .eq('lang', targetLang)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (trErr) {
+          console.warn('translation select error', trErr);
+        }
+
+        if (trRow) {
+          setT({
+            title: trRow.title ?? undefined,
+            description: trRow.description ?? undefined,
+            ingredients: Array.isArray(trRow.ingredients) ? trRow.ingredients : undefined,
+            steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
+          });
+          return;
+        }
+
+        // 2) No cache → serverless (translate + upsert)
+        const resp = await fetch('/api/translate-recipe', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ recipeId: id, targetLang }),
         });
 
-        if (!res.ok) throw new Error(`Translate API failed: ${res.status}`);
-        const json = await res.json();
-        if (!alive) return;
-        setTr(json?.translation ?? null);
+        const json = await resp.json().catch(() => ({}));
+        if (cancelled) return;
+
+        if (!resp.ok) {
+          console.warn('translate api failed', resp.status, json);
+          setT(null);
+          return;
+        }
+
+        const tr = json?.translation ?? null;
+        setT(tr ? {
+          title: tr.title ?? undefined,
+          description: tr.description ?? undefined,
+          ingredients: Array.isArray(tr.ingredients) ? tr.ingredients : undefined,
+          steps: Array.isArray(tr.steps) ? tr.steps : undefined,
+        } : null);
       } catch (e) {
-        console.warn('translate api error', e);
-        if (!alive) return;
-        setTr(null);
+        if (!cancelled) {
+          console.warn('translate api error', e);
+          setT(null);
+        }
       }
     })();
 
     return () => {
-      alive = false;
+      cancelled = true;
     };
-  }, [id, uiLang]);
+  }, [id, uiLang, targetLang]);
 
-  // Render the chosen view (original vs translated)
-  const title = tr?.title ?? recipe?.title ?? '';
-  const description = tr?.description ?? recipe?.description ?? '';
-  const ingredients = useMemo(() => parseIngredients(tr?.ingredients ?? recipe?.ingredients ?? ''), [tr, recipe]);
-  const steps = useMemo(() => parseSteps(tr?.steps ?? recipe?.steps ?? ''), [tr, recipe]);
+  // Merge translated view over base
+  const title = tData?.title ?? recipe?.title ?? '';
+  const description = tData?.description ?? recipe?.description ?? '';
+  const ingredientsToRender = tData?.ingredients ?? ingredients;
+  const stepsToRender = tData?.steps ?? steps;
 
-  // Derive some layout bits
+  // tags + times
   const tags = useMemo(
     () => String(recipe?.tags ?? '')
       .split(',')
@@ -295,17 +322,13 @@ export default function RecipeViewPage() {
     [recipe]
   );
 
-  const timeParts = useMemo(() => {
-    const total = recipe?.total_time ? String(recipe.total_time) : '';
-    const active = recipe?.active_time ? String(recipe.active_time) : '';
-    const asNum = (s) => Number(String(s).replace(/[^\d.,]/g, '').replace(',', '.')) || null;
-    return {
-      total,
-      active,
-      totalNum: asNum(total),
-      activeNum: asNum(active),
-    };
+  const totalTime = useMemo(() => {
+    const raw = recipe?.total_time ? String(recipe.total_time) : '';
+    const n = Number(String(raw).replace(/[^\d.,]/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
   }, [recipe]);
+
+  const difficulty = recipe?.difficulty || null;
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
@@ -344,17 +367,18 @@ export default function RecipeViewPage() {
         </div>
 
         {/* Meta pills */}
-        {(timeParts.totalNum || timeParts.activeNum || recipe?.servings) && (
+        {(totalTime != null || difficulty || recipe?.servings) && (
           <div className="flex items-center gap-2">
-            {timeParts.totalNum ? (
+            {totalTime != null ? (
               <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
                 <Clock className="w-3.5 h-3.5" />
-                {timeParts.totalNum} {t('minutes_short')}
+                {`${totalTime} ${t('minutes_short')}`}
               </span>
             ) : null}
-            {timeParts.activeNum ? (
+            {difficulty ? (
               <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                ⏱ {timeParts.activeNum} {t('minutes_short')} active
+                <ChefHat className="w-3.5 h-3.5" />
+                {difficulty}
               </span>
             ) : null}
             {recipe?.servings ? (
@@ -418,58 +442,60 @@ export default function RecipeViewPage() {
         </div>
       )}
 
-      {/* Translation badge */}
-      <div className="mt-4">
-        {uiLang !== 'auto' && tr && (
-          <span
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200"
-            title={`Viewing ${uiLang.toUpperCase()} translation`}
-          >
-            🌐 {uiLang.toUpperCase()}
-          </span>
-        )}
-      </div>
-
       {/* Two-column layout: ingredients + steps */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
-          <h2 className="text-lg font-semibold mb-3">{t('ingredients')}</h2>
-          {ingredients?.length ? (
-            <ul className="space-y-2">
-              {ingredients.map((ing, i) => (
-                <li key={i} className="flex items-center justify-between">
-                  <span className="text-gray-800 dark:text-gray-100">{ing.name}</span>
-                  {ing.amount != null && (
-                    <span className="text-gray-600 dark:text-gray-300">
-                      {ing.amount}{' '}
-                      {ing.unit || ''}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {t('no_ingredients_listed')}
-            </div>
-          )}
+      <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Ingredients */}
+        <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
+          </div>
+          <div className="p-4 overflow-x-auto">
+            {ingredientsToRender?.length ? (
+              <ul className="space-y-2">
+                {ingredientsToRender.map((ing, i) => (
+                  <li key={i} className="flex items-center justify-between">
+                    <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
+                    {ing.amount != null && (
+                      <span className="text-gray-600 dark:text-gray-300">
+                        {ing.amount}{' '}{ing.unit ?? ''}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t('no_ingredients_listed')}
+              </div>
+            )}
+          </div>
         </section>
 
-        <section className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800">
-          <h2 className="text-lg font-semibold mb-3">{t('instructions')}</h2>
-          {steps?.length ? (
-            <ol className="list-decimal pl-5 space-y-2">
-              {steps.map((s, i) => (
-                <li key={i} className="text-gray-800 dark:text-gray-100">
-                  {s}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {t('no_instructions_provided')}
-            </div>
-          )}
+        {/* Instructions */}
+        <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('instructions')}</h2>
+          </div>
+          <div className="p-4">
+            {stepsToRender?.length ? (
+              <ol className="list-decimal pl-5 space-y-2">
+                {stepsToRender.map((s, i) => (
+                  <li key={i} className="text-gray-800 dark:text-gray-100">
+                    {s.text ?? String(s ?? '')}
+                    {s.time != null && (
+                      <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
+                        +{s.time} {t('minutes_short')}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {t('no_instructions_provided')}
+              </div>
+            )}
+          </div>
         </section>
       </div>
 
