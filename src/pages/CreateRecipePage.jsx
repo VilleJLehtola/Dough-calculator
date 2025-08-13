@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import supabase from '@/supabaseClient'
 import ImagesUploader from '@/components/ImagesUploader'
+import TagsInput from '@/components/common/TagsInput'
 import { detectLanguage } from '@/utils/translate'
 
 const BUCKET = 'recipe-images'
@@ -43,6 +44,9 @@ export default function CreateRecipePage() {
   // json fields
   const [ingredients, setIngredients] = useState([newIngredient()])
   const [steps, setSteps] = useState([newStep(1)])
+
+  // tags (detached here; persisted after recipe is created)
+  const [tags, setTags] = useState([]) // [{id?, name}]
 
   // uploads / hero
   const [recipeId, setRecipeId] = useState(null)  // draft id first, same id for final recipe
@@ -252,6 +256,7 @@ export default function CreateRecipePage() {
       const urls = effectiveUploaded.map(f => f.url)
       const chosen = userPickedHero ? (hero || urls[0] || null) : (urls[0] || null)
 
+      // Insert final recipe using the draft id
       const { error: insertErr } = await supabase
         .from('recipes')
         .insert({
@@ -268,6 +273,28 @@ export default function CreateRecipePage() {
           cover_image: chosen,
         })
       if (insertErr) throw insertErr
+
+      // Persist tags now that we have an id
+      for (const tg of tags) {
+        const name = (tg.name || '').trim()
+        if (!name) continue
+        // Ensure tag exists; citext unique on name
+        const { data: tagRow } = await supabase
+          .from('tags')
+          .upsert([{ name }], { onConflict: 'name' })
+          .select('id')
+          .single()
+        if (tagRow?.id) {
+          await supabase
+            .from('recipe_tags')
+            .upsert([{ recipe_id: recipeId, tag_id: tagRow.id }], { onConflict: 'recipe_id,tag_id' })
+        }
+      }
+
+      // Optional: bump updated_at to refresh search_vec if your FTS function pulls tags
+      try {
+        await supabase.from('recipes').update({ updated_at: new Date().toISOString() }).eq('id', recipeId)
+      } catch { /* ignore if column not present */ }
 
       // tidy draft
       await supabase.from('recipe_drafts').delete().eq('id', recipeId)
@@ -521,6 +548,13 @@ export default function CreateRecipePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Tags (detached; saved after insert) */}
+      <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
+        <h2 className="font-semibold">Tags</h2>
+        <TagsInput value={tags} onChange={setTags} />
+        <p className="text-xs opacity-70">Tags are saved when you create the recipe.</p>
       </section>
 
       {/* Images + hero selector + drag + delete */}
