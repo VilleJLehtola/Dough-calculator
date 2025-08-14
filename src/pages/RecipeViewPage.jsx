@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
-import { Clock, Users, ChefHat } from 'lucide-react';
+import { Clock, Users, ChefHat, Pencil, Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images';
@@ -16,7 +16,6 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const [idx, setIdx] = useState(0);
   const containerRef = useRef(null);
 
-  // drag state
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
   const dx = useRef(0);
@@ -32,7 +31,6 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     if (e.key === 'ArrowRight') go(1);
   };
 
-  // touch handlers
   const onTouchStart = (e) => {
     if (!urls.length) return;
     const w = containerRef.current?.clientWidth || window.innerWidth || 1;
@@ -44,17 +42,14 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const onTouchMove = (e) => {
     if (!dragging) return;
     dx.current = e.touches[0].clientX - startX.current;
-    // request a re-render by toggling state cheaply:
-    setDragging((d) => d); // no-op but forces style recompute
+    setDragging((d) => d); // no-op to force style recompute
   };
   const onTouchEnd = () => {
     if (!dragging) return;
     const dist = dx.current;
     const w = widthRef.current;
-    const threshold = w * 0.2; // 20% swipe to switch
-    if (Math.abs(dist) > threshold) {
-      go(dist > 0 ? -1 : 1);
-    }
+    const threshold = w * 0.2; // 20% swipe
+    if (Math.abs(dist) > threshold) go(dist > 0 ? -1 : 1);
     setDragging(false);
     dx.current = 0;
   };
@@ -73,10 +68,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     );
   }
 
-  // percent offset while dragging
-  const offsetPct = dragging && widthRef.current
-    ? (dx.current / widthRef.current) * 100
-    : 0;
+  const offsetPct = dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
 
   return (
     <div
@@ -86,16 +78,12 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
-      {/* Sliding track */}
       <div
         className={[
           'w-full h-full flex',
           dragging ? 'transition-none' : 'transition-transform duration-500 ease-out',
         ].join(' ')}
-        style={{
-          transform: `translateX(calc(${-idx * 100}% + ${offsetPct}%))`,
-          willChange: 'transform',
-        }}
+        style={{ transform: `translateX(calc(${-idx * 100}% + ${offsetPct}%))`, willChange: 'transform' }}
       >
         {urls.map((u, i) => (
           <img
@@ -110,10 +98,8 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
         ))}
       </div>
 
-      {/* Overlay (author, description, etc) */}
       {overlay}
 
-      {/* Prev/Next */}
       <button
         aria-label="Previous image"
         className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
@@ -129,7 +115,6 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
         ›
       </button>
 
-      {/* Dots */}
       <div className="absolute bottom-2 w-full flex items-center justify-center gap-2">
         {urls.map((_, i) => (
           <button
@@ -157,20 +142,30 @@ async function listFolderUrls(folder) {
     });
 }
 
+function numOrNull(v) {
+  const n = Number(String(v ?? '').replace(',', '.').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function isFlourIng(ing) {
+  if (ing?.isFlour === true) return true;
+  const name = String(ing?.name || '');
+  // Heuristics: Finnish + English common flour words
+  return /jauho|flour|semolina|spelt|speltti|durum|vehnä|rye|ruis/i.test(name);
+}
+
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
   const { t } = useTranslation();
   const { id } = useParams();
 
-  // Recipe + author + images
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
-  const [images, setImages] = useState([]); // strings or {url}
+  const [images, setImages] = useState([]);
 
-  // Translation payload (if any)
   const [tData, setT] = useState(null);
+  const [authUserId, setAuthUserId] = useState(null);
 
-  // UI language from sidebar (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
   useEffect(() => {
     const onStorage = (e) => {
@@ -185,6 +180,10 @@ export default function RecipeViewPage() {
     };
   }, []);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setAuthUserId(data?.user?.id ?? null));
+  }, []);
+
   // Load recipe + author + images
   useEffect(() => {
     let cancelled = false;
@@ -192,7 +191,6 @@ export default function RecipeViewPage() {
     (async () => {
       if (!id) return;
 
-      // Use * to avoid column mismatches across schema versions
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select('*')
@@ -209,22 +207,17 @@ export default function RecipeViewPage() {
 
       setRecipe(recRow ?? null);
 
-      // author (best-effort; try by auth_user_id first, fall back to id)
       const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
       if (authorId) {
         try {
           let authRow = null;
-
-          // Try mapping by auth_user_id (common pattern)
           const { data: byAuthId } = await supabase
             .from('users')
             .select('id, email, username, avatar_url')
             .eq('auth_user_id', authorId)
             .maybeSingle();
-
           authRow = byAuthId ?? null;
 
-          // Fallback: direct id match
           if (!authRow) {
             const { data: byId } = await supabase
               .from('users')
@@ -233,7 +226,6 @@ export default function RecipeViewPage() {
               .maybeSingle();
             authRow = byId ?? null;
           }
-
           setAuthor(authRow);
         } catch (e) {
           console.warn('author fetch skipped', e?.message || e);
@@ -243,7 +235,6 @@ export default function RecipeViewPage() {
         setAuthor(null);
       }
 
-      // images: prefer explicit array; fallback to cover_image; else list folder
       if (Array.isArray(recRow?.images) && recRow.images.length) {
         setImages(recRow.images);
       } else if (recRow?.cover_image) {
@@ -259,20 +250,25 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // Translation: use base for source_lang, else read cached translation (no API calls here)
+  const canEdit = useMemo(() => {
+    if (!authUserId || !recipe) return false;
+    const owner = recipe.author_id ?? recipe.created_by ?? recipe.user_id ?? null;
+    return Boolean(owner && authUserId === owner);
+  }, [authUserId, recipe]);
+
+  // Translation fetch (cached)
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      if (!id) return;
-      if (!recipe) return; // wait until recipe is loaded
+      if (!id || !recipe) return;
 
       const sourceLang = recipe?.source_lang || 'fi';
       const effectiveLang = uiLang === 'auto' ? sourceLang : uiLang;
-      const shouldUseBase = !effectiveLang || effectiveLang === sourceLang;
+      const useBase = !effectiveLang || effectiveLang === sourceLang;
 
-      if (shouldUseBase) {
-        if (!cancelled) setT(null); // render directly from base "recipes"
+      if (useBase) {
+        if (!cancelled) setT(null);
         return;
       }
 
@@ -294,7 +290,6 @@ export default function RecipeViewPage() {
             steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
           });
         } else {
-          // No translation present -> fall back to base
           setT(null);
         }
       } catch (e) {
@@ -308,10 +303,10 @@ export default function RecipeViewPage() {
     };
   }, [id, recipe, uiLang]);
 
-  // Derive renderables
+  // Renderables
   const title = tData?.title ?? recipe?.title ?? recipe?.name ?? '';
   const description = tData?.description ?? recipe?.description ?? '';
-  const ingredients = useMemo(() => {
+  const ingredientsBase = useMemo(() => {
     const base = tData?.ingredients ?? recipe?.ingredients ?? [];
     if (Array.isArray(base)) return base;
     return String(base || '')
@@ -347,6 +342,40 @@ export default function RecipeViewPage() {
     return Number.isFinite(n) ? n : null;
   }, [recipe]);
 
+  /* ---------------------- Scaling logic (baker’s %) ---------------------- */
+  const baseFlour = useMemo(() => {
+    return ingredientsBase.reduce((sum, ing) => {
+      const amt = numOrNull(ing?.amount);
+      if (!Number.isFinite(amt)) return sum;
+      return sum + (isFlourIng(ing) ? amt : 0);
+    }, 0);
+  }, [ingredientsBase]);
+
+  // single source of truth: scale factor (1.0 = 100%)
+  const [scale, setScale] = useState(1);
+  const [showScale, setShowScale] = useState(false);
+
+  // derived helpers
+  const percent = Math.round(scale * 100);
+  const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
+
+  const setByPercent = (p) => setScale(Math.max(0.05, Number(p || 0) / 100));
+  const setByTargetFlour = (tg) => {
+    if (!baseFlour) return; // if no flour marked, disable
+    const s = Number(tg || 0) / baseFlour;
+    setScale(s > 0 ? s : 0);
+  };
+
+  const scaledIngredients = useMemo(() => {
+    if (!ingredientsBase?.length) return [];
+    return ingredientsBase.map((ing) => {
+      const amt = numOrNull(ing?.amount);
+      if (!Number.isFinite(amt)) return ing;
+      const scaled = Math.round(amt * scale);
+      return { ...ing, amount: scaled };
+    });
+  }, [ingredientsBase, scale]);
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
       {/* Breadcrumbs */}
@@ -355,52 +384,57 @@ export default function RecipeViewPage() {
           {t('recipe_library')}
         </Link>
         <span className="px-2">/</span>
-        <span className="text-gray-900 dark:text-gray-100">
-          {title || t('open_recipe')}
-        </span>
+        <span className="text-gray-900 dark:text-gray-100">{title || t('open_recipe')}</span>
       </div>
 
-      {/* Header: title + meta */}
+      {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100 truncate">
             {title || t('open_recipe')}
           </h1>
 
           {(author?.username || author?.email || description) && (
-            <div className="mt-2 flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
               {author?.username || author?.email ? (
                 <div className="flex items-center gap-2">
                   <ChefHat className="w-4 h-4" />
-                  <span>{author?.username || author?.email}</span>
+                  <span className="truncate">{author?.username || author?.email}</span>
                 </div>
               ) : null}
-
               {description ? <div className="line-clamp-2">{description}</div> : null}
             </div>
           )}
         </div>
 
-        {/* Meta pills */}
-        {(totalTime != null || recipe?.servings) && (
-          <div className="flex items-center gap-2">
-            {totalTime != null ? (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                <Clock className="w-3.5 h-3.5" />
-                {`${totalTime} ${t('minutes_short')}`}
-              </span>
-            ) : null}
-            {recipe?.servings ? (
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                <Users className="w-3.5 h-3.5" />
-                {recipe.servings}
-              </span>
-            ) : null}
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {totalTime != null ? (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+              <Clock className="w-3.5 h-3.5" />
+              {`${totalTime} ${t('minutes_short')}`}
+            </span>
+          ) : null}
+          {recipe?.servings ? (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+              <Users className="w-3.5 h-3.5" />
+              {recipe.servings}
+            </span>
+          ) : null}
+
+          {canEdit && id && (
+            <Link
+              to={`/recipe/${id}/edit`}
+              className="ml-2 inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              title={t('edit_recipe', 'Edit recipe')}
+            >
+              <Pencil className="w-4 h-4" />
+              {t('edit_recipe', 'Edit')}
+            </Link>
+          )}
+        </div>
       </div>
 
-      {/* HERO CAROUSEL with overlay */}
+      {/* Hero */}
       <HeroCarousel
         title={title}
         items={images}
@@ -420,7 +454,6 @@ export default function RecipeViewPage() {
                     <ChefHat className="w-5 h-5" />
                   </div>
                 )}
-
                 <div className="text-sm">
                   <div className="font-medium">{author?.username || author?.email}</div>
                   {description ? <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div> : null}
@@ -445,23 +478,122 @@ export default function RecipeViewPage() {
         </div>
       )}
 
-      {/* Two-column layout: ingredients + steps */}
+      {/* Two columns */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ingredients */}
+        {/* Ingredients + scaler */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
+
+            <button
+              className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+              onClick={() => setShowScale((s) => !s)}
+              title={t('scale_recipe', 'Scale recipe')}
+            >
+              <Scale className="w-4 h-4" />
+              {t('scale_recipe', 'Scale')}
+            </button>
           </div>
+
+          {/* Scaler UI */}
+          {showScale && (
+            <div className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-slate-700 text-sm space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="opacity-80">
+                  {t('total_flour', 'Total flour')}: <strong>{baseFlour || 0} g</strong>
+                </span>
+
+                <span className="opacity-80">
+                  {t('target_flour', 'Target flour')}: <strong>{targetFlour ?? '—'} g</strong>
+                </span>
+
+                <span className="opacity-80">
+                  {t('scale', 'Scale')}: <strong>{percent}%</strong>
+                </span>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs opacity-80">
+                    {t('target_flour_input', 'Target flour (g)')}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    disabled={!baseFlour}
+                    value={targetFlour ?? ''}
+                    onChange={(e) => setByTargetFlour(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2 disabled:opacity-60"
+                    placeholder={baseFlour ? String(baseFlour) : t('no_flour_marked', 'No flour marked')}
+                    title={
+                      baseFlour
+                        ? t('tip_target_flour', 'Set desired total flour in grams')
+                        : t('tip_target_flour_disabled', 'Mark at least one ingredient as flour to use this')
+                    }
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs opacity-80">{t('percent', 'Percent')}</label>
+                  <input
+                    type="number"
+                    min="5"
+                    step="5"
+                    value={percent}
+                    onChange={(e) => setByPercent(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2"
+                    placeholder="100"
+                    title={t('tip_percent', 'Scale all ingredient amounts by percent')}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {[50, 75, 100, 150, 200, 300, 400].map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setByPercent(p)}
+                    className={`px-2.5 py-1 rounded-md text-xs border ${
+                      percent === p
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {p}%
+                  </button>
+                ))}
+                <button
+                  onClick={() => setScale(1)}
+                  className="ml-1 px-2.5 py-1 rounded-md text-xs border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+                >
+                  {t('reset', 'Reset')}
+                </button>
+              </div>
+
+              {!baseFlour && (
+                <p className="text-xs opacity-75">
+                  {t(
+                    'percent_only_note',
+                    'Note: No flour is marked in this recipe. Scaling uses percent only.'
+                  )}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Ingredients list (scaled) */}
           <div className="p-4 overflow-x-auto">
-            {(tData?.ingredients ?? recipe?.ingredients)?.length ? (
+            {scaledIngredients?.length ? (
               <ul className="space-y-2">
-                {(tData?.ingredients ?? recipe?.ingredients)?.map?.((ing, i) => (
+                {scaledIngredients.map((ing, i) => (
                   <li key={i} className="flex items-center justify-between">
                     <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
-                    {ing.amount != null && (
+                    {numOrNull(ing.amount) != null ? (
                       <span className="text-gray-600 dark:text-gray-300">
                         {ing.amount} {ing.unit ?? ''}
                       </span>
+                    ) : (
+                      <span className="text-gray-600 dark:text-gray-300">{ing.unit ?? ''}</span>
                     )}
                   </li>
                 ))}
@@ -478,9 +610,9 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('instructions')}</h2>
           </div>
           <div className="p-4">
-            {(tData?.steps ?? recipe?.steps)?.length ? (
+            {steps?.length ? (
               <ol className="list-decimal pl-5 space-y-2">
-                {(tData?.steps ?? recipe?.steps)?.map?.((s, i) => (
+                {steps.map((s, i) => (
                   <li key={i} className="text-gray-800 dark:text-gray-100">
                     {s.text ?? String(s ?? '')}
                     {s.time != null && (
@@ -498,16 +630,11 @@ export default function RecipeViewPage() {
         </section>
       </div>
 
-      {/* Back + Edit links */}
-      <div className="mt-6 flex items-center gap-4">
+      {/* Back link */}
+      <div className="mt-6">
         <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
           ← {t('back_to_recipes')}
         </Link>
-        {id ? (
-          <Link to={`/recipe/${id}/edit`} className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
-            {t('edit_recipe', 'Edit')}
-          </Link>
-        ) : null}
       </div>
     </div>
   );
