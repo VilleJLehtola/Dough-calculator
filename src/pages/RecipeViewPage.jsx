@@ -16,6 +16,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const [idx, setIdx] = useState(0);
   const containerRef = useRef(null);
 
+  // drag state
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
   const dx = useRef(0);
@@ -31,6 +32,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     if (e.key === 'ArrowRight') go(1);
   };
 
+  // touch handlers
   const onTouchStart = (e) => {
     if (!urls.length) return;
     const w = containerRef.current?.clientWidth || window.innerWidth || 1;
@@ -42,14 +44,16 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const onTouchMove = (e) => {
     if (!dragging) return;
     dx.current = e.touches[0].clientX - startX.current;
-    setDragging((d) => d); // no-op to force style recompute
+    setDragging((d) => d); // trigger style recompute
   };
   const onTouchEnd = () => {
     if (!dragging) return;
     const dist = dx.current;
     const w = widthRef.current;
-    const threshold = w * 0.2; // 20% swipe
-    if (Math.abs(dist) > threshold) go(dist > 0 ? -1 : 1);
+    const threshold = w * 0.2; // 20% swipe to switch
+    if (Math.abs(dist) > threshold) {
+      go(dist > 0 ? -1 : 1);
+    }
     setDragging(false);
     dx.current = 0;
   };
@@ -68,7 +72,8 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     );
   }
 
-  const offsetPct = dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
+  const offsetPct =
+    dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
 
   return (
     <div
@@ -78,12 +83,16 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
+      {/* Sliding track */}
       <div
         className={[
           'w-full h-full flex',
           dragging ? 'transition-none' : 'transition-transform duration-500 ease-out',
         ].join(' ')}
-        style={{ transform: `translateX(calc(${-idx * 100}% + ${offsetPct}%))`, willChange: 'transform' }}
+        style={{
+          transform: `translateX(calc(${-idx * 100}% + ${offsetPct}%))`,
+          willChange: 'transform',
+        }}
       >
         {urls.map((u, i) => (
           <img
@@ -98,28 +107,31 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
         ))}
       </div>
 
+      {/* Overlay (author, description, etc) */}
       {overlay}
 
+      {/* Prev/Next (raise z-index for mobile overlays) */}
       <button
         aria-label="Previous image"
-        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
+        className="z-10 absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
         onClick={() => go(-1)}
       >
         ‹
       </button>
       <button
         aria-label="Next image"
-        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
+        className="z-10 absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
         onClick={() => go(1)}
       >
         ›
       </button>
 
+      {/* Dots */}
       <div className="absolute bottom-2 w-full flex items-center justify-center gap-2">
         {urls.map((_, i) => (
           <button
             key={i}
-            aria-label={t('go_to_slide', { index: i + 1 })}
+            aria-label={t ? t('go_to_slide', { index: i + 1 }) : `Go to slide ${i + 1}`}
             className={`w-2.5 h-2.5 rounded-full ${i === idx ? 'bg-white' : 'bg-white/50 hover:bg-white/80'}`}
             onClick={() => setIdx(i)}
           />
@@ -142,31 +154,22 @@ async function listFolderUrls(folder) {
     });
 }
 
-function numOrNull(v) {
-  const n = Number(String(v ?? '').replace(',', '.').replace(/[^\d.-]/g, ''));
-  return Number.isFinite(n) ? n : null;
-}
-
-function isFlourIng(ing) {
-  if (ing?.isFlour === true) return true;
-  const name = String(ing?.name || '');
-  // Heuristics: Finnish + English common flour words
-  return /jauho|flour|semolina|spelt|speltti|durum|vehnä|rye|ruis/i.test(name);
-}
-
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
   const { t } = useTranslation();
   const { id } = useParams();
 
+  // Recipe + author + images
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState([]); // strings or {url}
 
+  // Translation payload (if any)
   const [tData, setT] = useState(null);
-  const [authUserId, setAuthUserId] = useState(null);
 
+  // UI language (sidebar stores in localStorage)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
+  const targetLang = useMemo(() => (uiLang === 'auto' ? 'fi' : uiLang), [uiLang]);
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
@@ -180,8 +183,29 @@ export default function RecipeViewPage() {
     };
   }, []);
 
+  // Current user (for Edit)
+  const [userId, setUserId] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setAuthUserId(data?.user?.id ?? null));
+    let alive = true;
+    supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data?.user?.id ?? null;
+      if (!alive) return;
+      setUserId(uid);
+
+      // Best-effort: check users.is_admin; ignore errors (RLS might block)
+      if (uid) {
+        try {
+          const { data: row } = await supabase
+            .from('users')
+            .select('id,is_admin')
+            .eq('id', uid)
+            .maybeSingle();
+          if (row?.is_admin) setIsAdmin(true);
+        } catch {}
+      }
+    });
+    return () => { alive = false; };
   }, []);
 
   // Load recipe + author + images
@@ -191,6 +215,7 @@ export default function RecipeViewPage() {
     (async () => {
       if (!id) return;
 
+      // Use * to avoid column mismatches across schema versions
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select('*')
@@ -207,34 +232,24 @@ export default function RecipeViewPage() {
 
       setRecipe(recRow ?? null);
 
+      // author (best-effort; skip if missing)
       const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
       if (authorId) {
         try {
-          let authRow = null;
-          const { data: byAuthId } = await supabase
+          const { data: authRow, error: authErr } = await supabase
             .from('users')
             .select('id, email, username, avatar_url')
-            .eq('auth_user_id', authorId)
+            .eq('id', authorId)
             .maybeSingle();
-          authRow = byAuthId ?? null;
-
-          if (!authRow) {
-            const { data: byId } = await supabase
-              .from('users')
-              .select('id, email, username, avatar_url')
-              .eq('id', authorId)
-              .maybeSingle();
-            authRow = byId ?? null;
-          }
-          setAuthor(authRow);
+          if (!authErr) setAuthor(authRow ?? null);
         } catch (e) {
           console.warn('author fetch skipped', e?.message || e);
-          setAuthor(null);
         }
       } else {
         setAuthor(null);
       }
 
+      // images: prefer explicit array; fallback to cover_image; else list folder
       if (Array.isArray(recRow?.images) && recRow.images.length) {
         setImages(recRow.images);
       } else if (recRow?.cover_image) {
@@ -250,37 +265,29 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  const canEdit = useMemo(() => {
-    if (!authUserId || !recipe) return false;
-    const owner = recipe.author_id ?? recipe.created_by ?? recipe.user_id ?? null;
-    return Boolean(owner && authUserId === owner);
-  }, [authUserId, recipe]);
-
-  // Translation fetch (cached)
+  // Translation: prefer cached row; if missing, show base recipe as-is
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      if (!id || !recipe) return;
+      if (!id) return;
 
-      const sourceLang = recipe?.source_lang || 'fi';
-      const effectiveLang = uiLang === 'auto' ? sourceLang : uiLang;
-      const useBase = !effectiveLang || effectiveLang === sourceLang;
-
-      if (useBase) {
-        if (!cancelled) setT(null);
+      if (uiLang === 'auto') {
+        setT(null);
         return;
       }
 
       try {
-        const { data: trRow } = await supabase
+        const { data: trRow, error: trErr } = await supabase
           .from('recipe_translations')
           .select('title,description,ingredients,steps')
           .eq('recipe_id', id)
-          .eq('lang', effectiveLang)
+          .eq('lang', targetLang)
           .maybeSingle();
 
-        if (cancelled) return;
+        if (trErr) {
+          console.warn('translation select error', trErr);
+        }
 
         if (trRow) {
           setT({
@@ -293,20 +300,20 @@ export default function RecipeViewPage() {
           setT(null);
         }
       } catch (e) {
-        console.warn('translation fetch error', e);
-        if (!cancelled) setT(null);
+        console.warn('translate select error', e);
+        setT(null);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [id, recipe, uiLang]);
+  }, [id, uiLang, targetLang]);
 
-  // Renderables
+  // Derive renderables
   const title = tData?.title ?? recipe?.title ?? recipe?.name ?? '';
   const description = tData?.description ?? recipe?.description ?? '';
-  const ingredientsBase = useMemo(() => {
+  const ingredientsRaw = useMemo(() => {
     const base = tData?.ingredients ?? recipe?.ingredients ?? [];
     if (Array.isArray(base)) return base;
     return String(base || '')
@@ -342,39 +349,58 @@ export default function RecipeViewPage() {
     return Number.isFinite(n) ? n : null;
   }, [recipe]);
 
-  /* ---------------------- Scaling logic (baker’s %) ---------------------- */
-  const baseFlour = useMemo(() => {
-    return ingredientsBase.reduce((sum, ing) => {
-      const amt = numOrNull(ing?.amount);
-      if (!Number.isFinite(amt)) return sum;
-      return sum + (isFlourIng(ing) ? amt : 0);
-    }, 0);
-  }, [ingredientsBase]);
+  const canEdit = !!userId && (userId === (recipe?.author_id ?? recipe?.created_by ?? recipe?.user_id) || isAdmin);
 
-  // single source of truth: scale factor (1.0 = 100%)
-  const [scale, setScale] = useState(1);
+  /* ----------------------------- Scaler logic ----------------------------- */
+  // detect mobile & lock scroll when bottom sheet open
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const [showScale, setShowScale] = useState(false);
+  useEffect(() => {
+    if (showScale && isMobile) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [showScale, isMobile]);
 
-  // derived helpers
+  // Compute base flour total from ingredient rows that look like flour
+  const baseFlour = useMemo(() => {
+    return ingredientsRaw.reduce((sum, ing) => {
+      const amt = Number(ing.amount);
+      const isFlour = Boolean(ing.isFlour) || /(jauho|flour)/i.test(ing.name || '');
+      return sum + (isFlour && Number.isFinite(amt) ? amt : 0);
+    }, 0);
+  }, [ingredientsRaw]);
+
+  const [scale, setScale] = useState(1); // multiplier (1 = 100%)
   const percent = Math.round(scale * 100);
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
-  const setByPercent = (p) => setScale(Math.max(0.05, Number(p || 0) / 100));
-  const setByTargetFlour = (tg) => {
-    if (!baseFlour) return; // if no flour marked, disable
-    const s = Number(tg || 0) / baseFlour;
-    setScale(s > 0 ? s : 0);
-  };
-
   const scaledIngredients = useMemo(() => {
-    if (!ingredientsBase?.length) return [];
-    return ingredientsBase.map((ing) => {
-      const amt = numOrNull(ing?.amount);
-      if (!Number.isFinite(amt)) return ing;
-      const scaled = Math.round(amt * scale);
-      return { ...ing, amount: scaled };
+    if (!ingredientsRaw?.length) return [];
+    return ingredientsRaw.map((ing) => {
+      const amt = Number(ing.amount);
+      if (!Number.isFinite(amt)) return { ...ing };
+      return { ...ing, amount: Math.round(amt * scale * 10) / 10 };
     });
-  }, [ingredientsBase, scale]);
+  }, [ingredientsRaw, scale]);
+
+  const setByPercent = (p) => {
+    const val = Number(p);
+    if (!Number.isFinite(val) || val <= 0) return;
+    setScale(val / 100);
+  };
+  const setByTargetFlour = (v) => {
+    const val = Number(v);
+    if (!Number.isFinite(val) || val <= 0 || !baseFlour) return;
+    setScale(val / baseFlour);
+  };
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
@@ -384,30 +410,34 @@ export default function RecipeViewPage() {
           {t('recipe_library')}
         </Link>
         <span className="px-2">/</span>
-        <span className="text-gray-900 dark:text-gray-100">{title || t('open_recipe')}</span>
+        <span className="text-gray-900 dark:text-gray-100">
+          {title || t('open_recipe')}
+        </span>
       </div>
 
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100 truncate">
+      {/* Header: title + meta */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
             {title || t('open_recipe')}
           </h1>
 
           {(author?.username || author?.email || description) && (
-            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+            <div className="mt-2 flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
               {author?.username || author?.email ? (
                 <div className="flex items-center gap-2">
                   <ChefHat className="w-4 h-4" />
-                  <span className="truncate">{author?.username || author?.email}</span>
+                  <span>{author?.username || author?.email}</span>
                 </div>
               ) : null}
+
               {description ? <div className="line-clamp-2">{description}</div> : null}
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Meta pills + Edit */}
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {totalTime != null ? (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
               <Clock className="w-3.5 h-3.5" />
@@ -421,20 +451,19 @@ export default function RecipeViewPage() {
             </span>
           ) : null}
 
-          {canEdit && id && (
+          {canEdit && (
             <Link
               to={`/recipe/${id}/edit`}
-              className="ml-2 inline-flex items-center gap-2 text-xs px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-              title={t('edit_recipe', 'Edit recipe')}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
             >
               <Pencil className="w-4 h-4" />
-              {t('edit_recipe', 'Edit')}
+              {t('edit', 'Edit')}
             </Link>
           )}
         </div>
       </div>
 
-      {/* Hero */}
+      {/* HERO CAROUSEL with overlay */}
       <HeroCarousel
         title={title}
         items={images}
@@ -456,7 +485,9 @@ export default function RecipeViewPage() {
                 )}
                 <div className="text-sm">
                   <div className="font-medium">{author?.username || author?.email}</div>
-                  {description ? <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div> : null}
+                  {description ? (
+                    <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -478,45 +509,39 @@ export default function RecipeViewPage() {
         </div>
       )}
 
-      {/* Two columns */}
+      {/* Two-column layout: ingredients + steps */}
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Ingredients + scaler */}
+        {/* Ingredients */}
         <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
           <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-700 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('ingredients')}</h2>
-
             <button
-              className="inline-flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-              onClick={() => setShowScale((s) => !s)}
-              title={t('scale_recipe', 'Scale recipe')}
+              onClick={() => setShowScale(true)}
+              className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
             >
               <Scale className="w-4 h-4" />
-              {t('scale_recipe', 'Scale')}
+              {t('scale_recipe','Scale')}
             </button>
           </div>
 
-          {/* Scaler UI */}
-          {showScale && (
+          {/* Scaler UI - desktop/tablet inline */}
+          {showScale && !isMobile && (
             <div className="px-4 pt-4 pb-2 border-b border-gray-200 dark:border-slate-700 text-sm space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="opacity-80">
-                  {t('total_flour', 'Total flour')}: <strong>{baseFlour || 0} g</strong>
+                  {t('total_flour','Total flour')}: <strong>{baseFlour || 0} g</strong>
                 </span>
-
                 <span className="opacity-80">
-                  {t('target_flour', 'Target flour')}: <strong>{targetFlour ?? '—'} g</strong>
+                  {t('target_flour','Target flour')}: <strong>{targetFlour ?? '—'} g</strong>
                 </span>
-
                 <span className="opacity-80">
-                  {t('scale', 'Scale')}: <strong>{percent}%</strong>
+                  {t('scale','Scale')}: <strong>{percent}%</strong>
                 </span>
               </div>
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="block text-xs opacity-80">
-                    {t('target_flour_input', 'Target flour (g)')}
-                  </label>
+                  <label className="block text-xs opacity-80">{t('target_flour_input','Target flour (g)')}</label>
                   <input
                     type="number"
                     min="1"
@@ -524,26 +549,17 @@ export default function RecipeViewPage() {
                     value={targetFlour ?? ''}
                     onChange={(e) => setByTargetFlour(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2 disabled:opacity-60"
-                    placeholder={baseFlour ? String(baseFlour) : t('no_flour_marked', 'No flour marked')}
-                    title={
-                      baseFlour
-                        ? t('tip_target_flour', 'Set desired total flour in grams')
-                        : t('tip_target_flour_disabled', 'Mark at least one ingredient as flour to use this')
-                    }
+                    placeholder={baseFlour ? String(baseFlour) : t('no_flour_marked','No flour marked')}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-xs opacity-80">{t('percent', 'Percent')}</label>
+                  <label className="block text-xs opacity-80">{t('percent','Percent')}</label>
                   <input
-                    type="number"
-                    min="5"
-                    step="5"
-                    value={percent}
+                    type="number" min="5" step="5" value={percent}
                     onChange={(e) => setByPercent(e.target.value)}
                     className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2"
                     placeholder="100"
-                    title={t('tip_percent', 'Scale all ingredient amounts by percent')}
                   />
                 </div>
               </div>
@@ -566,16 +582,13 @@ export default function RecipeViewPage() {
                   onClick={() => setScale(1)}
                   className="ml-1 px-2.5 py-1 rounded-md text-xs border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
                 >
-                  {t('reset', 'Reset')}
+                  {t('reset','Reset')}
                 </button>
               </div>
 
               {!baseFlour && (
                 <p className="text-xs opacity-75">
-                  {t(
-                    'percent_only_note',
-                    'Note: No flour is marked in this recipe. Scaling uses percent only.'
-                  )}
+                  {t('percent_only_note','Note: No flour is marked in this recipe. Scaling uses percent only.')}
                 </p>
               )}
             </div>
@@ -588,12 +601,10 @@ export default function RecipeViewPage() {
                 {scaledIngredients.map((ing, i) => (
                   <li key={i} className="flex items-center justify-between">
                     <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
-                    {numOrNull(ing.amount) != null ? (
+                    {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
                         {ing.amount} {ing.unit ?? ''}
                       </span>
-                    ) : (
-                      <span className="text-gray-600 dark:text-gray-300">{ing.unit ?? ''}</span>
                     )}
                   </li>
                 ))}
@@ -636,6 +647,95 @@ export default function RecipeViewPage() {
           ← {t('back_to_recipes')}
         </Link>
       </div>
+
+      {/* Mobile scale bottom sheet */}
+      {showScale && isMobile && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50"
+            onClick={() => setShowScale(false)}
+            aria-label="Close scale sheet"
+          />
+          <div className="fixed z-50 bottom-0 inset-x-0 rounded-t-2xl bg-white dark:bg-slate-900 shadow-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="font-medium flex items-center gap-2">
+                <Scale className="w-4 h-4" /> {t('scale_recipe','Scale recipe')}
+              </div>
+              <button
+                onClick={() => setShowScale(false)}
+                className="px-3 py-1 rounded-md border border-gray-300 dark:border-slate-600 text-xs"
+              >
+                {t('done','Done')}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="opacity-80">
+                {t('total_flour','Total flour')}: <strong>{baseFlour || 0} g</strong>
+              </span>
+              <span className="opacity-80">
+                {t('target_flour','Target flour')}: <strong>{targetFlour ?? '—'} g</strong>
+              </span>
+              <span className="opacity-80">
+                {t('scale','Scale')}: <strong>{percent}%</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <div className="space-y-1">
+                <label className="block text-xs opacity-80">{t('target_flour_input','Target flour (g)')}</label>
+                <input
+                  type="number"
+                  min="1"
+                  disabled={!baseFlour}
+                  value={targetFlour ?? ''}
+                  onChange={(e) => setByTargetFlour(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2 disabled:opacity-60"
+                  placeholder={baseFlour ? String(baseFlour) : t('no_flour_marked','No flour marked')}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs opacity-80">{t('percent','Percent')}</label>
+                <input
+                  type="number" min="5" step="5" value={percent}
+                  onChange={(e) => setByPercent(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2"
+                  placeholder="100"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {[50, 75, 100, 150, 200, 300, 400].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setByPercent(p)}
+                  className={`px-2.5 py-1 rounded-md text-xs border ${
+                    percent === p
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {p}%
+                </button>
+              ))}
+              <button
+                onClick={() => setScale(1)}
+                className="ml-1 px-2.5 py-1 rounded-md text-xs border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+              >
+                {t('reset','Reset')}
+              </button>
+            </div>
+
+            {!baseFlour && (
+              <p className="text-xs opacity-75">
+                {t('percent_only_note','Note: No flour is marked in this recipe. Scaling uses percent only.')}
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
