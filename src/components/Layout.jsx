@@ -30,7 +30,13 @@ const Layout = ({ children, user, onLoginClick, onLogout }) => {
             sidebarOpen ? 'w-64' : 'w-20'
           } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800`}
         >
-          <Sidebar user={user} collapsed={!sidebarOpen} toggleSidebar={toggleSidebar} />
+          {/* FIX: pass onLogout down so the button works */}
+          <Sidebar
+            user={user}
+            onLogout={onLogout}
+            collapsed={!sidebarOpen}
+            toggleSidebar={toggleSidebar}
+          />
         </aside>
       )}
 
