@@ -1,67 +1,87 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import RecipeCard from './RecipeCard';
+import { Link } from 'react-router-dom';
+import supabase from '@/supabaseClient';
 
-export default function FavoritesGrid({ userId }) {
-  const [favorites, setFavorites] = useState([]);
+export default function FavoritesGrid({ userId, isOwner }) {
+  const [favorites, setFavorites] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchFavorites() {
+    (async () => {
       setLoading(true);
 
-      // Step 1: Get favorite entries
-      const { data: favData, error: favError } = await supabase
+      // Step 1: get favorites (recipe_ids)
+      const { data: favRows, error: favErr } = await supabase
         .from('favorites')
-        .select('recipe_id')
-        .eq('user_id', userId);
+        .select('id, recipe_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-      if (favError) {
-        console.error('Error fetching favorites:', favError);
-        setLoading(false);
-        return;
-      }
-
-      if (!favData.length) {
+      if (favErr) {
+        console.error('Favorites error:', favErr);
         setFavorites([]);
         setLoading(false);
         return;
       }
 
-      const recipeIds = favData.map((f) => f.recipe_id);
-
-      // Step 2: Get recipe details in a single query
-      const { data: recipeData, error: recipeError } = await supabase
-        .from('recipes')
-        .select('*')
-        .in('id', recipeIds);
-
-      if (recipeError) {
-        console.error('Error fetching favorite recipes:', recipeError);
-      } else {
-        // Keep order same as favorites
-        const sortedRecipes = recipeIds
-          .map((id) => recipeData.find((r) => r.id === id))
-          .filter(Boolean);
-
-        setFavorites(sortedRecipes);
+      const recipeIds = (favRows || []).map(f => f.recipe_id).filter(Boolean);
+      if (recipeIds.length === 0) {
+        setFavorites([]);
+        setLoading(false);
+        return;
       }
 
-      setLoading(false);
-    }
+      // Step 2: get recipes in bulk
+      const { data: recipes, error: recErr } = await supabase
+        .from('recipes')
+        .select('id, title, description, cover_image_url')
+        .in('id', recipeIds);
 
-    if (userId) {
-      fetchFavorites();
-    }
+      if (recErr) {
+        console.error('Favorite recipes error:', recErr);
+        setFavorites([]);
+        setLoading(false);
+        return;
+      }
+
+      // keep the same order as favorites
+      const recMap = new Map((recipes || []).map(r => [r.id, r]));
+      const joined = (favRows || [])
+        .map(f => ({ ...f, recipe: recMap.get(f.recipe_id) }))
+        .filter(f => f.recipe);
+
+      setFavorites(joined);
+      setLoading(false);
+    })();
   }, [userId]);
 
-  if (loading) return <p>Loading favorites...</p>;
-  if (!favorites.length) return <p>No favorites yet.</p>;
+  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (!favorites || favorites.length === 0) {
+    return (
+      <p className="text-gray-500 dark:text-gray-400">
+        {isOwner ? 'You have no favorites yet.' : 'No favorites to show.'}
+      </p>
+    );
+  }
 
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-      {favorites.map((recipe) => (
-        <RecipeCard key={recipe.id} recipe={recipe} />
+      {favorites.map(({ id, recipe }) => (
+        <Link
+          key={id}
+          to={`/recipe/${recipe.id}`}
+          className="rounded-xl overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:shadow"
+        >
+          {recipe.cover_image_url && (
+            <img src={recipe.cover_image_url} alt={recipe.title} className="h-40 w-full object-cover" />
+          )}
+          <div className="p-3">
+            <h3 className="font-semibold text-gray-900 dark:text-white">{recipe.title}</h3>
+            {recipe.description && (
+              <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{recipe.description}</p>
+            )}
+          </div>
+        </Link>
       ))}
     </div>
   );
