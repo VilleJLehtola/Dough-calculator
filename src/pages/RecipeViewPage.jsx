@@ -44,13 +44,14 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
   const onTouchMove = (e) => {
     if (!dragging) return;
     dx.current = e.touches[0].clientX - startX.current;
-    setDragging((d) => d); // force style recompute
+    // request a re-render by toggling state cheaply:
+    setDragging((d) => d); // no-op but forces style recompute
   };
   const onTouchEnd = () => {
     if (!dragging) return;
     const dist = dx.current;
     const w = widthRef.current;
-    const threshold = w * 0.2;
+    const threshold = w * 0.2; // 20% swipe to switch
     if (Math.abs(dist) > threshold) {
       go(dist > 0 ? -1 : 1);
     }
@@ -72,7 +73,10 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
     );
   }
 
-  const offsetPct = dragging && widthRef.current ? (dx.current / widthRef.current) * 100 : 0;
+  // percent offset while dragging
+  const offsetPct = dragging && widthRef.current
+    ? (dx.current / widthRef.current) * 100
+    : 0;
 
   return (
     <div
@@ -163,16 +167,11 @@ export default function RecipeViewPage() {
   const [author, setAuthor] = useState(null);
   const [images, setImages] = useState([]); // strings or {url}
 
-  // Signed-in user (for edit permission)
-  const [sessionUserId, setSessionUserId] = useState(null);
-
   // Translation payload (if any)
   const [tData, setT] = useState(null);
 
   // UI language from sidebar (localStorage + custom event)
   const [uiLang, setUiLang] = useState(localStorage.getItem('lang') || 'auto');
-  const targetLang = useMemo(() => (uiLang === 'auto' ? 'fi' : uiLang), [uiLang]);
-
   useEffect(() => {
     const onStorage = (e) => {
       if (e.key === 'lang') setUiLang(localStorage.getItem('lang') || 'auto');
@@ -186,17 +185,6 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Load session user
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setSessionUserId(data?.user?.id ?? null);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   // Load recipe + author + images
   useEffect(() => {
     let cancelled = false;
@@ -204,7 +192,7 @@ export default function RecipeViewPage() {
     (async () => {
       if (!id) return;
 
-      // Use * to tolerate schema changes
+      // Use * to avoid column mismatches across schema versions
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select('*')
@@ -221,19 +209,35 @@ export default function RecipeViewPage() {
 
       setRecipe(recRow ?? null);
 
-      // author
+      // author (best-effort; try by auth_user_id first, fall back to id)
       const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
       if (authorId) {
         try {
-          // Select only EXISTING columns on your users table
-          const { data: authRow, error: authErr } = await supabase
+          let authRow = null;
+
+          // Try mapping by auth_user_id (common pattern)
+          const { data: byAuthId } = await supabase
             .from('users')
-            .select('id,email,username,role,created_at')
-            .eq('id', authorId)
+            .select('id, email, username, avatar_url')
+            .eq('auth_user_id', authorId)
             .maybeSingle();
-          if (!authErr) setAuthor(authRow ?? null);
+
+          authRow = byAuthId ?? null;
+
+          // Fallback: direct id match
+          if (!authRow) {
+            const { data: byId } = await supabase
+              .from('users')
+              .select('id, email, username, avatar_url')
+              .eq('id', authorId)
+              .maybeSingle();
+            authRow = byId ?? null;
+          }
+
+          setAuthor(authRow);
         } catch (e) {
           console.warn('author fetch skipped', e?.message || e);
+          setAuthor(null);
         }
       } else {
         setAuthor(null);
@@ -255,29 +259,30 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // Translation: prefer cached row; if missing, just show base (no API call here)
+  // Translation: use base for source_lang, else read cached translation (no API calls here)
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       if (!id) return;
+      if (!recipe) return; // wait until recipe is loaded
 
-      if (uiLang === 'auto') {
-        setT(null);
+      const sourceLang = recipe?.source_lang || 'fi';
+      const effectiveLang = uiLang === 'auto' ? sourceLang : uiLang;
+      const shouldUseBase = !effectiveLang || effectiveLang === sourceLang;
+
+      if (shouldUseBase) {
+        if (!cancelled) setT(null); // render directly from base "recipes"
         return;
       }
 
       try {
-        const { data: trRow, error: trErr } = await supabase
+        const { data: trRow } = await supabase
           .from('recipe_translations')
           .select('title,description,ingredients,steps')
           .eq('recipe_id', id)
-          .eq('lang', targetLang)
+          .eq('lang', effectiveLang)
           .maybeSingle();
-
-        if (trErr) {
-          console.warn('translation select error', trErr);
-        }
 
         if (cancelled) return;
 
@@ -289,23 +294,23 @@ export default function RecipeViewPage() {
             steps: Array.isArray(trRow.steps) ? trRow.steps : undefined,
           });
         } else {
+          // No translation present -> fall back to base
           setT(null);
         }
       } catch (e) {
-        console.warn('translate select error', e);
-        setT(null);
+        console.warn('translation fetch error', e);
+        if (!cancelled) setT(null);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [id, uiLang, targetLang]);
+  }, [id, recipe, uiLang]);
 
   // Derive renderables
   const title = tData?.title ?? recipe?.title ?? recipe?.name ?? '';
   const description = tData?.description ?? recipe?.description ?? '';
-
   const ingredients = useMemo(() => {
     const base = tData?.ingredients ?? recipe?.ingredients ?? [];
     if (Array.isArray(base)) return base;
@@ -342,33 +347,17 @@ export default function RecipeViewPage() {
     return Number.isFinite(n) ? n : null;
   }, [recipe]);
 
-  const canEdit = useMemo(() => {
-    if (!sessionUserId || !recipe?.author_id) return false;
-    return sessionUserId === recipe.author_id;
-  }, [sessionUserId, recipe]);
-
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
-      {/* Breadcrumbs & Edit */}
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          <Link to="/browse" className="hover:underline">
-            {t('recipe_library')}
-          </Link>
-          <span className="px-2">/</span>
-          <span className="text-gray-900 dark:text-gray-100">
-            {title || t('open_recipe')}
-          </span>
-        </div>
-
-        {canEdit && (
-          <Link
-            to={`/recipe/${id}/edit`}
-            className="inline-flex items-center px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
-          >
-            {t('edit', 'Edit')}
-          </Link>
-        )}
+      {/* Breadcrumbs */}
+      <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        <Link to="/browse" className="hover:underline">
+          {t('recipe_library')}
+        </Link>
+        <span className="px-2">/</span>
+        <span className="text-gray-900 dark:text-gray-100">
+          {title || t('open_recipe')}
+        </span>
       </div>
 
       {/* Header: title + meta */}
@@ -420,10 +409,17 @@ export default function RecipeViewPage() {
           (author?.username || author?.email || description) && (
             <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
               <div className="flex items-center gap-3">
-                {/* No avatar_url column -> fallback bubble */}
-                <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-                  <ChefHat className="w-5 h-5" />
-                </div>
+                {author?.avatar_url ? (
+                  <img
+                    src={author.avatar_url}
+                    alt={author?.username || author?.email}
+                    className="w-9 h-9 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
+                    <ChefHat className="w-5 h-5" />
+                  </div>
+                )}
 
                 <div className="text-sm">
                   <div className="font-medium">{author?.username || author?.email}</div>
@@ -502,11 +498,16 @@ export default function RecipeViewPage() {
         </section>
       </div>
 
-      {/* Back link */}
-      <div className="mt-6">
+      {/* Back + Edit links */}
+      <div className="mt-6 flex items-center gap-4">
         <Link to="/browse" className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
           ← {t('back_to_recipes')}
         </Link>
+        {id ? (
+          <Link to={`/recipe/${id}/edit`} className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline">
+            {t('edit_recipe', 'Edit')}
+          </Link>
+        ) : null}
       </div>
     </div>
   );
