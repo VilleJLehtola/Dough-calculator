@@ -12,7 +12,7 @@ import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-export default function Sidebar({ user, onLogout }) {
+export default function Sidebar({ user, onLogout, collapsed, toggleSidebar }) {
   const { pathname } = useLocation();
   const isActive = (path) => pathname === path || pathname.startsWith(path + '/');
 
@@ -25,12 +25,26 @@ export default function Sidebar({ user, onLogout }) {
     );
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6 flex flex-col">
+    <aside
+      className={clsx(
+        'w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 p-4 space-y-6 flex flex-col',
+        collapsed && 'hidden md:flex'
+      )}
+    >
       {/* Brand */}
-      <div className="px-2">
+      <div className="px-2 flex items-center justify-between">
         <Link to="/" className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
           Everything Dough
         </Link>
+        {typeof toggleSidebar === 'function' && (
+          <button
+            onClick={toggleSidebar}
+            className="md:hidden text-gray-500 dark:text-gray-400"
+            aria-label="Toggle sidebar"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Language flags on their own row */}
@@ -82,7 +96,8 @@ export default function Sidebar({ user, onLogout }) {
             <List size={18} />
             Your recipes
           </Link>
-          <Link to="/Favorites" className={linkClass('/favorites')}>
+          {/* FIX: lowercased path to match routing and isActive */}
+          <Link to="/favorites" className={linkClass('/favorites')}>
             <Heart size={18} />
             Favorites
           </Link>
@@ -95,10 +110,9 @@ export default function Sidebar({ user, onLogout }) {
 
       {/* Footer */}
       <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-        {/* If you add a ThemeToggle component, put it here above logout */}
         {user && (
           <button
-            onClick={onLogout}
+            onClick={() => onLogout?.()}
             className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline px-2"
           >
             <LogOut size={16} />
