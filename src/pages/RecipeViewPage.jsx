@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat, Pencil, Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import LikeFavoriteBar from '@/components/LikeFavoriteBar';
 
 const BUCKET = 'recipe-images';
 
@@ -436,7 +437,7 @@ export default function RecipeViewPage() {
           )}
         </div>
 
-        {/* Meta pills + Edit */}
+        {/* Meta pills + Like/Favorite + Edit */}
         <div className="flex items-center gap-2 shrink-0 flex-wrap">
           {totalTime != null ? (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
@@ -450,6 +451,9 @@ export default function RecipeViewPage() {
               {recipe.servings}
             </span>
           ) : null}
+
+          {/* Like & Favorite controls */}
+          <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
 
           {canEdit && (
             <Link
