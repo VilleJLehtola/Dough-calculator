@@ -12,6 +12,8 @@ import supabase from './supabaseClient';
 import CreateRecipePage from './pages/CreateRecipePage';
 import EditRecipePage from '@/pages/EditRecipePage';
 import YourRecipesPage from './pages/YourRecipesPage';
+import ProfilePage from '@/pages/ProfilePage';
+import MyProfileRedirect from '@/pages/MyProfileRedirect';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -56,6 +58,8 @@ export default function App() {
           <Route path="/create" element={<CreateRecipePage />} />
           <Route path="/recipe/:id/edit" element={<EditRecipePage />} />
           <Route path="/your-recipes" element={<YourRecipesPage />} />
+          <Route path="/u/:username" element={<ProfilePage />} />
+          <Route path="/profile" element={<MyProfileRedirect />} />
 
 
           {/* New canonical route */}
