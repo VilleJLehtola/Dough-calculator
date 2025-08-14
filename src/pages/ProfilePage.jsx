@@ -1,62 +1,156 @@
-import { useParams, useSearchParams } from 'react-router-dom';
+// src/pages/ProfilePage.jsx
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import supabase from '@/supabaseClient';
-import ProfileHeader from '@/components/profile/ProfileHeader';
-import ProfileTabs from '@/components/profile/ProfileTabs';
-import RecipeGrid from '@/components/profile/RecipeGrid';
 import FavoritesGrid from '@/components/profile/FavoritesGrid';
-import ProfileSettings from '@/components/profile/ProfileSettings';
+import RecipeGrid from '@/components/profile/RecipeGrid';
+import { Button } from '@/components/ui/button';
 
-export default function ProfilePage() {
+export default function ProfilePage({ session, onLogout }) {
   const { username } = useParams();
-  const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') || 'recipes';
-
   const [profile, setProfile] = useState(null);
-  const [isOwner, setIsOwner] = useState(false);
   const [stats, setStats] = useState({ recipes: 0, favorites: 0 });
+  const [activeTab, setActiveTab] = useState('recipes');
+  const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     (async () => {
-      // 1) load public profile
+      setLoading(true);
+
+      // 1) Fetch user profile
       const { data: userRow, error } = await supabase
         .from('users')
-        .select('id, username, email, created_at, bio, avatar_url')
-        .ilike('username', username)
+        .select('*')
+        .eq('username', username)
         .single();
 
-      if (error || !userRow) return;
+      if (error || !userRow) {
+        console.error(error);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
 
       setProfile(userRow);
+      setIsOwner(session?.user?.id === userRow.id);
 
-      // 2) owner?
-      const { data: { user: sessionUser } } = await supabase.auth.getUser();
-      setIsOwner(!!sessionUser && sessionUser.id === userRow.id);
+      // 2) Count recipes (try multiple author cols)
+      const recipeCount = async (uid) => {
+        for (const col of ['user_id', 'author_id', 'created_by']) {
+          const { count, error } = await supabase
+            .from('recipes')
+            .select('id', { count: 'exact', head: true })
+            .eq(col, uid);
+          if (!error && typeof count === 'number') return count;
+        }
+        return 0;
+      };
 
-      // 3) stats (counts)
-      const [{ count: recipesCount }, { count: favCount }] = await Promise.all([
-        supabase.from('recipes').select('id', { count: 'exact', head: true }).eq('user_id', userRow.id),
-        supabase.from('favorites').select('id', { count: 'exact', head: true }).eq('user_id', userRow.id),
-      ]);
+      // 3) Count favorites
+      const favCount = async (uid) => {
+        const { count, error } = await supabase
+          .from('favorites')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', uid);
+        return !error && typeof count === 'number' ? count : 0;
+      };
 
-      setStats({ recipes: recipesCount || 0, favorites: favCount || 0 });
+      const [rc, fc] = await Promise.all([recipeCount(userRow.id), favCount(userRow.id)]);
+      setStats({ recipes: rc, favorites: fc });
+      setLoading(false);
     })();
-  }, [username]);
+  }, [username, session?.user?.id]);
 
-  if (!profile) return null;
+  if (loading) {
+    return <div className="p-6 text-gray-500 dark:text-gray-400">Loading profile…</div>;
+  }
 
-  const setTab = (t) => {
-    params.set('tab', t);
-    setParams(params, { replace: true });
-  };
+  if (!profile) {
+    return <div className="p-6 text-red-500">Profile not found.</div>;
+  }
 
   return (
-    <div className="mx-auto max-w-6xl p-4 space-y-6">
-      <ProfileHeader profile={profile} isOwner={isOwner} stats={stats} />
-      <ProfileTabs tab={tab} onChange={setTab} isOwner={isOwner} />
-      {tab === 'recipes' && <RecipeGrid userId={profile.id} />}
-      {tab === 'favorites' && <FavoritesGrid userId={profile.id} isOwner={isOwner} />}
-      {tab === 'settings' && isOwner && <ProfileSettings profile={profile} />}
+    <div className="p-6">
+      {/* Profile header */}
+      <div className="flex flex-col sm:flex-row items-center sm:items-start sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl font-bold">
+            {profile.username?.slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">{profile.username}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Joined {new Date(profile.created_at).toLocaleDateString()}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-gray-700 dark:text-gray-300">{stats.recipes} Recipes</div>
+          <div className="text-gray-700 dark:text-gray-300">{stats.favorites} Favorites</div>
+          {isOwner && (
+            <Button asChild>
+              <a href="/create-recipe">Create</a>
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="mt-6 border-b border-gray-200 dark:border-gray-700 flex gap-6">
+        <button
+          onClick={() => setActiveTab('recipes')}
+          className={`pb-2 ${
+            activeTab === 'recipes'
+              ? 'border-b-2 border-blue-500 text-blue-500'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          Recipes
+        </button>
+        <button
+          onClick={() => setActiveTab('favorites')}
+          className={`pb-2 ${
+            activeTab === 'favorites'
+              ? 'border-b-2 border-blue-500 text-blue-500'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          Favorites
+        </button>
+        {isOwner && (
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`pb-2 ${
+              activeTab === 'settings'
+                ? 'border-b-2 border-blue-500 text-blue-500'
+                : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            Settings
+          </button>
+        )}
+      </div>
+
+      {/* Tab content */}
+      <div className="mt-6">
+        {activeTab === 'recipes' && <RecipeGrid userId={profile.id} />}
+        {activeTab === 'favorites' && (
+          <FavoritesGrid userId={profile.id} isOwner={isOwner} />
+        )}
+        {activeTab === 'settings' && isOwner && (
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Profile settings</h2>
+            <Button
+              variant="destructive"
+              className="mt-4"
+              onClick={onLogout}
+            >
+              Logout
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
