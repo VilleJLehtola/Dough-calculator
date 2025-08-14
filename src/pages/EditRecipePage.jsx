@@ -1,13 +1,14 @@
 // /src/pages/EditRecipePage.jsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import ImagesUploader from '@/components/ImagesUploader';
 import TagsInput from '@/components/common/TagsInput';
+import { detectLanguage } from '@/utils/translate';
 import { useTranslation } from 'react-i18next';
 
 const BUCKET = 'recipe-images';
-const TARGET_LANGS = ['en', 'sv']; // extend if needed
+const TARGET_LANGS = ['fi', 'en', 'sv']; // translate ALL — source_lang mirrors base via skipTranslate
 
 function newIngredient() {
   return { name: '', amount: '', isFlour: false }; // bakers_pct is computed
@@ -39,26 +40,6 @@ async function listFolderUrls(folder) {
       const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
       return { url: pub.publicUrl, path };
     });
-}
-
-// shallow helpers to snapshot the *translatable* fields only
-function buildTextSnapshot({ title, description, ingredients, steps }) {
-  return {
-    title: (title || '').trim(),
-    description: (description || '').trim(),
-    ingNames: (ingredients || []).map((i) => (i?.name || '').trim()),
-    stepTexts: (steps || []).map((s) => (s?.text || '').trim()),
-  };
-}
-function sameSnapshot(a, b) {
-  if (!a || !b) return false;
-  if (a.title !== b.title) return false;
-  if (a.description !== b.description) return false;
-  if (a.ingNames.length !== b.ingNames.length) return false;
-  if (a.stepTexts.length !== b.stepTexts.length) return false;
-  for (let i = 0; i < a.ingNames.length; i++) if (a.ingNames[i] !== b.ingNames[i]) return false;
-  for (let i = 0; i < a.stepTexts.length; i++) if (a.stepTexts[i] !== b.stepTexts[i]) return false;
-  return true;
 }
 
 export default function EditRecipePage() {
@@ -93,9 +74,6 @@ export default function EditRecipePage() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [translating, setTranslating] = useState(false);
 
-  // original text snapshot (to detect changes)
-  const originalSnapshotRef = useRef(null);
-
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUserId(data?.user?.id ?? null));
   }, []);
@@ -107,10 +85,11 @@ export default function EditRecipePage() {
       setError('');
       const { data: r, error: err } = await supabase
         .from('recipes')
-        .select('*')
+        .select(
+          'id,title,description,author_id,prep_time_minutes,servings,difficulty,ingredients,steps,images,cover_image,source_lang'
+        )
         .eq('id', id)
         .single();
-
       if (err) {
         setError(err.message);
         return;
@@ -127,14 +106,6 @@ export default function EditRecipePage() {
       // json
       setIngredients(Array.isArray(r.ingredients) && r.ingredients.length ? r.ingredients : [newIngredient()]);
       setSteps(Array.isArray(r.steps) && r.steps.length ? r.steps : [newStep(1)]);
-
-      // snapshot original translatable parts
-      originalSnapshotRef.current = buildTextSnapshot({
-        title: r.title || '',
-        description: r.description || '',
-        ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
-        steps: Array.isArray(r.steps) ? r.steps : [],
-      });
 
       // images
       let imgs = [];
@@ -284,33 +255,7 @@ export default function EditRecipePage() {
       .eq('id', id);
   };
 
-  // --- translation trigger (only when translatable fields changed) ---
-  async function triggerTranslations(recipeId) {
-    setTranslating(true);
-    try {
-      await Promise.all(
-        TARGET_LANGS.map((tgt) =>
-          fetch('/api/translate-recipe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              recipeId,
-              targetLang: tgt,
-              skipTranslate: false, // actually call DeepL
-            }),
-          }).then(async (r) => {
-            const j = await r.json().catch(() => ({}));
-            if (!r.ok) console.warn('translate-recipe failed', tgt, j);
-            else console.log('translate-recipe ok', tgt, j?.up);
-          })
-        )
-      );
-    } finally {
-      setTranslating(false);
-    }
-  }
-
-  // save (UPDATE) + conditional translations
+  // save (UPDATE) + detect source_lang + translate (all targets)
   const handleSave = async () => {
     setError('');
     if (!title.trim()) {
@@ -346,10 +291,22 @@ export default function EditRecipePage() {
       const urls = effective.map((f) => f.url);
       const chosen = userPickedHero ? hero || urls[0] || null : urls[0] || null;
 
+      // Detect source language from content
+      const sample = [
+        title?.trim() || '',
+        description?.trim() || '',
+        ...stp.map((s) => s.text || ''),
+        ...ing.map((i) => i.name || ''),
+      ]
+        .filter(Boolean)
+        .join('\n');
+      let sourceLang = await detectLanguage(sample);
+      if (!sourceLang) sourceLang = 'fi'; // default
+
       const updatedRecipe = {
         title: title.trim(),
         description: description || null,
-        author_id: userId || null, // stays the same normally
+        author_id: userId || null, // remains typically same
         prep_time_minutes: totalTime ? Number(totalTime) : null,
         servings: servings ? Number(servings) : null,
         difficulty: difficulty || null,
@@ -357,24 +314,34 @@ export default function EditRecipePage() {
         steps: stp,
         images: urls,
         cover_image: chosen,
+        source_lang: sourceLang, // critical for view logic
       };
 
       const { error: updErr } = await supabase.from('recipes').update(updatedRecipe).eq('id', id);
       if (updErr) throw updErr;
 
-      // compare snapshots → only translate when the translatable parts changed
-      const currentSnapshot = buildTextSnapshot({
-        title: updatedRecipe.title,
-        description: updatedRecipe.description,
-        ingredients: ing,
-        steps: stp,
-      });
-      const originalSnapshot = originalSnapshotRef.current;
-
-      if (!sameSnapshot(originalSnapshot, currentSnapshot)) {
-        await triggerTranslations(id);
-        // refresh the baseline so repeated saves don’t re-trigger
-        originalSnapshotRef.current = currentSnapshot;
+      // ---------- TRANSLATION via /api/translate-recipe ----------
+      setTranslating(true);
+      try {
+        for (const tgt of TARGET_LANGS) {
+          const resp = await fetch('/api/translate-recipe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              recipeId: id,
+              targetLang: tgt,
+              force: true,
+              // Mirror base for the source language, translate others:
+              skipTranslate: tgt === sourceLang,
+            }),
+          });
+          if (!resp.ok) {
+            const j = await resp.json().catch(() => ({}));
+            console.warn('translate-recipe failed', tgt, j);
+          }
+        }
+      } finally {
+        setTranslating(false);
       }
 
       nav(`/recipe/${id}`);
@@ -546,6 +513,9 @@ export default function EditRecipePage() {
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{t('instructions', 'Instructions')}</h2>
+          <button onClick={addStep} className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700">
+            + {t('add_step', 'Add step')}
+          </button>
         </div>
 
         <div className="space-y-2">
@@ -569,31 +539,18 @@ export default function EditRecipePage() {
                 onChange={(e) => updateStepTime(idx, e.target.value)}
                 title={t('time_from_start_tip', 'Optional minutes from start; leave empty for null')}
               />
-              <div className="sm:col-span-1 flex items-center">
-                <button
-                  onClick={() => removeStep(idx)}
-                  className="px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
-                >
-                  –
-                </button>
-              </div>
-              {idx === steps.length - 1 && (
-                <div className="sm:col-span-12">
-                  <button
-                    onClick={addStep}
-                    className="px-3 py-1 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
-                    type="button"
-                  >
-                    + {t('add_step', 'Add step')}
-                  </button>
-                </div>
-              )}
+              <button
+                onClick={() => removeStep(idx)}
+                className="sm:col-span-1 px-3 rounded-lg border border-red-300 text-red-600 hover:bg-red-50"
+              >
+                –
+              </button>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Tags */}
+      {/* Tags (reusable component) */}
       <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-3">
         <h2 className="font-semibold">{t('tags', 'Tags')}</h2>
         <TagsInput recipeId={id} value={tags} onChange={setTags} />
