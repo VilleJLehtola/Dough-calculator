@@ -1,18 +1,31 @@
+// src/components/profile/RecipeGrid.jsx
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
+
+const AUTHOR_COLS = ['user_id', 'author_id', 'created_by'];
 
 export default function RecipeGrid({ userId }) {
   const [recipes, setRecipes] = useState(null);
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from('recipes')
-        .select('id, title, description, cover_image_url, created_at, tags')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-      if (!error) setRecipes(data || []);
+      // Try multiple possible author columns
+      for (const col of AUTHOR_COLS) {
+        const { data, error } = await supabase
+          .from('recipes')
+          .select('id, title, description, cover_image_url, created_at')
+          .eq(col, userId)
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length >= 0) {
+          // success (even if empty), use this column’s result
+          setRecipes(data);
+          return;
+        }
+      }
+      // If all failed
+      setRecipes([]);
     })();
   }, [userId]);
 
