@@ -12,7 +12,7 @@ import { Link, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-export default function Sidebar({ user, onLogout, collapsed, toggleSidebar }) {
+export default function Sidebar({ user, onLogout, onLoginClick, collapsed, toggleSidebar }) {
   const { pathname } = useLocation();
   const isActive = (path) => pathname === path || pathname.startsWith(path + '/');
 
@@ -96,7 +96,7 @@ export default function Sidebar({ user, onLogout, collapsed, toggleSidebar }) {
             <List size={18} />
             Your recipes
           </Link>
-          {/* FIX: lowercased path to match routing and isActive */}
+          {/* FIX: lowercased path */}
           <Link to="/favorites" className={linkClass('/favorites')}>
             <Heart size={18} />
             Favorites
@@ -108,9 +108,9 @@ export default function Sidebar({ user, onLogout, collapsed, toggleSidebar }) {
         </nav>
       </div>
 
-      {/* Footer */}
+      {/* Footer: auth actions */}
       <div className="pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-        {user && (
+        {user ? (
           <button
             onClick={() => onLogout?.()}
             className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline px-2"
@@ -118,6 +118,21 @@ export default function Sidebar({ user, onLogout, collapsed, toggleSidebar }) {
             <LogOut size={16} />
             Kirjaudu ulos
           </button>
+        ) : (
+          <div className="flex flex-col gap-2 px-2">
+            <button
+              onClick={() => onLoginClick?.('login')}
+              className="w-full text-sm rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-2 text-gray-800 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-gray-800 transition"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => onLoginClick?.('register')}
+              className="w-full text-sm rounded-lg bg-blue-600 text-white px-3 py-2 hover:bg-blue-700 transition"
+            >
+              Register
+            </button>
+          </div>
         )}
       </div>
     </aside>
