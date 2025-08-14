@@ -1,62 +1,30 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
+import { Clock } from 'lucide-react';
 
 export default function FavoritesGrid({ userId, isOwner }) {
-  const [favorites, setFavorites] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState(null);
 
   useEffect(() => {
+    if (!userId) return;
     (async () => {
-      setLoading(true);
-
-      // Step 1: get favorites (recipe_ids)
-      const { data: favRows, error: favErr } = await supabase
+      const { data, error } = await supabase
         .from('favorites')
-        .select('id, recipe_id, created_at')
+        .select('id, created_at, recipe_id, recipes ( id, title, cover_image, prep_time_minutes, servings )')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (favErr) {
-        console.error('Favorites error:', favErr);
-        setFavorites([]);
-        setLoading(false);
-        return;
+      if (!error) setItems(data || []);
+      else {
+        console.error('FavoritesGrid fetch error:', error);
+        setItems([]);
       }
-
-      const recipeIds = (favRows || []).map(f => f.recipe_id).filter(Boolean);
-      if (recipeIds.length === 0) {
-        setFavorites([]);
-        setLoading(false);
-        return;
-      }
-
-      // Step 2: get recipes in bulk
-      const { data: recipes, error: recErr } = await supabase
-        .from('recipes')
-        .select('id, title, description, cover_image_url')
-        .in('id', recipeIds);
-
-      if (recErr) {
-        console.error('Favorite recipes error:', recErr);
-        setFavorites([]);
-        setLoading(false);
-        return;
-      }
-
-      // keep the same order as favorites
-      const recMap = new Map((recipes || []).map(r => [r.id, r]));
-      const joined = (favRows || [])
-        .map(f => ({ ...f, recipe: recMap.get(f.recipe_id) }))
-        .filter(f => f.recipe);
-
-      setFavorites(joined);
-      setLoading(false);
     })();
   }, [userId]);
 
-  if (loading) return <p className="text-gray-500 dark:text-gray-400">Loading…</p>;
-  if (!favorites || favorites.length === 0) {
+  if (!items) return <p className="text-gray-500 dark:text-gray-400">Loading…</p>;
+  if (items.length === 0) {
     return (
       <p className="text-gray-500 dark:text-gray-400">
         {isOwner ? 'You have no favorites yet.' : 'No favorites to show.'}
@@ -65,24 +33,38 @@ export default function FavoritesGrid({ userId, isOwner }) {
   }
 
   return (
-    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-      {favorites.map(({ id, recipe }) => (
-        <Link
-          key={id}
-          to={`/recipe/${recipe.id}`}
-          className="rounded-xl overflow-hidden bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:shadow"
-        >
-          {recipe.cover_image_url && (
-            <img src={recipe.cover_image_url} alt={recipe.title} className="h-40 w-full object-cover" />
-          )}
-          <div className="p-3">
-            <h3 className="font-semibold text-gray-900 dark:text-white">{recipe.title}</h3>
-            {recipe.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{recipe.description}</p>
-            )}
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {items.map((row) => {
+        const r = row.recipes || {};
+        return (
+          <div key={row.id} className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+            <Link to={`/recipe/${r.id}`}>
+              <img
+                src={r.cover_image || ''}
+                alt={r.title || ''}
+                className="h-36 w-full object-cover"
+                loading="lazy"
+              />
+            </Link>
+            <div className="p-3 space-y-2">
+              <Link to={`/recipe/${r.id}`} className="font-medium line-clamp-2 hover:underline">
+                {r.title || 'Open recipe'}
+              </Link>
+              <div className="flex items-center gap-2 text-xs opacity-80">
+                {r.prep_time_minutes != null && (
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {r.prep_time_minutes} min
+                  </span>
+                )}
+                {r.servings != null && (
+                  <span>• {r.servings}</span>
+                )}
+              </div>
+            </div>
           </div>
-        </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }
