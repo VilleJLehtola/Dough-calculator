@@ -437,34 +437,39 @@ export default function RecipeViewPage() {
         </div>
 
         {/* Meta pills + Like/Favorite + Edit */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {totalTime != null ? (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-              <Clock className="w-3.5 h-3.5" />
-              {`${totalTime} ${t('minutes_short')}`}
-            </span>
-          ) : null}
-          {recipe?.servings ? (
-            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-              <Users className="w-3.5 h-3.5" />
-              {recipe.servings}
-            </span>
-          ) : null}
+<div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
+  {totalTime != null && (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+      <Clock className="w-3.5 h-3.5" />
+      {`${totalTime} ${t('minutes_short')}`}
+    </span>
+  )}
 
-          <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
-          <ShareButton title={title} text={description} />
+  {recipe?.servings != null && (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+      <Users className="w-3.5 h-3.5" />
+      {recipe.servings}
+    </span>
+  )}
 
-          {canEdit && (
-            <Link
-              to={`/recipe/${id}/edit`}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
-            >
-              <Pencil className="w-4 h-4" />
-              {t('edit', 'Edit')}
-            </Link>
-          )}
-        </div>
-      </div>
+  <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
+
+  {/* Share (text hidden on xs in the component, or keep as-is) */}
+  <ShareButton title={title} text={description} />
+
+  {canEdit && (
+    <Link
+      to={`/recipe/${id}/edit`}
+      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+    >
+      <Pencil className="w-4 h-4" />
+      <span className="hidden sm:inline">{t('edit', 'Edit')}</span>
+      {/* For xs, use an icon; keep it accessible */}
+      <span className="sm:hidden" aria-label={t('edit', 'Edit')}>✎</span>
+    </Link>
+  )}
+</div>
+
 
       {/* HERO CAROUSEL with overlay */}
       <HeroCarousel
