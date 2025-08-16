@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
+import SearchBar from '@/components/SearchBar';
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
@@ -69,11 +70,7 @@ export default function BrowsePage() {
     };
   }, [q]);
 
-  const filtered = useMemo(() => {
-    // With server filtering in place, this is mostly a pass-through.
-    // Keep it in case you want extra client-side refinements later.
-    return rows;
-  }, [rows]);
+  const filtered = useMemo(() => rows, [rows]);
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -84,6 +81,11 @@ export default function BrowsePage() {
     return null;
   };
 
+  const handleSubmit = () => {
+    // No-op: submitting just keeps current q; effect above runs on q change.
+    // This is here for accessibility (Enter) and future hooks.
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
@@ -92,37 +94,27 @@ export default function BrowsePage() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {t('recipe_library', 'Recipe library')}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            {t('latest_recipes', 'Latest recipes')}
-          </p>
         </div>
 
         {/* Search */}
-        <div className="w-full max-w-md">
-          <label htmlFor="recipeSearch" className="sr-only">
-            {t('search_recipes', 'Search recipes')}
-          </label>
-          <div className="flex items-center rounded-xl border bg-white text-gray-900 border-gray-300 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700 focus-within:ring-2 focus-within:ring-blue-500">
-            <input
-              id="recipeSearch"
-              type="text"
-              placeholder={t('search_recipes', 'Search recipes')}
-              className="w-full bg-transparent px-3 py-2.5 outline-none placeholder-gray-400 dark:placeholder-gray-500"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ('')}
-                className="px-3 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                {t('clear', 'Clear')}
-              </button>
-            )}
-          </div>
+        <div className="w-full max-w-xl">
+          <SearchBar
+            value={q}
+            onChange={setQ}
+            onSubmit={handleSubmit}
+            onClear={() => setQ('')}
+            onOpenFilters={() => {
+              // Hook this to your existing filters/options UI if you have one
+              console.log('Open filters');
+            }}
+            placeholder={t('search_recipes', 'Search recipes')}
+          />
         </div>
       </div>
+
+      <p className="text-gray-600 dark:text-gray-400 mb-4">
+        {t('latest_recipes', 'Latest recipes')}
+      </p>
 
       {/* Grid */}
       {loading ? (
