@@ -399,7 +399,7 @@ export default function RecipeViewPage() {
     setScale(val / baseFlour);
   };
 
-  // ✅ Build a minimal user object for CommentsSection inside the component
+  // minimal user object for CommentsSection
   const user = userId ? { id: userId } : null;
 
   return (
@@ -437,68 +437,43 @@ export default function RecipeViewPage() {
         </div>
 
         {/* Meta pills + Like/Favorite + Edit */}
-<div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
-  {totalTime != null && (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-      <Clock className="w-3.5 h-3.5" />
-      {`${totalTime} ${t('minutes_short')}`}
-    </span>
-  )}
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
+          {totalTime != null && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+              <Clock className="w-3.5 h-3.5" />
+              {`${totalTime} ${t('minutes_short')}`}
+            </span>
+          )}
 
-  {recipe?.servings != null && (
-    <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-      <Users className="w-3.5 h-3.5" />
-      {recipe.servings}
-    </span>
-  )}
+          {recipe?.servings != null && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+              <Users className="w-3.5 h-3.5" />
+              {recipe.servings}
+            </span>
+          )}
 
-  <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
-  <ShareButton title={title} text={description} />
+          <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
+          <ShareButton title={title} text={description} />
 
-  {canEdit && (
-    <Link
-      to={`/recipe/${id}/edit`}
-      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
-    >
-      <Pencil className="w-4 h-4" />
-      <span className="hidden sm:inline">{t('edit', 'Edit')}</span>
-      <span className="sm:hidden" aria-label={t('edit', 'Edit')}>✎</span>
-    </Link>
-  )}
-</div>
+          {canEdit && (
+            <Link
+              to={`/recipe/${id}/edit`}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+            >
+              <Pencil className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('edit', 'Edit')}</span>
+              <span className="sm:hidden" aria-label={t('edit', 'Edit')}>✎</span>
+            </Link>
+          )}
+        </div>
+      </div>
 
-
-
-      {/* HERO CAROUSEL with overlay */}
+      {/* HERO CAROUSEL */}
       <HeroCarousel
         title={title}
         items={images}
         t={t}
-        overlay={
-          (author?.username || author?.email || description) && (
-            <div className="absolute right-4 bottom-4 bg-black/50 text-white rounded-lg px-3 py-2 backdrop-blur-sm">
-              <div className="flex items-center gap-3">
-                {author?.avatar_url ? (
-                  <img
-                    src={author.avatar_url}
-                    alt={author?.username || author?.email}
-                    className="w-9 h-9 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
-                    <ChefHat className="w-5 h-5" />
-                  </div>
-                )}
-                <div className="text-sm">
-                  <div className="font-medium">{author?.username || author?.email}</div>
-                  {description ? (
-                    <div className="opacity-90 line-clamp-2 max-w-[50ch]">{description}</div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          )
-        }
+        overlay={null}  // remove overlay card; set to previous JSX if you want it back
       />
 
       {/* Tags */}
