@@ -453,8 +453,6 @@ export default function RecipeViewPage() {
   )}
 
   <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
-
-  {/* Share (text hidden on xs in the component, or keep as-is) */}
   <ShareButton title={title} text={description} />
 
   {canEdit && (
@@ -464,11 +462,11 @@ export default function RecipeViewPage() {
     >
       <Pencil className="w-4 h-4" />
       <span className="hidden sm:inline">{t('edit', 'Edit')}</span>
-      {/* For xs, use an icon; keep it accessible */}
       <span className="sm:hidden" aria-label={t('edit', 'Edit')}>✎</span>
     </Link>
   )}
 </div>
+
 
 
       {/* HERO CAROUSEL with overlay */}
