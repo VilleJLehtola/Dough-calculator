@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Heart } from 'lucide-react';
 import SEO from '@/components/SEO'; // ✅ SEO
+import SmartImage from '@/components/SmartImage';
 
 // Extend this list if you add more admins
 const ADMIN_EMAILS = ['ville.j.lehtola@gmail.com'];
