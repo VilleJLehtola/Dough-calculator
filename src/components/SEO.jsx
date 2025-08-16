@@ -1,3 +1,4 @@
+// src/components/SEO.jsx
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 
@@ -5,7 +6,7 @@ const SITE = 'https://www.breadcalculator.online';
 const DEFAULT_TITLE = 'Taikinalaskin • Bread & Pizza Dough Calculator';
 const DEFAULT_DESC =
   'Calculate perfect bread and pizza dough: hydration, salt, starter, rye, seeds, cold fermentation. Save favorites and browse recipes.';
-const DEFAULT_IMAGE = `${SITE}/og-default.jpg`; // place 1200×630 in /public
+const DEFAULT_IMAGE = `${SITE}/og-default.jpg`; // Put a 1200x630 image in /public
 
 export default function SEO({
   title = DEFAULT_TITLE,
@@ -47,7 +48,7 @@ export default function SEO({
 
       {noindex && <meta name="robots" content="noindex,nofollow" />}
 
-      {children /* JSON-LD etc */}
+      {children /* JSON-LD etc. */}
     </Helmet>
   );
 }
