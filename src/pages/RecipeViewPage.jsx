@@ -5,6 +5,7 @@ import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat, Pencil, Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LikeFavoriteBar from '@/components/LikeFavoriteBar';
+import CommentsSection from '@/components/CommentsSection';
 
 const BUCKET = 'recipe-images';
 
@@ -643,6 +644,8 @@ export default function RecipeViewPage() {
             )}
           </div>
         </section>
+        {/* Comments */}
+        <CommentsSection recipeId={recipe.id} user={user} />
       </div>
 
       {/* Back link */}
