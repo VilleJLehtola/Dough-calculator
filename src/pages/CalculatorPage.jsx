@@ -1,73 +1,19 @@
 // src/pages/CalculatorPage.jsx
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { track } from '@/analytics';
 import { useTranslation } from 'react-i18next';
 import InputField from '../components/common/InputField';
 import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
+import { track } from '@/analytics';
+
+function yesNo(v) {
+  return v ? 'yes' : 'no';
+}
 
 export default function CalculatorPage() {
   const { t } = useTranslation();
 
-  // -------- State --------
-  // ---- Analytics: track first meaningful interaction once ----
-  const hasTrackedRef = useRef(false);
-  const defaultsRef = useRef({
-    inputMode: 'flour',
-    amount: 500,
-    mode: 'bread',
-    hydrationBasePct: 70,
-    saltPct: 2,
-    starterPct: 20,
-    ryeOn: false,
-    ryePct: 20,
-    seedsOn: false,
-    seedsPct: 15,
-    oilOn: false,
-    coldFerment: false,
-  });
-
-  useEffect(() => {
-    if (hasTrackedRef.current) return;
-    const d = defaultsRef.current;
-    const changed =
-      inputMode !== d.inputMode ||
-      amount !== d.amount ||
-      mode !== d.mode ||
-      hydrationBasePct !== d.hydrationBasePct ||
-      saltPct !== d.saltPct ||
-      starterPct !== d.starterPct ||
-      ryeOn !== d.ryeOn ||
-      ryePct !== d.ryePct ||
-      seedsOn !== d.seedsOn ||
-      seedsPct !== d.seedsPct ||
-      oilOn !== d.oilOn ||
-      coldFerment !== d.coldFerment ||
-      (typeof activePreset !== 'undefined' && activePreset !== null);
-
-    if (!changed) return;
-    hasTrackedRef.current = true;
-    track('Calculator Used', {
-      input_type: inputMode,
-      mode,
-      hydration: Number(hydrationBasePct),
-      salt: Number(saltPct),
-      starter: Number(starterPct),
-      oil: oilOn ? 'yes' : 'no',
-      seeds: yesNo(seedsOn),
-      rye: yesNo(ryeOn),
-      cold_fermentation: yesNo(coldFerment),
-      preset: (typeof activePreset !== 'undefined' && activePreset) ? activePreset : '',
-    });
-  }, [
-    // dependencies reference state defined below; do not move this hook far from state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    inputMode, amount, mode, hydrationBasePct, saltPct, starterPct,
-    ryeOn, ryePct, seedsOn, seedsPct, oilOn, coldFerment, activePreset
-  ]);
-
-  function yesNo(v) { return v ? 'yes' : 'no'; }
-
+  // -------- Core state --------
   const [inputMode, setInputMode] = useState('flour'); // 'flour' | 'water'
   const [amount, setAmount] = useState(500); // grams for the chosen inputMode
   const [mode, setMode] = useState('bread'); // 'bread' | 'pizza'
@@ -94,7 +40,7 @@ export default function CalculatorPage() {
   // Optional quick presets (null when not chosen)
   const [activePreset, setActivePreset] = useState(null);
 
-  // -------- Derived values & helpers --------
+  // -------- Derived values --------
   const baseFlour = useMemo(() => {
     if (inputMode === 'flour') {
       return Math.max(0, Number(amount) || 0);
@@ -141,7 +87,7 @@ export default function CalculatorPage() {
   }, [mode, seedsOn, seedsPct, baseFlour]);
 
   const totalFlour = useMemo(() => {
-    // base flour + starter flour + rye (rye considered part of flour breakdown)
+    // base flour + starter flour + rye (rye counted as part of flour breakdown)
     return round1(baseFlour + starter.flour + rye);
   }, [baseFlour, starter.flour, rye]);
 
@@ -154,7 +100,64 @@ export default function CalculatorPage() {
     return round1(totalFlour + totalWater + salt + oil + seeds);
   }, [totalFlour, totalWater, salt, oil, seeds]);
 
-  // -------- UI helpers --------
+  // -------- Analytics: track first meaningful interaction once --------
+  const hasTrackedRef = useRef(false);
+  const defaultsRef = useRef({
+    inputMode: 'flour',
+    amount: 500,
+    mode: 'bread',
+    hydrationBasePct: 70,
+    saltPct: 2,
+    starterPct: 20,
+    ryeOn: false,
+    ryePct: 20,
+    seedsOn: false,
+    seedsPct: 15,
+    oilOn: false,
+    coldFerment: false,
+    activePreset: null,
+  });
+
+  useEffect(() => {
+    if (hasTrackedRef.current) return;
+    const d = defaultsRef.current;
+
+    const changed =
+      inputMode !== d.inputMode ||
+      amount !== d.amount ||
+      mode !== d.mode ||
+      hydrationBasePct !== d.hydrationBasePct ||
+      saltPct !== d.saltPct ||
+      starterPct !== d.starterPct ||
+      ryeOn !== d.ryeOn ||
+      ryePct !== d.ryePct ||
+      seedsOn !== d.seedsOn ||
+      seedsPct !== d.seedsPct ||
+      oilOn !== d.oilOn ||
+      coldFerment !== d.coldFerment ||
+      activePreset !== d.activePreset;
+
+    if (!changed) return;
+
+    hasTrackedRef.current = true;
+    track('Calculator Used', {
+      input_type: inputMode,               // 'water' | 'flour'
+      mode,                                // 'bread' | 'pizza'
+      hydration: Number(hydrationBasePct),
+      salt: Number(saltPct),
+      starter: Number(starterPct),
+      oil: yesNo(oilOn),
+      seeds: yesNo(seedsOn),
+      rye: yesNo(ryeOn),
+      cold_fermentation: yesNo(coldFerment),
+      preset: activePreset || '',
+    });
+  }, [
+    inputMode, amount, mode, hydrationBasePct, saltPct, starterPct,
+    ryeOn, ryePct, seedsOn, seedsPct, oilOn, coldFerment, activePreset
+  ]);
+
+  // -------- UI handlers --------
   const toggleMode = (m) => setMode(m);
   const toggleInputMode = (m) => setInputMode(m);
 
