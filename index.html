@@ -2,8 +2,22 @@
 <html lang="fi">
   <head>
     <meta charset="UTF-8" />
+    <meta http-equiv="x-dns-prefetch-control" content="on" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Taikinalaskin</title>
+    <title>Everything Dough</title>
+
+    <!-- Perf: warm up critical origins -->
+    <!-- Supabase (API + Storage public URLs) -->
+    <link rel="preconnect" href="https://btozmkrowcrjzvxxhlbn.supabase.co" crossorigin>
+    <link rel="dns-prefetch" href="//btozmkrowcrjzvxxhlbn.supabase.co">
+
+    <!-- Plausible (analytics) -->
+    <link rel="preconnect" href="https://plausible.io" crossorigin>
+    <link rel="dns-prefetch" href="//plausible.io">
+
+    <!-- Optional: if you serve images via a dedicated CDN domain, add it here too -->
+    <!-- <link rel="preconnect" href="https://your-cdn.example.com" crossorigin> -->
+    <!-- <link rel="dns-prefetch" href="//your-cdn.example.com"> -->
 
     <!-- Plausible (enhanced features build) -->
     <script
