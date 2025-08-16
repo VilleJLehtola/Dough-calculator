@@ -6,6 +6,7 @@ import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
 import { track } from '@/analytics'; // Plausible
 import SEO from '@/components/SEO';    // SEO
+import SmartImage from '@/components/SmartImage';
 
 export default function CalculatorPage() {
   const { t } = useTranslation();
