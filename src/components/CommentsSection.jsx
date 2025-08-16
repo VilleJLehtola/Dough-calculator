@@ -1,6 +1,6 @@
 // src/components/CommentsSection.jsx
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/supabaseClient';
+import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import { Trash2 } from 'lucide-react';
 
