@@ -14,6 +14,7 @@ import EditRecipePage from '@/pages/EditRecipePage';
 import YourRecipesPage from './pages/YourRecipesPage';
 import ProfilePage from '@/pages/ProfilePage';
 import MyProfileRedirect from '@/pages/MyProfileRedirect';
+import { AnalyticsTracker } from './analytics';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -48,6 +49,7 @@ export default function App() {
 
   return (
     <Router>
+      <AnalyticsTracker />
       <Layout user={user} onLoginClick={handleLoginClick} onLogout={handleLogout}>
         <Routes>
           <Route path="/" element={<FrontPage />} />
