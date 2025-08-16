@@ -5,3 +5,8 @@
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 input[type="number"] { -moz-appearance: textfield; }
+:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.9); /* blue-500 */
+  outline-offset: 2px;
+}
+
