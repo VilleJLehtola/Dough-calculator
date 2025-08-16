@@ -5,6 +5,7 @@ import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat, Pencil, Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LikeFavoriteBar from '@/components/LikeFavoriteBar';
+import ShareButton from '@/components/ShareButton';
 import CommentsSection from '@/components/CommentsSection';
 
 const BUCKET = 'recipe-images';
@@ -451,6 +452,7 @@ export default function RecipeViewPage() {
           ) : null}
 
           <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
+          <ShareButton title={title} text={description} />
 
           {canEdit && (
             <Link
