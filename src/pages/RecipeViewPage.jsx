@@ -1,4 +1,4 @@
-// /src/pages/RecipeViewPage.jsx
+// src/pages/RecipeViewPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
@@ -10,6 +10,30 @@ import CommentsSection from '@/components/CommentsSection';
 import { track } from '@/analytics';
 
 const BUCKET = 'recipe-images';
+
+/* ------------------------------ format helpers ------------------------------ */
+function formatIngredient(row) {
+  if (!row) return '';
+  if (typeof row === 'string') return row;
+
+  // Common structured shape: { name, amount, unit, bakers_pct, isFlour }
+  const name = row.name || row.title || row.ingredient || row.text || '';
+  const unit = row.unit || (row.amount ? 'g' : '');
+  const amt  = row.amount != null ? String(row.amount) : '';
+  const pct  = row.bakers_pct != null ? ` (${row.bakers_pct}%)` : '';
+
+  const left = [amt, unit].filter(Boolean).join(' ').trim();
+  const right = [name, pct].filter(Boolean).join('').trim();
+
+  const line = [left, right].filter(Boolean).join(' ');
+  return line || JSON.stringify(row);
+}
+
+function formatStep(s) {
+  if (!s) return '';
+  if (typeof s === 'string') return s;
+  return s.text || s.title || JSON.stringify(s);
+}
 
 /* ---------------------- Smooth, touch-enabled carousel ---------------------- */
 function HeroCarousel({ items = [], title = '', overlay = null, t }) {
@@ -67,7 +91,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
       <div className="relative w-full h-64 md:h-80">
         {urls.map((src, i) => (
           <img
-            key={src}
+            key={`${src}-${i}`}
             src={src}
             alt={title || t('recipe_image', 'Recipe image')}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${i === idx ? 'opacity-100' : 'opacity-0'}`}
@@ -146,17 +170,6 @@ export default function RecipeViewPage() {
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
   const [images, setImages] = useState([]); // strings or { url }
-
-  // ---- Analytics: Recipe Viewed ----
-  useEffect(() => {
-    if (!recipe?.id) return;
-    track('Recipe Viewed', {
-      recipe_id: recipe.id,
-      recipe_slug: recipe.slug || '',
-      lang: localStorage.getItem('lang') || 'auto',
-    });
-  }, [recipe?.id, recipe?.slug]);
-
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
 
@@ -187,6 +200,16 @@ export default function RecipeViewPage() {
       cancelled = true;
     };
   }, [id]);
+
+  // ---- Analytics: Recipe Viewed ----
+  useEffect(() => {
+    if (!recipe?.id) return;
+    track('Recipe Viewed', {
+      recipe_id: recipe.id,
+      recipe_slug: recipe.slug || '',
+      lang: localStorage.getItem('lang') || 'auto',
+    });
+  }, [recipe?.id, recipe?.slug]);
 
   const title = recipe?.title || recipe?.name || t('recipe','Recipe');
   const description =
@@ -272,15 +295,15 @@ export default function RecipeViewPage() {
 
           <h2 className="font-semibold mb-2">{t('ingredients','Ingredients')}</h2>
           <ul className="list-disc pl-5 space-y-1 mb-6">
-            {ingredients.map((row, i) => (
-              <li key={i}>{row?.text || row}</li>
+            {(ingredients || []).map((row, i) => (
+              <li key={i}>{formatIngredient(row)}</li>
             ))}
           </ul>
 
           <h2 className="font-semibold mb-2">{t('instructions','Instructions')}</h2>
           <ol className="list-decimal pl-5 space-y-2">
-            {steps.map((s, i) => (
-              <li key={i}>{s?.text || s}</li>
+            {(steps || []).map((s, i) => (
+              <li key={i}>{formatStep(s)}</li>
             ))}
           </ol>
         </div>
