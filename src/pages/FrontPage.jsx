@@ -4,6 +4,7 @@ import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Heart } from 'lucide-react';
+import SEO from '@/components/SEO'; // ✅ SEO
 
 // Extend this list if you add more admins
 const ADMIN_EMAILS = ['ville.j.lehtola@gmail.com'];
@@ -88,6 +89,12 @@ export default function FrontPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ✅ SEO */}
+      <SEO
+        title="Taikinalaskin • Dough Calculator"
+        description="Calculate bread and pizza dough easily. Choose hydration, salt, starter; get step-by-step recipe."
+        canonical="https://www.breadcalculator.online/"
+      />
 
       {/* ===== Top: Latest admin recipes ===== */}
       <section className="mt-2">
