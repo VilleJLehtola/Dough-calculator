@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import SearchBar from '@/components/SearchBar';
+import FiltersSheet from '@/components/FiltersSheet';
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
@@ -16,25 +17,36 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
 
+  // Filters
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    sort: 'newest',     // 'newest' | 'oldest'
+    hasImage: false,    // client-side filter
+    tags: [],           // array of strings
+  });
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
 
       try {
-        // Use the view that exposes username/email/tags
+        // Base query — view exposes username/email/tags_text/tags
         let query = supabase
           .from('browse_recipes_v')
-          .select('id,title,description,cover_image,images,created_at,username,email,tags,tags_text')
-          .order('created_at', { ascending: false });
+          .select('id,title,description,cover_image,images,created_at,username,email,tags,tags_text');
 
+        // Sort
+        query = query.order('created_at', { ascending: filters.sort === 'oldest' });
+
+        // Search
         const needle = q.trim();
         if (needle.length >= 2) {
           if (USE_FTS) {
-            // Full-text search across title/description/ingredients/steps(+tags if you added them to the vector)
+            // Full text search
             query = query.textSearch('search_vec', needle, { type: 'plain', config: 'simple' });
           } else {
-            // ILIKE across multiple columns (simple and safe)
+            // ILIKE fallback across multiple columns
             const term = `%${needle}%`;
             query = query.or([
               `title.ilike.${term}`,
@@ -44,6 +56,11 @@ export default function BrowsePage() {
               `tags_text.ilike.${term}`
             ].join(','));
           }
+        }
+
+        // Server-side tag filter (works if tags is text[] or jsonb[])
+        if (filters.tags?.length) {
+          query = query.contains('tags', filters.tags);
         }
 
         const { data, error } = await query.limit(60);
@@ -68,9 +85,7 @@ export default function BrowsePage() {
     return () => {
       cancelled = true;
     };
-  }, [q]);
-
-  const filtered = useMemo(() => rows, [rows]);
+  }, [q, filters]);
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -81,15 +96,28 @@ export default function BrowsePage() {
     return null;
   };
 
+  // Unique tags available in current result set (for the sheet)
+  const availableTags = useMemo(() => {
+    const s = new Set();
+    rows.forEach((r) => Array.isArray(r.tags) && r.tags.forEach((t) => s.add(t)));
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [rows]);
+
+  // Client-side image filter
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (filters.hasImage) list = list.filter((r) => !!heroFor(r));
+    return list;
+  }, [rows, filters]);
+
   const handleSubmit = () => {
-    // No-op: submitting just keeps current q; effect above runs on q change.
-    // This is here for accessibility (Enter) and future hooks.
+    // No-op; effect already runs on q/filters change
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="flex items-end justify-between gap-4 mb-4">
+      <div className="flex items-end justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
             {t('recipe_library', 'Recipe library')}
@@ -103,10 +131,7 @@ export default function BrowsePage() {
             onChange={setQ}
             onSubmit={handleSubmit}
             onClear={() => setQ('')}
-            onOpenFilters={() => {
-              // Hook this to your existing filters/options UI if you have one
-              console.log('Open filters');
-            }}
+            onOpenFilters={() => setFiltersOpen(true)}
             placeholder={t('search_recipes', 'Search recipes')}
           />
         </div>
@@ -174,7 +199,10 @@ export default function BrowsePage() {
                         <button
                           key={tag}
                           className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
-                          onClick={(e) => { e.preventDefault(); setQ(tag); }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setQ(tag);
+                          }}
                           title={`#${tag}`}
                         >
                           #{tag}
@@ -188,6 +216,18 @@ export default function BrowsePage() {
           })}
         </div>
       )}
+
+      {/* Filters sheet */}
+      <FiltersSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        onApply={(f) => {
+          setFilters(f);
+          setFiltersOpen(false);
+        }}
+        initial={filters}
+        availableTags={availableTags}
+      />
     </div>
   );
 }
