@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import SearchBar from '@/components/SearchBar';
 import FiltersSheet from '@/components/FiltersSheet';
 import SEO from '@/components/SEO'; // ✅ SEO
+import SmartImage from '@/components/SmartImage';
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
