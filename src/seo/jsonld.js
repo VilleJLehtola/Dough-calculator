@@ -1,3 +1,4 @@
+// src/seo/jsonld.js
 export function recipeJsonLd({
   name,
   description,
@@ -6,7 +7,7 @@ export function recipeJsonLd({
   instructions = [],
   authorName,
   datePublished,
-  totalTime,   // ISO 8601 like "PT12H" if available
+  totalTime,   // ISO 8601 e.g. "PT12H" if available
   prepTime,
   cookTime,
   recipeYield,
