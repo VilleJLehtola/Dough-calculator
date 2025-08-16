@@ -26,29 +26,36 @@ export default function SEO({
   const url = canonical || (typeof window !== 'undefined' ? window.location.href : SITE);
 
   return (
-    <Helmet>
-      <html lang={lang} />
+    <Helmet
+      // ✅ Use the supported API instead of <html lang="..."/>
+      htmlAttributes={{ lang }}
+    >
       <title>{title}</title>
       <meta name="description" content={description} />
-      <link rel="canonical" href={url} />
-      {alternates?.map((a) => (
-        <link key={a.hrefLang} rel="alternate" hrefLang={a.hrefLang} href={a.href} />
-      ))}
+      {url && <link rel="canonical" href={url} />}
+
+      {Array.isArray(alternates) &&
+        alternates.map((a) =>
+          a?.href && a?.hrefLang ? (
+            <link key={a.hrefLang} rel="alternate" hrefLang={a.hrefLang} href={a.href} />
+          ) : null
+        )}
 
       {/* Open Graph / Twitter */}
       <meta property="og:type" content="website" />
       <meta property="og:title" content={title} />
       <meta property="og:description" content={description} />
-      <meta property="og:url" content={url} />
-      <meta property="og:image" content={ogImage} />
+      {url && <meta property="og:url" content={url} />}
+      {ogImage && <meta property="og:image" content={ogImage} />}
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={title} />
       <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={ogImage} />
+      {ogImage && <meta name="twitter:image" content={ogImage} />}
 
       {noindex && <meta name="robots" content="noindex,nofollow" />}
 
-      {children /* JSON-LD etc. */}
+      {/* JSON-LD or extra tags go here */}
+      {children}
     </Helmet>
   );
 }
