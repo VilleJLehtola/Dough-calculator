@@ -5,6 +5,7 @@ import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import SearchBar from '@/components/SearchBar';
 import FiltersSheet from '@/components/FiltersSheet';
+import SEO from '@/components/SEO'; // ✅ SEO
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
@@ -116,6 +117,13 @@ export default function BrowsePage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ✅ SEO */}
+      <SEO
+        title="Browse Recipes • Taikinalaskin"
+        description="Explore community bread and pizza recipes; filter by style, hydration and tags."
+        canonical="https://www.breadcalculator.online/browse"
+      />
+
       {/* Header */}
       <div className="flex items-end justify-between gap-4 mb-2">
         <div>
