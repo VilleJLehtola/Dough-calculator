@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import supabase from '@/supabaseClient';
 import { Heart, HeartOff, Bookmark, BookmarkCheck } from 'lucide-react';
+import { track } from '@/analytics'; // ✅ Plausible
 
 export default function LikeFavoriteBar({
   recipeId,
@@ -113,10 +114,17 @@ export default function LikeFavoriteBar({
       const { error } = await supabase
         .from('favorites')
         .insert({ recipe_id: recipeId, user_id: userId });
+
       if (error && error.code !== '23505') {
         setFaved(false);
         setFavCount((c) => Math.max(0, c - 1));
         console.warn('favorite insert failed', error);
+      } else if (!error) {
+        // ✅ Plausible: Favorite Saved (only on successful insert)
+        track('Favorite Saved', {
+          context: 'recipe',
+          recipe_id: recipeId,
+        });
       }
     }
   };
