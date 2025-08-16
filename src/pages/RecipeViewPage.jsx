@@ -8,6 +8,7 @@ import LikeFavoriteBar from '@/components/LikeFavoriteBar';
 import CommentsSection from '@/components/CommentsSection';
 
 const BUCKET = 'recipe-images';
+const user = userId ? { id: userId } : null;
 
 /* ---------------------- Smooth, touch-enabled carousel ---------------------- */
 function HeroCarousel({ items = [], title = '', overlay = null, t }) {
