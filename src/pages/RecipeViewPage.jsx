@@ -1,4 +1,4 @@
-// /src/pages/RecipeViewPage.jsx
+// src/pages/RecipeViewPage.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
@@ -7,7 +7,9 @@ import { useTranslation } from 'react-i18next';
 import LikeFavoriteBar from '@/components/LikeFavoriteBar';
 import ShareButton from '@/components/ShareButton';
 import CommentsSection from '@/components/CommentsSection';
-import { track } from '@/analytics'; // [ADDED] Plausible events
+import { track } from '@/analytics';
+import SEO from '@/components/SEO';
+import { recipeJsonLd } from '@/seo/jsonld';
 
 const BUCKET = 'recipe-images';
 
@@ -265,7 +267,7 @@ export default function RecipeViewPage() {
     };
   }, [id]);
 
-  // Translation: prefer cached row; if missing, show base recipe as-is
+  // Translation
   useEffect(() => {
     let cancelled = false;
 
@@ -310,7 +312,7 @@ export default function RecipeViewPage() {
     };
   }, [id, uiLang, targetLang]);
 
-  // [ADDED] Analytics: fire a view once recipe is loaded
+  // Analytics
   useEffect(() => {
     if (!recipe?.id) return;
     track('Recipe Viewed', {
@@ -413,8 +415,32 @@ export default function RecipeViewPage() {
   // minimal user object for CommentsSection
   const user = userId ? { id: userId } : null;
 
+  const ogImage = (images?.[0]?.url || images?.[0]) ?? undefined;
+  const json = recipeJsonLd({
+    name: title,
+    description,
+    images: ogImage ? [ogImage] : [],
+    ingredients: ingredientsRaw,
+    instructions: steps,
+    authorName: author?.full_name || author?.username || undefined,
+    datePublished: recipe?.created_at,
+    totalTime: recipe?.total_time_iso, // include only if stored as ISO
+    prepTime: recipe?.prep_time_iso,
+    cookTime: recipe?.cook_time_iso,
+    recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
+  });
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
+      <SEO
+        title={`${title || t('recipe','Recipe')} • Recipe`}
+        description={description || t('recipe_description_fallback','Recipe details and instructions')}
+        ogImage={ogImage}
+        canonical={`https://www.breadcalculator.online/recipe/${id}`}
+      >
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(json) }} />
+      </SEO>
+
       {/* Breadcrumbs */}
       <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">
         <Link to="/browse" className="hover:underline">
@@ -448,7 +474,7 @@ export default function RecipeViewPage() {
         </div>
 
         {/* Meta pills + Like/Favorite + Edit */}
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
+        <div className="flex items-center gap-2 flex-wrap w/full sm:w-auto min-w-0">
           {totalTime != null && (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
               <Clock className="w-3.5 h-3.5" />
@@ -465,7 +491,6 @@ export default function RecipeViewPage() {
 
           <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
 
-          {/* [ADDED] Share analytics */}
           <ShareButton
             title={title}
             text={description}
@@ -488,12 +513,7 @@ export default function RecipeViewPage() {
       </div>
 
       {/* HERO CAROUSEL */}
-      <HeroCarousel
-        title={title}
-        items={images}
-        t={t}
-        overlay={null}  // remove overlay card; set to previous JSX if you want it back
-      />
+      <HeroCarousel title={title} items={images} t={t} overlay={null} />
 
       {/* Tags */}
       {tags?.length > 0 && (
@@ -600,7 +620,7 @@ export default function RecipeViewPage() {
               <ul className="space-y-2">
                 {scaledIngredients.map((ing, i) => (
                   <li key={i} className="flex items-center justify-between">
-                    <span className="text-gray-800 dark:text-gray-100">{ing.name ?? ''}</span>
+                    <span className="text-gray-800 dark:text-gray-100">{(ing.name ?? '')}</span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
                         {ing.amount} {ing.unit ?? ''}
