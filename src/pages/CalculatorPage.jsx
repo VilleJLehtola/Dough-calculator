@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import InputField from '../components/common/InputField';
 import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
-import { track } from '@/analytics'; // ✅ Plausible events
+import { track } from '@/analytics'; // Plausible
+import SEO from '@/components/SEO';    // SEO
 
 export default function CalculatorPage() {
   const { t } = useTranslation();
@@ -57,9 +58,7 @@ export default function CalculatorPage() {
       const sp = clamp(starterPct, 0, 50) / 100;
 
       let W_total = amount;
-      if (W_total <= 0) {
-        return 0;
-      }
+      if (W_total <= 0) return 0;
 
       // Iterate to solve F_total given W_total with 100% hydration starter
       let F = W_total;
@@ -122,12 +121,8 @@ export default function CalculatorPage() {
     if (coldFerment) steps.push('Cold proof 8–24 h at 4°C; temper 1 h before baking.');
     steps.push('Bake 230–250°C with steam; vent halfway for crisp crust. Cool before slicing.');
 
-    if (isCiabatta) {
-      steps.unshift('For very wet dough (ciabatta): use minimal handling; stretch & fold in tub.');
-    }
-    if (isFocaccia) {
-      steps[steps.length - 1] = 'For focaccia: pan with oil, dimple, proof, top, and bake at 220–230°C.';
-    }
+    if (isCiabatta) steps.unshift('For very wet dough (ciabatta): use minimal handling; stretch & fold in tub.');
+    if (isFocaccia) steps[steps.length - 1] = 'For focaccia: pan with oil, dimple, proof, top, and bake at 220–230°C.';
     return steps;
   }, [mode, activePreset, oilOn, coldFerment, ryeOn, hydrationBasePct]);
 
@@ -192,6 +187,12 @@ export default function CalculatorPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
+      <SEO
+        title="Dough Calculator • Taikinalaskin"
+        description="Input flour or water, set hydration and salt, toggle rye, seeds, oil, and cold fermentation."
+        canonical="https://www.breadcalculator.online/calculator"
+      />
+
       {/* HERO */}
       <div className="relative w-full aspect-[21/6] rounded-2xl overflow-hidden mb-6 ring-1 ring-white/10">
         <img
