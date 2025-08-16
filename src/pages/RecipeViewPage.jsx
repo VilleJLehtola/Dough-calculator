@@ -10,6 +10,7 @@ import CommentsSection from '@/components/CommentsSection';
 import { track } from '@/analytics';
 import SEO from '@/components/SEO';
 import { recipeJsonLd } from '@/seo/jsonld';
+import SmartImage from '@/components/SmartImage';
 
 const BUCKET = 'recipe-images';
 
