@@ -8,7 +8,6 @@ import LikeFavoriteBar from '@/components/LikeFavoriteBar';
 import CommentsSection from '@/components/CommentsSection';
 
 const BUCKET = 'recipe-images';
-const user = userId ? { id: userId } : null;
 
 /* ---------------------- Smooth, touch-enabled carousel ---------------------- */
 function HeroCarousel({ items = [], title = '', overlay = null, t }) {
@@ -113,7 +112,7 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
       {/* Overlay (author, description, etc) */}
       {overlay}
 
-      {/* Prev/Next (raise z-index for mobile overlays) */}
+      {/* Prev/Next */}
       <button
         aria-label="Previous image"
         className="z-10 absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
@@ -186,7 +185,7 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Current user (for Edit)
+  // Current user (for Edit and Comments)
   const [userId, setUserId] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -196,7 +195,6 @@ export default function RecipeViewPage() {
       if (!alive) return;
       setUserId(uid);
 
-      // Best-effort: check users.is_admin; ignore errors (RLS might block)
       if (uid) {
         try {
           const { data: row } = await supabase
@@ -218,7 +216,6 @@ export default function RecipeViewPage() {
     (async () => {
       if (!id) return;
 
-      // Use * to avoid column mismatches across schema versions
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select('*')
@@ -235,7 +232,6 @@ export default function RecipeViewPage() {
 
       setRecipe(recRow ?? null);
 
-      // author (best-effort; skip if missing)
       const authorId = recRow?.author_id ?? recRow?.created_by ?? recRow?.user_id ?? null;
       if (authorId) {
         try {
@@ -252,7 +248,6 @@ export default function RecipeViewPage() {
         setAuthor(null);
       }
 
-      // images: prefer explicit array; fallback to cover_image; else list folder
       if (Array.isArray(recRow?.images) && recRow.images.length) {
         setImages(recRow.images);
       } else if (recRow?.cover_image) {
@@ -355,7 +350,6 @@ export default function RecipeViewPage() {
   const canEdit = !!userId && (userId === (recipe?.author_id ?? recipe?.created_by ?? recipe?.user_id) || isAdmin);
 
   /* ----------------------------- Scaler logic ----------------------------- */
-  // detect mobile & lock scroll when bottom sheet open
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640);
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 640);
@@ -372,7 +366,6 @@ export default function RecipeViewPage() {
     }
   }, [showScale, isMobile]);
 
-  // Compute base flour total from ingredient rows that look like flour
   const baseFlour = useMemo(() => {
     return ingredientsRaw.reduce((sum, ing) => {
       const amt = Number(ing.amount);
@@ -381,7 +374,7 @@ export default function RecipeViewPage() {
     }, 0);
   }, [ingredientsRaw]);
 
-  const [scale, setScale] = useState(1); // multiplier (1 = 100%)
+  const [scale, setScale] = useState(1);
   const percent = Math.round(scale * 100);
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
@@ -404,6 +397,9 @@ export default function RecipeViewPage() {
     if (!Number.isFinite(val) || val <= 0 || !baseFlour) return;
     setScale(val / baseFlour);
   };
+
+  // ✅ Build a minimal user object for CommentsSection inside the component
+  const user = userId ? { id: userId } : null;
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
@@ -454,7 +450,6 @@ export default function RecipeViewPage() {
             </span>
           ) : null}
 
-          {/* Like & Favorite controls */}
           <LikeFavoriteBar recipeId={id} userId={userId} t={t} />
 
           {canEdit && (
@@ -645,8 +640,9 @@ export default function RecipeViewPage() {
             )}
           </div>
         </section>
+
         {/* Comments */}
-        <CommentsSection recipeId={recipe.id} user={user} />
+        {recipe?.id ? <CommentsSection recipeId={recipe.id} user={user} /> : null}
       </div>
 
       {/* Back link */}
