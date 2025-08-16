@@ -4,7 +4,7 @@ import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Heart } from 'lucide-react';
-import SEO from '@/components/SEO'; // ✅ SEO
+import SEO from '@/components/SEO';
 import SmartImage from '@/components/SmartImage';
 
 // Extend this list if you add more admins
@@ -137,12 +137,10 @@ export default function FrontPage() {
                 >
                   <div className="w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900">
                     {hero ? (
-                      <img
+                      <SmartImage
                         src={hero}
-                        alt={recipe.title}
+                        alt={recipe.title || 'Recipe'}
                         className="w-full h-full object-cover"
-                        loading="lazy"
-                        decoding="async"
                       />
                     ) : null}
                   </div>
@@ -224,12 +222,10 @@ export default function FrontPage() {
                 >
                   <div className="relative w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900">
                     {hero ? (
-                      <img
+                      <SmartImage
                         src={hero}
                         alt={r.title || 'Recipe'}
                         className="w-full h-full object-cover"
-                        loading="lazy"
-                        decoding="async"
                       />
                     ) : null}
                     <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-200">
