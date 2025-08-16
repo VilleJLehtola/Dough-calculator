@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import InputField from '../components/common/InputField';
 import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
-import { track } from '@/analytics'; // [ADDED] Plausible events
+import { track } from '@/analytics'; // ✅ Plausible events
 
 export default function CalculatorPage() {
   const { t } = useTranslation();
@@ -100,6 +100,7 @@ export default function CalculatorPage() {
   // -------- Quick Recipe builder --------
   const quickSteps = useMemo(() => {
     const steps = [];
+
     if (mode === 'pizza') {
       const style = activePreset === 'new-york' || oilOn ? 'New York–style' : 'Neapolitan';
       steps.push(`Mix ${style === 'Neapolitan' ? 'Tipo 00 flour' : 'flour'} and water until shaggy.`);
@@ -110,20 +111,27 @@ export default function CalculatorPage() {
       steps.push('Open by hand, top lightly, and bake as hot as possible on stone/steel.');
       return steps;
     }
+
     const isCiabatta = activePreset === 'ciabatta' || hydrationBasePct >= 78;
     const isFocaccia = activePreset === 'focaccia';
+
     steps.push(`Autolyse: mix flour${ryeOn ? ' (incl. rye)' : ''} and water, rest 20–30 min.`);
     steps.push(`Add starter and salt${isFocaccia ? ', then oil' : ''}; develop gluten with stretch & folds.`);
     steps.push('Bulk until ~50–75% rise and jiggly (1.5–4 h depending on temp).');
     steps.push('Pre-shape, rest 15–20 min; final shape into loaf/banneton.');
     if (coldFerment) steps.push('Cold proof 8–24 h at 4°C; temper 1 h before baking.');
     steps.push('Bake 230–250°C with steam; vent halfway for crisp crust. Cool before slicing.');
-    if (isCiabatta) steps.unshift('For very wet dough (ciabatta): use minimal handling; stretch & fold in tub.');
-    if (isFocaccia) steps[steps.length - 1] = 'For focaccia: pan with oil, dimple, proof, top, and bake at 220–230°C.';
+
+    if (isCiabatta) {
+      steps.unshift('For very wet dough (ciabatta): use minimal handling; stretch & fold in tub.');
+    }
+    if (isFocaccia) {
+      steps[steps.length - 1] = 'For focaccia: pan with oil, dimple, proof, top, and bake at 220–230°C.';
+    }
     return steps;
   }, [mode, activePreset, oilOn, coldFerment, ryeOn, hydrationBasePct]);
 
-  // -------- Analytics: track first meaningful interaction once --------
+  // -------- Analytics: fire once on first meaningful change --------
   const hasTrackedRef = useRef(false);
   const defaultsRef = useRef({
     inputMode: 'flour',
@@ -160,7 +168,9 @@ export default function CalculatorPage() {
       garlicOn !== d.garlicOn ||
       coldFerment !== d.coldFerment ||
       activePreset !== d.activePreset;
+
     if (!changed) return;
+
     hasTrackedRef.current = true;
     track('Calculator Used', {
       input_type: inputMode,
@@ -182,8 +192,202 @@ export default function CalculatorPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
-      {/* ...the rest of your component unchanged... */}
-      {/* (all existing UI, hero image, form, results, quick recipe) */}
+      {/* HERO */}
+      <div className="relative w-full aspect-[21/6] rounded-2xl overflow-hidden mb-6 ring-1 ring-white/10">
+        <img
+          src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=2070&auto=format&fit=crop"
+          alt="Calculator hero"
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* LEFT: Controls */}
+        <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 dark:bg-white/5 backdrop-blur-sm p-4 md:p-5">
+          {/* Presets */}
+          <div className="mb-3">
+            <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+              {t('presets', 'Presets')}
+            </div>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Presets">
+              {presets.map((p) => (
+                <ToggleButton
+                  key={p.key}
+                  active={activePreset === p.key}
+                  onClick={() => applyPreset(p)}
+                  aria-pressed={activePreset === p.key}
+                >
+                  {p.label}
+                </ToggleButton>
+              ))}
+            </div>
+          </div>
+
+          {/* Modes */}
+          <div className="mb-4">
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Modes">
+              <div className="flex gap-2">
+                <ToggleButton active={inputMode === 'flour'} onClick={() => setInputMode('flour')} aria-pressed={inputMode === 'flour'}>
+                  {t('flour','Flour')}
+                </ToggleButton>
+                <ToggleButton active={inputMode === 'water'} onClick={() => setInputMode('water')} aria-pressed={inputMode === 'water'}>
+                  {t('water','Water')}
+                </ToggleButton>
+              </div>
+              <div className="ml-auto flex gap-2">
+                <ToggleButton active={mode === 'bread'} onClick={() => { setMode('bread'); setActivePreset(null); }}>
+                  {`🥖 ${t('bread','Bread')}`}
+                </ToggleButton>
+                <ToggleButton active={mode === 'pizza'} onClick={() => { setMode('pizza'); setActivePreset(null); }}>
+                  {`🍕 ${t('pizza','Pizza')}`}
+                </ToggleButton>
+              </div>
+            </div>
+          </div>
+
+          {/* Primary inputs */}
+          <div className="space-y-4">
+            {inputMode === 'flour' ? (
+              <InputField
+                id="amount"
+                label={t('amount_flour','Amount (flour)')}
+                suffix="g"
+                value={amount}
+                onChange={setAmount}
+                min={1}
+              />
+            ) : (
+              <InputField
+                id="amount"
+                label={t('amount_water','Amount (water)')}
+                suffix="ml"
+                value={amount}
+                onChange={setAmount}
+                min={1}
+              />
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <InputField
+                id="hydration"
+                label={t('hydration_base','Hydration (base)')}
+                suffix="%"
+                value={hydrationBasePct}
+                onChange={(v) => setHydrationBasePct(clamp(+v, 40, 110))}
+                min={40}
+                max={110}
+              />
+              <InputField
+                id="salt"
+                label={t('salt','Salt')}
+                suffix="%"
+                value={saltPct}
+                onChange={(v) => setSaltPct(+v)}
+                min={0}
+                max={5}
+                step={0.1}
+              />
+              <InputField
+                id="starter"
+                label={t('starter','Starter')}
+                suffix="%"
+                value={starterPct}
+                onChange={(v) => setStarterPct(+v)}
+                min={0}
+                max={50}
+                step={1}
+              />
+            </div>
+          </div>
+
+          {/* Bread options */}
+          {mode === 'bread' && (
+            <div className="mt-6">
+              <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                {t('bread_options','Bread options')}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <ToggleButton active={ryeOn} onClick={() => setRyeOn(!ryeOn)}>{t('rye','Rye')}</ToggleButton>
+                <ToggleButton active={seedsOn} onClick={() => setSeedsOn(!seedsOn)}>{t('seeds','Seeds')}</ToggleButton>
+                <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>{t('cold_ferment','Cold ferment')}</ToggleButton>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField
+                  id="ryePct"
+                  label={t('rye_pct_total_flour','Rye % of total flour')}
+                  suffix="%"
+                  value={ryePct}
+                  onChange={(v) => setRyePct(+v)}
+                  min={0}
+                  max={100}
+                  disabled={!ryeOn}
+                />
+                <InputField
+                  id="seedsPct"
+                  label={t('seeds_pct_total_flour','Seeds % of total flour')}
+                  suffix="%"
+                  value={seedsPct}
+                  onChange={(v) => setSeedsPct(+v)}
+                  min={5}
+                  max={20}
+                  disabled={!seedsOn}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Pizza options */}
+          {mode === 'pizza' && (
+            <div className="mt-6">
+              <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                {t('pizza_options','Pizza options')}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>Oil (7%)</ToggleButton>
+                <ToggleButton active={garlicOn} onClick={() => setGarlicOn(!garlicOn)}>Garlic</ToggleButton>
+                <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>{t('cold_ferment','Cold ferment')}</ToggleButton>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: Results */}
+        <div className="rounded-2xl ring-1 ring-white/10 bg-white/5 dark:bg-white/5 backdrop-blur-sm p-4 md:p-5 text-gray-800 dark:text-gray-100" aria-live="polite">
+          <h2 className="text-lg font-semibold mb-2">{t('ingredients','Ingredients')}</h2>
+
+          <div className="rounded-xl ring-1 ring-white/10 bg-black/5 dark:bg-white/5 p-3 mb-3">
+            <ul className="space-y-1.5 text-sm">
+              <li>{calc.whiteFlour} g {mode === 'pizza' ? t('tipo00_flour','Tipo 00 Flour') : t('white_flour','White Flour')}</li>
+              {mode === 'bread' && ryeOn && <li>{calc.ryeFlour} g {t('rye_flour','Rye Flour')}</li>}
+              <li>{calc.baseWater} g {t('water','Water')}</li>
+              <li>
+                {calc.starter.weight} g {t('starter','Starter')}
+                {' '}({calc.starter.flour} g flour / {calc.starter.water} g water)
+              </li>
+              <li>{calc.salt} g {t('salt','Salt')}</li>
+              {mode === 'pizza' && oilOn && <li>{calc.oil} g {t('oil','Oil')}</li>}
+              {mode === 'bread' && seedsOn && <li>{calc.seeds} g {t('seeds','Seeds')}</li>}
+            </ul>
+          </div>
+
+          <div className="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300 border-t border-white/10 pt-3">
+            <span>{t('total_dough_weight','Total dough weight')}</span>
+            <span className="text-gray-900 dark:text-white font-medium">{calc.totalWeight} g</span>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-md font-semibold mb-2">{t('quick_recipe','Quick Recipe')}</h3>
+            <ol className="list-decimal pl-5 space-y-1.5 text-sm text-gray-700 dark:text-gray-300">
+              {quickSteps.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
