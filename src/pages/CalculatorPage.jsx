@@ -196,12 +196,10 @@ export default function CalculatorPage() {
 
       {/* HERO */}
       <div className="relative w-full aspect-[21/6] rounded-2xl overflow-hidden mb-6 ring-1 ring-white/10">
-        <img
+        <SmartImage
           src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=2070&auto=format&fit=crop"
           alt="Calculator hero"
           className="w-full h-full object-cover"
-          loading="lazy"
-          decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
       </div>
