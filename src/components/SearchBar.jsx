@@ -1,4 +1,3 @@
-// src/components/SearchBar.jsx
 import { useEffect, useRef } from "react";
 import { Search, X, SlidersHorizontal } from "lucide-react";
 import clsx from "clsx";
@@ -14,22 +13,24 @@ export default function SearchBar({
 }) {
   const inputRef = useRef(null);
 
-  // Focus with "/" like many apps
+  // Focus with "/"
   useEffect(() => {
     const onKey = (e) => {
       if (
         e.key === "/" &&
-        // don't steal focus if user is typing in an input already
         e.target instanceof HTMLElement &&
         !["INPUT", "TEXTAREA"].includes(e.target.tagName)
       ) {
         e.preventDefault();
         inputRef.current?.focus();
       }
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        onClear?.();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [onClear]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -39,28 +40,22 @@ export default function SearchBar({
   return (
     <form
       onSubmit={handleSubmit}
-      className={clsx(
-        "flex items-center gap-2 w-full",
-        className
-      )}
+      className={clsx("flex items-center gap-2 w-full", className)}
       role="search"
       aria-label="Recipe search"
     >
       <div
         className={clsx(
-          "group relative flex-1",
-          // glassy, subtle container
-          "rounded-2xl bg-white/5 dark:bg-white/5 backdrop-blur",
-          "ring-1 ring-black/5 dark:ring-white/10",
-          "hover:bg-white/7.5 transition-colors"
+          "group relative flex-1 rounded-full",
+          "bg-white/5 dark:bg-white/5 backdrop-blur-sm",
+          "ring-1 ring-white/10 hover:ring-white/15",
+          "transition-shadow focus-within:ring-2 focus-within:ring-blue-400/30"
         )}
       >
-        {/* Search icon */}
         <Search
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 opacity-70"
+          className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 opacity-70"
           aria-hidden="true"
         />
-
         <input
           ref={inputRef}
           type="search"
@@ -69,54 +64,42 @@ export default function SearchBar({
           onChange={(e) => onChange?.(e.target.value)}
           placeholder={placeholder}
           className={clsx(
-            "w-full pl-11 pr-16 py-3",
+            "w-full h-11 pl-12 pr-16 rounded-full",
             "bg-transparent outline-none",
-            "text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400",
-            "rounded-2xl"
+            "text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
           )}
           aria-label={placeholder}
         />
-
-        {/* Clear button */}
         {value?.length > 0 && (
           <button
             type="button"
             onClick={onClear}
             aria-label="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/30"
           >
-            <X className="h-4 w-4 opacity-80" />
+            <X className="h-4 w-4 opacity-85" />
           </button>
         )}
-
-        {/* Focus ring (subtle) */}
-        <span className="pointer-events-none absolute inset-0 rounded-2xl ring-0 group-focus-within:ring-2 group-focus-within:ring-white/20" />
       </div>
 
-      {/* Filters / options button */}
       <button
         type="button"
         onClick={onOpenFilters}
         className={clsx(
-          "hidden sm:inline-flex items-center gap-2",
-          "px-3.5 py-2.5 rounded-2xl",
+          "inline-flex items-center gap-2",
+          "px-3.5 h-11 rounded-full text-sm",
           "bg-white/5 hover:bg-white/10 transition-colors",
-          "ring-1 ring-black/5 dark:ring-white/10",
-          "text-sm"
+          "ring-1 ring-white/10"
         )}
         aria-label="Open filters"
       >
-        <SlidersHorizontal className="h-4 w-4 opacity-80" />
+        <SlidersHorizontal className="h-4 w-4 opacity-85" />
         <span>Suodattimet</span>
       </button>
 
-      {/* Submit for accessibility (Enter already works) */}
       <button type="submit" className="sr-only">Search</button>
-
-      {/* Keyboard shortcut hint */}
       <span
-        className="ml-1 hidden md:inline-flex items-center px-2 py-1 rounded-lg text-xs
-                   ring-1 ring-white/15 text-gray-400"
+        className="ml-1 hidden md:inline-flex items-center px-2 py-1 rounded-md text-xs ring-1 ring-white/15 text-gray-400"
         aria-hidden="true"
       >
         /
