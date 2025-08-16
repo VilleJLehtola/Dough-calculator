@@ -5,7 +5,7 @@ import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
 import SearchBar from '@/components/SearchBar';
 import FiltersSheet from '@/components/FiltersSheet';
-import SEO from '@/components/SEO'; // ✅ SEO
+import SEO from '@/components/SEO';
 import SmartImage from '@/components/SmartImage';
 
 const USE_FTS =
@@ -182,12 +182,10 @@ export default function BrowsePage() {
               >
                 <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
                   {hero ? (
-                    <img
+                    <SmartImage
                       src={hero}
-                      alt={r.title}
+                      alt={r.title || 'Recipe'}
                       className="w-full h-full object-cover"
-                      loading="lazy"
-                      decoding="async"
                     />
                   ) : null}
                 </div>
