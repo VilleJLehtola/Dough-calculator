@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import clsx from "clsx";
@@ -13,6 +13,10 @@ export default function FiltersSheet({
   const { t } = useTranslation();
   const [state, setState] = useState(initial);
 
+  // refs for focus management
+  const closeBtnRef = useRef(null);
+  const openerRef = useRef(null);
+
   useEffect(() => setState(initial), [initial, open]);
 
   // lock body scroll while open
@@ -22,6 +26,31 @@ export default function FiltersSheet({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, [open]);
+
+  // focus + ESC key handling
+  useEffect(() => {
+    if (!open) return;
+
+    // remember opener (focused element) to restore later
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    // move focus to close button when opening
+    const id = requestAnimationFrame(() => closeBtnRef.current?.focus?.());
+
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose?.();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("keydown", onKey);
+      // restore focus to opener if still in DOM
+      openerRef.current?.focus?.();
+    };
+  }, [open, onClose]);
 
   const apply = () => onApply?.(state);
 
@@ -64,8 +93,9 @@ export default function FiltersSheet({
             {t("filters", "Filters")}
           </h3>
           <button
+            ref={closeBtnRef}
             onClick={onClose}
-            className="p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/10"
+            className="p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             aria-label={t("close", "Close")}
           >
             <X className="h-5 w-5" />
@@ -94,12 +124,12 @@ export default function FiltersSheet({
                     onClick={() => setState((s) => ({ ...s, sort: opt.key }))}
                     role="radio"
                     aria-checked={checked}
-                    className={clsx(
-                      "px-3 py-1.5 rounded-full text-sm ring-1",
-                      checked
+                    className={
+                      "px-3 py-1.5 rounded-full text-sm ring-1 " +
+                      (checked
                         ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/30"
-                        : "bg-white/5 dark:bg-white/5 text-gray-700 dark:text-gray-300 ring-white/10 hover:bg-white/10"
-                    )}
+                        : "bg-white/5 dark:bg-white/5 text-gray-700 dark:text-gray-300 ring-white/10 hover:bg-white/10")
+                    }
                   >
                     {opt.label}
                   </button>
@@ -148,12 +178,12 @@ export default function FiltersSheet({
                         }))
                       }
                       aria-pressed={active}
-                      className={clsx(
-                        "text-xs px-2 py-1 rounded-full border",
-                        active
+                      className={
+                        "text-xs px-2 py-1 rounded-full border " +
+                        (active
                           ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
-                          : "bg-white/5 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-white/10 hover:bg-white/10"
-                      )}
+                          : "bg-white/5 dark:bg-white/5 text-gray-700 dark:text-gray-300 border-white/10 hover:bg-white/10")
+                      }
                     >
                       #{tag}
                     </button>
