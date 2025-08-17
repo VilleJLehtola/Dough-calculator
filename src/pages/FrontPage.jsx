@@ -1,270 +1,280 @@
-// /src/pages/FrontPage.jsx
-import { useEffect, useState, Fragment } from 'react';
-import supabase from '@/supabaseClient';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import { Heart } from 'lucide-react';
-import SEO from '@/components/SEO';
-import SmartImage from '@/components/SmartImage';
+// src/pages/FrontPage.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
+import supabase from "@/supabaseClient";
+import SEO from "@/components/SEO";
+import { track } from "@/analytics";
+import SmartImage from "@/components/SmartImage";
 
-// Extend this list if you add more admins
-const ADMIN_EMAILS = ['ville.j.lehtola@gmail.com'];
+/**
+ * Utilities
+ */
+const BUCKET = "recipe-images";
+
+function heroForRow(r) {
+  if (r?.cover_image) return r.cover_image;
+  if (Array.isArray(r?.images) && r.images.length) {
+    const first = r.images[0];
+    return typeof first === "string" ? first : first?.url || null;
+  }
+  return null;
+}
+
+// Try to produce a WebP/AVIF variant for common sources (Unsplash & generic)
+function toNextGen(url) {
+  if (!url) return url;
+  try {
+    const u = new URL(url);
+    // Unsplash supports fm=webp/avif
+    if (/images\.unsplash\.com/i.test(u.hostname)) {
+      u.searchParams.set("fm", "webp");
+      u.searchParams.set("auto", "format");
+      u.searchParams.set("q", "80");
+      return u.toString();
+    }
+    // Generic best effort (many CDNs accept format/webp)
+    if (!u.searchParams.has("format")) {
+      u.searchParams.set("format", "webp");
+    }
+    return u.toString();
+  } catch {
+    // If it's not a valid URL (e.g., relative), leave as-is
+    return url;
+  }
+}
+
+/**
+ * LCP-friendly Picture (hero) — eager, high priority, sized.
+ * Falls back cleanly if the source doesn't actually support WebP.
+ */
+function HeroPicture({
+  src,
+  alt = "",
+  className = "",
+  priority = false,
+  sizes = "100vw",
+}) {
+  const webp = toNextGen(src);
+  const isPriority = Boolean(priority);
+
+  return (
+    <picture>
+      {/* Try webp/avif first (won’t break if server ignores the param) */}
+      <source srcSet={webp} type="image/webp" />
+      {/* Fallback */}
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading={isPriority ? "eager" : "lazy"}
+        fetchPriority={isPriority ? "high" : "auto"}
+        decoding="async"
+        sizes={sizes}
+      />
+    </picture>
+  );
+}
+
+/**
+ * Card image for thumbnails — lazy by default, responsive sizes.
+ */
+function ThumbImage({ src, alt = "", className = "" }) {
+  const sizes =
+    "(min-width:1536px) 18vw, (min-width:1280px) 22vw, (min-width:1024px) 25vw, (min-width:640px) 33vw, 100vw";
+  // Use SmartImage for caching/error-handling you already have;
+  // pass the perf hints so Lighthouse is happy.
+  return (
+    <SmartImage
+      src={src}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      decoding="async"
+      sizes={sizes}
+    />
+  );
+}
 
 export default function FrontPage() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+  const [latest, setLatest] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Admin (latest) section
-  const [latestAdminRecipes, setLatestAdminRecipes] = useState([]);
-  const [loadingAdmin, setLoadingAdmin] = useState(true);
-
-  // Most liked section
-  const [topLiked, setTopLiked] = useState([]);
-  const [loadingLiked, setLoadingLiked] = useState(true);
-  const [likedErr, setLikedErr] = useState('');
-
+  // Fetch a light list for the front page
   useEffect(() => {
-    (async () => {
-      setLoadingAdmin(true);
-      const { data: rows, error: recErr } = await supabase
-        .from('browse_recipes_v')
-        .select('id,title,description,cover_image,images,created_at,username,email,tags')
-        .in('email', ADMIN_EMAILS)
-        .order('created_at', { ascending: false })
-        .limit(12);
+    let cancelled = false;
 
-      if (recErr) {
-        console.warn('Admin recipes fetch failed', recErr);
-        setLatestAdminRecipes([]);
-      } else {
-        setLatestAdminRecipes(rows || []);
-      }
-      setLoadingAdmin(false);
-    })();
-  }, []);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoadingLiked(true);
-      setLikedErr('');
+    async function run() {
+      setLoading(true);
       try {
+        // Use the light browse view if you have it; otherwise select only the needed columns
         const { data, error } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,recipe_likes(count)')
-          .order('count', { foreignTable: 'recipe_likes', ascending: false })
+          .from("browse_recipes_v")
+          .select(
+            "id,title,description,cover_image,images,created_at,username,email,tags"
+          )
+          .order("created_at", { ascending: false })
           .limit(12);
 
-        if (!alive) return;
-        if (error) throw error;
+        if (cancelled) return;
 
-        const mapped = (data || []).map((row) => ({
-          ...row,
-          _likes:
-            Array.isArray(row.recipe_likes) && row.recipe_likes[0]?.count != null
-              ? row.recipe_likes[0].count
-              : 0,
-        }));
-        setTopLiked(mapped);
+        if (error) {
+          console.warn("frontpage fetch error", error);
+          setLatest([]);
+        } else {
+          setLatest(data || []);
+        }
       } catch (e) {
-        console.warn('Most liked fetch failed', e);
-        if (alive) setLikedErr(e.message || 'Failed to load most liked');
+        if (!cancelled) {
+          console.warn("frontpage unexpected error", e);
+          setLatest([]);
+        }
       } finally {
-        if (alive) setLoadingLiked(false);
+        if (!cancelled) setLoading(false);
       }
-    })();
+    }
+
+    run();
+    track("Homepage Viewed");
     return () => {
-      alive = false;
+      cancelled = true;
     };
   }, []);
 
-  const heroFor = (r) => {
-    if (r?.cover_image) return r.cover_image;
-    if (Array.isArray(r?.images) && r.images.length) {
-      const first = r.images[0];
-      return typeof first === 'string' ? first : first?.url;
+  // Pick an LCP hero (first with an image)
+  const hero = useMemo(() => {
+    for (const r of latest) {
+      const img = heroForRow(r);
+      if (img) return { ...r, hero: img };
     }
     return null;
-  };
+  }, [latest]);
 
-  // Helpful <img sizes> for card grids (matches the 3/2 aspect boxes)
-  const CARD_SIZES =
-    '(min-width:1536px) 20vw, (min-width:1280px) 25vw, (min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw';
+  const rest = useMemo(() => {
+    const skipId = hero?.id;
+    return latest.filter((r) => r.id !== skipId);
+  }, [latest, hero?.id]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* ✅ SEO */}
       <SEO
-        title="Taikinalaskin • Dough Calculator"
-        description="Calculate bread and pizza dough easily. Choose hydration, salt, starter; get step-by-step recipe."
+        title="Everything Dough • Taikinalaskin"
+        description="Browse community bread & pizza recipes, calculate your dough, and learn faster."
         canonical="https://www.breadcalculator.online/"
       />
 
-      {/* ===== Top: Latest admin recipes ===== */}
-      <section className="mt-2">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          {t('latest_admin_recipes', 'Latest admin recipes')}
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          {t('recipe_library', 'Recipe library')}
-        </p>
+      {/* HERO (LCP) */}
+      <section
+        className="relative w-full mt-2 mb-6 rounded-2xl overflow-hidden ring-1 ring-white/10"
+        aria-label="Highlighted recipe"
+      >
+        <div className="w-full aspect-[21/9] sm:aspect-[16/7]">
+          {hero?.hero ? (
+            <HeroPicture
+              src={hero.hero}
+              alt={hero.title || "Featured recipe"}
+              className="w-full h-full object-cover"
+              sizes="100vw"
+              priority
+            />
+          ) : (
+            <div className="w-full h-full bg-gray-100 dark:bg-slate-900 animate-pulse" />
+          )}
+        </div>
 
-        {loadingAdmin ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+        {/* Overlay copy is kept minimal to avoid shifting and layout cost */}
+        {hero && (
+          <div className="absolute inset-x-0 bottom-0 p-4 sm:p-6 bg-gradient-to-t from-black/50 to-transparent">
+            <div className="max-w-3xl">
+              <h1 className="text-xl sm:text-2xl font-semibold text-white drop-shadow">
+                {hero.title}
+              </h1>
+              {hero.description ? (
+                <p className="mt-1 text-white/90 line-clamp-2">
+                  {hero.description}
+                </p>
+              ) : null}
+              <Link
+                to={`/recipe/${hero.id}`}
+                className="mt-3 inline-flex items-center px-3 py-1.5 rounded-md bg-white/90 text-gray-900 hover:bg-white"
               >
-                <div className="w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900 animate-pulse" />
-                <div className="p-5 space-y-3">
-                  <div className="h-6 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
+                Open recipe
+              </Link>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* LATEST GRID */}
+      <section aria-label="Latest recipes">
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Latest recipes
+          </h2>
+          <Link
+            to="/browse"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Browse all →
+          </Link>
+        </div>
+
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={`s-${i}`}
+                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+              >
+                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+                <div className="p-3 space-y-2">
+                  <div className="h-5 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                   <div className="h-4 w-4/5 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                 </div>
               </div>
             ))}
           </div>
-        ) : latestAdminRecipes.length === 0 ? (
+        ) : rest.length === 0 ? (
           <div className="text-gray-600 dark:text-gray-300">
-            {t('no_recipes_found', 'No recipes found.')}
+            No recipes yet.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-            {latestAdminRecipes.map((recipe, i) => {
-              const hero = heroFor(recipe);
-              const eager = i === 0; // ⭐ first card likely becomes LCP
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {rest.map((r) => {
+              const img = heroForRow(r);
               return (
-                <div
-                  key={recipe.id}
-                  className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow-lg cursor-pointer transition"
-                  onClick={() => navigate(`/recipe/${recipe.id}`)}
-                >
-                  <div className="w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900">
-                    {hero ? (
-                      <SmartImage
-                        src={hero}
-                        alt={recipe.title || 'Recipe'}
-                        className="w-full h-full object-cover"
-                        /* perf hints */
-                        sizes={CARD_SIZES}
-                        loading={eager ? 'eager' : 'lazy'}
-                        fetchPriority={eager ? 'high' : 'auto'}
-                        decoding="async"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="p-5">
-                    <div className="text-lg font-semibold text-gray-900 dark:text-white line-clamp-1">
-                      {recipe.title}
-                    </div>
-                    {recipe.description ? (
-                      <div className="mt-1 text-[15px] text-gray-600 dark:text-gray-300 line-clamp-2">
-                        {recipe.description}
-                      </div>
-                    ) : null}
-
-                    {/* Optional: show a few tags */}
-                    {Array.isArray(recipe.tags) && recipe.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {recipe.tags.slice(0, 4).map((tag) => (
-                          <span
-                            key={tag}
-                            className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* ===== Most liked / community ===== */}
-      <section className="mt-14">
-        <div className="flex items-baseline justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {t('most_liked_recipes', 'Most liked recipes')}
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              {t('most_liked_subtitle', 'Most liked community recipes')}
-            </p>
-          </div>
-        </div>
-
-        {likedErr && (
-          <div className="mt-3 text-sm text-red-600 dark:text-red-400">
-            {t('failed_to_load', 'Failed to load')}: {likedErr}
-          </div>
-        )}
-
-        {loadingLiked ? (
-          <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-8">
-            {[...Array(8)].map((_, i) => (
-              <div
-                key={`skeleton-${i}`}
-                className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-              >
-                <div className="aspect-[3/2] bg-gray-100 dark:bg-slate-900 animate-pulse" />
-                <div className="p-5">
-                  <div className="h-5 w-3/4 bg-gray-100 dark:bg-slate-700 rounded animate-pulse mb-2" />
-                  <div className="h-4 w-1/2 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : topLiked.length ? (
-          <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-8">
-            {topLiked.map((r) => {
-              const hero = heroFor(r);
-              const likes = r._likes ?? 0;
-              return (
-                <div
+                <Link
                   key={r.id}
-                  className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow-lg cursor-pointer transition"
-                  onClick={() => navigate(`/recipe/${r.id}`)}
+                  to={`/recipe/${r.id}`}
+                  className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
+                  aria-label={`Open recipe ${r.title || ""}`}
                 >
-                  <div className="relative w-full aspect-[3/2] bg-gray-100 dark:bg-slate-900">
-                    {hero ? (
-                      <SmartImage
-                        src={hero}
-                        alt={r.title || 'Recipe'}
+                  <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+                    {img ? (
+                      <ThumbImage
+                        src={img}
+                        alt={r.title || "Recipe"}
                         className="w-full h-full object-cover"
-                        sizes={CARD_SIZES}
-                        loading="lazy"
-                        decoding="async"
                       />
                     ) : null}
-                    <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-200">
-                      <Heart className="w-3.5 h-3.5" />
-                      {likes}
-                    </span>
                   </div>
-                  <div className="p-5">
-                    <div className="text-[15px] font-semibold text-gray-900 dark:text-white line-clamp-2">
-                      {r.title || t('open_recipe', 'Open recipe')}
+                  <div className="p-3">
+                    <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+                      {r.title || "Recipe"}
                     </div>
                     {r.description ? (
-                      <div className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                      <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
                         {r.description}
                       </div>
                     ) : null}
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
-        ) : (
-          <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
-            {t('no_likes_yet', 'No likes yet. Be the first to like a recipe!')}
-          </p>
         )}
       </section>
+
+      {/* BELOW-THE-FOLD sections: keep light or add with IntersectionObserver later if needed */}
     </div>
   );
 }
