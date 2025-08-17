@@ -51,11 +51,16 @@ export default function FiltersSheet({
           open ? "translate-x-0" : "translate-x-full",
           "shadow-2xl"
         )}
+        id="filters-sheet"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="filters-title"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-800">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3
+            id="filters-title"
+            className="text-lg font-semibold text-gray-900 dark:text-white"
+          >
             {t("filters", "Filters")}
           </h3>
           <button
@@ -73,33 +78,46 @@ export default function FiltersSheet({
             <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
               {t("sort_by", "Sort by")}
             </div>
-            <div className="flex gap-2">
+            <div
+              className="flex gap-2"
+              role="radiogroup"
+              aria-label={t("sort_by", "Sort by")}
+            >
               {[
                 { key: "newest", label: t("newest", "Newest") },
                 { key: "oldest", label: t("oldest", "Oldest") },
-              ].map((opt) => (
-                <button
-                  key={opt.key}
-                  onClick={() => setState((s) => ({ ...s, sort: opt.key }))}
-                  className={clsx(
-                    "px-3 py-1.5 rounded-full text-sm ring-1",
-                    state.sort === opt.key
-                      ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/30"
-                      : "bg-white/5 dark:bg-white/5 text-gray-700 dark:text-gray-300 ring-white/10 hover:bg-white/10"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
+              ].map((opt) => {
+                const checked = state.sort === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    onClick={() => setState((s) => ({ ...s, sort: opt.key }))}
+                    role="radio"
+                    aria-checked={checked}
+                    className={clsx(
+                      "px-3 py-1.5 rounded-full text-sm ring-1",
+                      checked
+                        ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/30"
+                        : "bg-white/5 dark:bg-white/5 text-gray-700 dark:text-gray-300 ring-white/10 hover:bg-white/10"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
             </div>
           </section>
 
           {/* Has image */}
           <section className="flex items-center justify-between">
-            <label className="text-sm text-gray-700 dark:text-gray-200">
+            <label
+              htmlFor="filters-has-image"
+              className="text-sm text-gray-700 dark:text-gray-200"
+            >
               {t("has_images_only", "Show only recipes with images")}
             </label>
             <input
+              id="filters-has-image"
               type="checkbox"
               className="h-4 w-4"
               checked={state.hasImage}
@@ -129,6 +147,7 @@ export default function FiltersSheet({
                             : [...s.tags, tag],
                         }))
                       }
+                      aria-pressed={active}
                       className={clsx(
                         "text-xs px-2 py-1 rounded-full border",
                         active
