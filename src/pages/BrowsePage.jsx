@@ -136,15 +136,16 @@ export default function BrowsePage() {
         {/* Search */}
         <div className="w-full max-w-xl">
           <SearchBar
-            value={q}
-            onChange={setQ}
-            onSubmit={handleSubmit}
-            onClear={() => setQ('')}
-            onOpenFilters={() => setFiltersOpen(true)}
-            placeholder={t('search_recipes', 'Search recipes')}
-          />
-        </div>
-      </div>
+  value={q}
+  onChange={setQ}
+  onSubmit={handleSubmit}
+  onClear={() => setQ('')}
+  onOpenFilters={() => setFiltersOpen(true)}
+  filtersOpen={filtersOpen}              // ✅ added
+  filtersControlsId="filters-sheet"      // ✅ added (must match sheet id)
+  placeholder={t('search_recipes', 'Search recipes')}
+/>
+
 
       <p className="text-gray-600 dark:text-gray-400 mb-4">
         {t('latest_recipes', 'Latest recipes')}
