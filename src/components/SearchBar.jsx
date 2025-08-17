@@ -10,6 +10,9 @@ export default function SearchBar({
   onOpenFilters,
   placeholder = "Hae reseptejä",
   className,
+  // ✅ NEW props for ARIA wiring
+  filtersOpen = false,
+  filtersControlsId = "filters-sheet",
 }) {
   const inputRef = useRef(null);
 
@@ -92,6 +95,9 @@ export default function SearchBar({
           "ring-1 ring-white/10"
         )}
         aria-label="Open filters"
+        // ✅ ARIA wiring to the sheet
+        aria-expanded={filtersOpen}
+        aria-controls={filtersControlsId}
       >
         <SlidersHorizontal className="h-4 w-4 opacity-85" />
         <span>Suodattimet</span>
