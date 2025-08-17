@@ -11,6 +11,8 @@ import { track } from '@/analytics';
 import SEO from '@/components/SEO';
 import { recipeJsonLd } from '@/seo/jsonld';
 import SmartImage from '@/components/SmartImage';
+import EmptyState from '@/components/states/EmptyState';
+import ErrorState from '@/components/states/ErrorState';
 
 const BUCKET = 'recipe-images';
 
@@ -164,6 +166,10 @@ export default function RecipeViewPage() {
   const { t } = useTranslation();
   const { id } = useParams();
 
+  // Loading / error states (Step 7)
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
   // Recipe + author + images
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
@@ -202,7 +208,7 @@ export default function RecipeViewPage() {
         try {
           const { data: row } = await supabase
             .from('users')
-            .select('id, email, username, avatar_url, full_name')
+            .select('id, email, username, avatar_url, full_name, is_admin')
             .eq('id', uid)
             .maybeSingle();
           if (row?.is_admin) setIsAdmin(true);
@@ -219,6 +225,9 @@ export default function RecipeViewPage() {
     (async () => {
       if (!id) return;
 
+      setLoading(true);
+      setError('');
+
       const { data: recRow, error: recErr } = await supabase
         .from('recipes')
         .select('*')
@@ -230,6 +239,10 @@ export default function RecipeViewPage() {
       if (recErr) {
         console.warn('recipe select error', recErr);
         setRecipe(null);
+        setAuthor(null);
+        setImages([]);
+        setError(recErr.message || 'Recipe not found');
+        setLoading(false);
         return;
       }
 
@@ -259,6 +272,8 @@ export default function RecipeViewPage() {
         const list = await listFolderUrls(`recipes/${id}`);
         if (!cancelled) setImages(list.map((x) => x.url));
       }
+
+      setLoading(false);
     })();
 
     return () => {
@@ -428,6 +443,29 @@ export default function RecipeViewPage() {
     cookTime: recipe?.cook_time_iso,
     recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
   });
+
+  // ---------- Loading / Error / Empty ----------
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
+        <div className="h-48 bg-gray-100 dark:bg-slate-800 rounded-xl animate-pulse" />
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
+        <ErrorState title={t('fetch_error','Could not load recipe')} detail={error} />
+      </div>
+    );
+  }
+  if (!recipe) {
+    return (
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
+        <EmptyState title={t('no_recipe','Recipe not found')} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
