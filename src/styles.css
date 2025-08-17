@@ -91,3 +91,15 @@ input:checked + .toggle-slider {
 .mobile-toggle-wrapper {
   @apply block md:hidden mt-4;
 }
+
+/* ---------------------------
+   Global focus styles (a11y)
+   --------------------------- */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.7); /* Tailwind blue-500 at ~70% */
+  outline-offset: 2px;
+  border-radius: 0.5rem; /* match your rounded-xl vibe */
+}
