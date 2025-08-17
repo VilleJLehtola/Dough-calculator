@@ -5,6 +5,7 @@ import supabase from "@/supabaseClient";
 import SEO from "@/components/SEO";
 import { track } from "@/analytics";
 import SmartImage from "@/components/SmartImage";
+import { supaRender, supaSrcSet, CARD_SIZES } from "@/utils/img";
 
 /**
  * Utilities
@@ -47,31 +48,58 @@ function toNextGen(url) {
  * LCP-friendly Picture (hero) — eager, high priority, sized.
  * Falls back cleanly if the source doesn't actually support WebP.
  */
-function HeroPicture({
-  src,
-  alt = "",
-  className = "",
-  priority = false,
-  sizes = "100vw",
-}) {
-  const webp = toNextGen(src);
+function HeroPicture({ src, alt = "", className = "", priority = false }) {
+  const isSupa = typeof src === "string" && src.includes("/storage/v1/object/public/");
+  const sizes = "100vw";
   const isPriority = Boolean(priority);
 
+  if (isSupa) {
+    const srcSetWebp = supaSrcSet(src, [640, 960, 1280, 1600, 1920], {
+      format: "webp",
+      quality: 80,
+      resize: "cover",
+    });
+    const srcSetAvif = supaSrcSet(src, [640, 960, 1280, 1600, 1920], {
+      format: "avif",
+      quality: 70,
+      resize: "cover",
+    });
+    const fallback = supaRender(src, { width: 1280, quality: 80, format: "webp" });
+
+    return (
+      <picture>
+        <source type="image/avif" srcSet={srcSetAvif} sizes={sizes} />
+        <source type="image/webp" srcSet={srcSetWebp} sizes={sizes} />
+        <img
+          src={fallback}
+          alt={alt}
+          className={className}
+          loading={isPriority ? "eager" : "lazy"}
+          fetchPriority={isPriority ? "high" : "auto"}
+          decoding="async"
+          sizes={sizes}
+        />
+      </picture>
+    );
+  }
+
+  // Fallback for Unsplash/others (we still try next-gen via query params)
+  const u = new URL(src, window.location.origin);
+  if (/images\.unsplash\.com/i.test(u.hostname)) {
+    u.searchParams.set("fm", "webp");
+    u.searchParams.set("auto", "format");
+    u.searchParams.set("q", "80");
+  }
   return (
-    <picture>
-      {/* Try webp/avif first (won’t break if server ignores the param) */}
-      <source srcSet={webp} type="image/webp" />
-      {/* Fallback */}
-      <img
-        src={src}
-        alt={alt}
-        className={className}
-        loading={isPriority ? "eager" : "lazy"}
-        fetchPriority={isPriority ? "high" : "auto"}
-        decoding="async"
-        sizes={sizes}
-      />
-    </picture>
+    <img
+      src={u.toString()}
+      alt={alt}
+      className={className}
+      loading={isPriority ? "eager" : "lazy"}
+      fetchPriority={isPriority ? "high" : "auto"}
+      decoding="async"
+      sizes={sizes}
+    />
   );
 }
 
