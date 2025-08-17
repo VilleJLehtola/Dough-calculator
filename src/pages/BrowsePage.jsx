@@ -7,6 +7,7 @@ import SearchBar from '@/components/SearchBar';
 import FiltersSheet from '@/components/FiltersSheet';
 import SEO from '@/components/SEO';
 import SmartImage from '@/components/SmartImage';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
@@ -18,6 +19,7 @@ export default function BrowsePage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
+  const qDebounced = useDebouncedValue(q, 300); // ✅ debounce
 
   // Filters
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -41,8 +43,8 @@ export default function BrowsePage() {
         // Sort
         query = query.order('created_at', { ascending: filters.sort === 'oldest' });
 
-        // Search
-        const needle = q.trim();
+        // Search (debounced)
+        const needle = qDebounced.trim();
         if (needle.length >= 2) {
           if (USE_FTS) {
             // Full text search
@@ -87,7 +89,7 @@ export default function BrowsePage() {
     return () => {
       cancelled = true;
     };
-  }, [q, filters]);
+  }, [qDebounced, filters]); // ✅ use debounced query
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -113,7 +115,7 @@ export default function BrowsePage() {
   }, [rows, filters]);
 
   const handleSubmit = () => {
-    // No-op; effect already runs on q/filters change
+    // No-op; effect already runs on qDebounced/filters change
   };
 
   return (
@@ -141,8 +143,8 @@ export default function BrowsePage() {
             onSubmit={handleSubmit}
             onClear={() => setQ('')}
             onOpenFilters={() => setFiltersOpen(true)}
-            filtersOpen={filtersOpen}              // ✅ ARIA state
-            filtersControlsId="filters-sheet"      // ✅ must match FiltersSheet id
+            filtersOpen={filtersOpen}              // ARIA state
+            filtersControlsId="filters-sheet"      // must match FiltersSheet id
             placeholder={t('search_recipes', 'Search recipes')}
           />
         </div>
@@ -160,7 +162,7 @@ export default function BrowsePage() {
               key={`s-${i}`}
               className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
-              <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+              <div className="w/full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
               <div className="p-3 space-y-2">
                 <div className="h-5 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-4 w-4/5 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
