@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import MobileMenu from './MobileMenu';
 import DarkModeToggle from './DarkModeToggle';
+import Footer from '@/components/Footer';
 
 const Layout = ({ children, user, onLoginClick, onLogout }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -51,10 +52,14 @@ const Layout = ({ children, user, onLoginClick, onLogout }) => {
         />
       )}
 
-      {/* Main content */}
+      {/* Main content column */}
       <div className="flex-1 flex flex-col">
         <Header user={user} />
-        <main className="flex-1 p-4">{children}</main>
+        <main className="flex-1 p-4" role="main">
+          {children}
+        </main>
+        {/* New global footer */}
+        <Footer />
       </div>
 
       {!isMobile && (
