@@ -204,7 +204,7 @@ export default function BrowsePage() {
                       src={hero}
                       alt={r.title || 'Recipe'}
                       className="w-full h-full object-cover"
-                      sizes="(min-width:1536px) 18vw, (min-width:1280px) 22vw, (min-width:1024px) 28vw, (min-width:640px) 45vw, 95vw"
+                      sizes="(min-width:1280px) 20vw, (min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"
                     />
                   ) : null}
                 </div>
