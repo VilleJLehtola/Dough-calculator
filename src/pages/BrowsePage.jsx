@@ -8,6 +8,8 @@ import FiltersSheet from '@/components/FiltersSheet';
 import SEO from '@/components/SEO';
 import SmartImage from '@/components/SmartImage';
 import useDebouncedValue from '@/hooks/useDebouncedValue';
+import EmptyState from '@/components/states/EmptyState';
+import ErrorState from '@/components/states/ErrorState';
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
@@ -18,8 +20,9 @@ export default function BrowsePage() {
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [q, setQ] = useState('');
-  const qDebounced = useDebouncedValue(q, 300); // ✅ debounce
+  const qDebounced = useDebouncedValue(q, 300);
 
   // Filters
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -29,10 +32,16 @@ export default function BrowsePage() {
     tags: [],           // array of strings
   });
 
+  const reload = () => {
+    // just bump a state that effect depends on (we’ll reuse qDebounced / filters)
+    setQ((s) => s); // noop trigger; effect depends on qDebounced, not q
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setError('');
 
       try {
         // Base query — view exposes username/email/tags_text/tags
@@ -47,10 +56,8 @@ export default function BrowsePage() {
         const needle = qDebounced.trim();
         if (needle.length >= 2) {
           if (USE_FTS) {
-            // Full text search
             query = query.textSearch('search_vec', needle, { type: 'plain', config: 'simple' });
           } else {
-            // ILIKE fallback across multiple columns
             const term = `%${needle}%`;
             query = query.or([
               `title.ilike.${term}`,
@@ -71,15 +78,15 @@ export default function BrowsePage() {
         if (cancelled) return;
 
         if (error) {
-          console.warn('browse fetch error', error);
           setRows([]);
+          setError(error.message || 'Error fetching recipes');
         } else {
           setRows(data || []);
         }
       } catch (e) {
         if (!cancelled) {
-          console.warn('browse unexpected error', e);
           setRows([]);
+          setError(e?.message || 'Unexpected error');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -89,7 +96,7 @@ export default function BrowsePage() {
     return () => {
       cancelled = true;
     };
-  }, [qDebounced, filters]); // ✅ use debounced query
+  }, [qDebounced, filters]);
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -143,8 +150,8 @@ export default function BrowsePage() {
             onSubmit={handleSubmit}
             onClear={() => setQ('')}
             onOpenFilters={() => setFiltersOpen(true)}
-            filtersOpen={filtersOpen}              // ARIA state
-            filtersControlsId="filters-sheet"      // must match FiltersSheet id
+            filtersOpen={filtersOpen}
+            filtersControlsId="filters-sheet"
             placeholder={t('search_recipes', 'Search recipes')}
           />
         </div>
@@ -154,7 +161,7 @@ export default function BrowsePage() {
         {t('latest_recipes', 'Latest recipes')}
       </p>
 
-      {/* Grid */}
+      {/* Grid / states */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {[...Array(8)].map((_, i) => (
@@ -162,7 +169,7 @@ export default function BrowsePage() {
               key={`s-${i}`}
               className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
-              <div className="w/full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+              <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
               <div className="p-3 space-y-2">
                 <div className="h-5 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-4 w-4/5 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
@@ -170,10 +177,23 @@ export default function BrowsePage() {
             </div>
           ))}
         </div>
+      ) : error ? (
+        <ErrorState
+          title={t('fetch_error', 'Could not load recipes')}
+          detail={error}
+          action={
+            <button
+              onClick={reload}
+              className="px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-500"
+            >
+              {t('retry', 'Retry')}
+            </button>
+          }
+        />
       ) : filtered.length === 0 ? (
-        <div className="text-gray-600 dark:text-gray-300">
-          {t('no_recipes_found', 'No recipes found.')}
-        </div>
+        <EmptyState title={t('no_recipes_found', 'No recipes found.')}>
+          {t('try_adjusting_filters', 'Try adjusting filters or clearing the search.')}
+        </EmptyState>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {filtered.map((r) => {
