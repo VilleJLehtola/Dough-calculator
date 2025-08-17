@@ -32,10 +32,7 @@ export default function BrowsePage() {
     tags: [],           // array of strings
   });
 
-  const reload = () => {
-    // just bump a state that effect depends on (we’ll reuse qDebounced / filters)
-    setQ((s) => s); // noop trigger; effect depends on qDebounced, not q
-  };
+  const reload = () => setQ((s) => s);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +66,7 @@ export default function BrowsePage() {
           }
         }
 
-        // Server-side tag filter (works if tags is text[] or jsonb[])
+        // Server-side tag filter
         if (filters.tags?.length) {
           query = query.contains('tags', filters.tags);
         }
@@ -121,13 +118,10 @@ export default function BrowsePage() {
     return list;
   }, [rows, filters]);
 
-  const handleSubmit = () => {
-    // No-op; effect already runs on qDebounced/filters change
-  };
+  const handleSubmit = () => {};
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* ✅ SEO */}
       <SEO
         title="Browse Recipes • Taikinalaskin"
         description="Explore community bread and pizza recipes; filter by style, hydration and tags."
@@ -210,6 +204,7 @@ export default function BrowsePage() {
                       src={hero}
                       alt={r.title || 'Recipe'}
                       className="w-full h-full object-cover"
+                      sizes="(min-width:1536px) 18vw, (min-width:1280px) 22vw, (min-width:1024px) 28vw, (min-width:640px) 45vw, 95vw"
                     />
                   ) : null}
                 </div>
