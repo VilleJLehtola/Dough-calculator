@@ -5,11 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Everything Dough</title>
 
-    <!-- Preconnect/DNS-prefetch: Supabase & Plausible -->
+    <!-- Theme / PWA -->
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon-192.png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+
+    <!-- Preconnect/DNS-prefetch: Supabase & Plausible (+ Unsplash for hero) -->
     <link rel="preconnect" href="https://btozmkrowcrjzvxxhlbn.supabase.co" crossorigin>
     <link rel="dns-prefetch" href="https://btozmkrowcrjzvxxhlbn.supabase.co">
     <link rel="preconnect" href="https://plausible.io">
     <link rel="dns-prefetch" href="https://plausible.io">
+    <link rel="preconnect" href="https://images.unsplash.com">
+
+    <!-- Optional: Preload a key hero image to improve LCP (tune URL if you change it) -->
+    <link
+      rel="preload"
+      as="image"
+      href="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=2070&auto=format&fit=crop"
+      imagesrcset="
+        https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=1200&auto=format&fit=crop 1200w,
+        https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=1600&auto=format&fit=crop 1600w,
+        https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=2070&auto=format&fit=crop 2070w
+      "
+      imagesizes="100vw"
+      fetchpriority="high"
+    />
 
     <!-- Plausible (enhanced features build) -->
     <script
@@ -18,7 +39,7 @@
       src="https://plausible.io/js/script.file-downloads.hash.outbound-links.pageview-props.revenue.tagged-events.js">
     </script>
     <script>
-      window.plausible = window.plausible || function() {
+      window.plausible = window.plausible || function () {
         (window.plausible.q = window.plausible.q || []).push(arguments)
       }
     </script>
