@@ -110,6 +110,10 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
             alt={title || `Slide ${i + 1}`}
             className="w-full h-full object-cover flex-shrink-0"
             draggable="false"
+            /* ✅ perf tweaks */
+            sizes="100vw"
+            loading={i === 0 ? 'eager' : 'lazy'}
+            fetchPriority={i === 0 ? 'high' : 'low'}
           />
         ))}
       </div>
