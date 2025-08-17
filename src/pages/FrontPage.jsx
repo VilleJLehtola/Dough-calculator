@@ -1,5 +1,5 @@
 // /src/pages/FrontPage.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import supabase from '@/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -49,7 +49,6 @@ export default function FrontPage() {
       setLoadingLiked(true);
       setLikedErr('');
       try {
-        // Aggregate likes via related select
         const { data, error } = await supabase
           .from('recipes')
           .select('id,title,description,cover_image,images,created_at,recipe_likes(count)')
@@ -87,6 +86,10 @@ export default function FrontPage() {
     }
     return null;
   };
+
+  // Helpful <img sizes> for card grids (matches the 3/2 aspect boxes)
+  const CARD_SIZES =
+    '(min-width:1536px) 20vw, (min-width:1280px) 25vw, (min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -127,8 +130,9 @@ export default function FrontPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
-            {latestAdminRecipes.map((recipe) => {
+            {latestAdminRecipes.map((recipe, i) => {
               const hero = heroFor(recipe);
+              const eager = i === 0; // ⭐ first card likely becomes LCP
               return (
                 <div
                   key={recipe.id}
@@ -141,6 +145,11 @@ export default function FrontPage() {
                         src={hero}
                         alt={recipe.title || 'Recipe'}
                         className="w-full h-full object-cover"
+                        /* perf hints */
+                        sizes={CARD_SIZES}
+                        loading={eager ? 'eager' : 'lazy'}
+                        fetchPriority={eager ? 'high' : 'auto'}
+                        decoding="async"
                       />
                     ) : null}
                   </div>
@@ -226,6 +235,9 @@ export default function FrontPage() {
                         src={hero}
                         alt={r.title || 'Recipe'}
                         className="w-full h-full object-cover"
+                        sizes={CARD_SIZES}
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : null}
                     <span className="absolute top-2 right-2 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-200">
