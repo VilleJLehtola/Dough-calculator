@@ -1,12 +1,19 @@
 // src/pages/RecipeViewPage.jsx
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+} from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat, Pencil, Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LikeFavoriteBar from '@/components/LikeFavoriteBar';
 import ShareButton from '@/components/ShareButton';
-import CommentsSection from '@/components/CommentsSection';
+const CommentsSection = lazy(() => import('@/components/CommentsSection')); // lazy for perf
 import { track } from '@/analytics';
 import SEO from '@/components/SEO';
 import { recipeJsonLd } from '@/seo/jsonld';
@@ -110,10 +117,10 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
             alt={title || `Slide ${i + 1}`}
             className="w-full h-full object-cover flex-shrink-0"
             draggable="false"
-            /* ✅ perf tweaks */
+            /* perf hints */
             sizes="100vw"
             loading={i === 0 ? 'eager' : 'lazy'}
-            fetchPriority={i === 0 ? 'high' : 'low'}
+            fetchpriority={i === 0 ? 'high' : 'low'}
           />
         ))}
       </div>
@@ -515,7 +522,7 @@ export default function RecipeViewPage() {
         </div>
 
         {/* Meta pills + Like/Favorite + Edit */}
-        <div className="flex items-center gap-2 flex-wrap w/full sm:w-auto min-w-0">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
           {totalTime != null && (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
               <Clock className="w-3.5 h-3.5" />
@@ -664,7 +671,7 @@ export default function RecipeViewPage() {
                     <span className="text-gray-800 dark:text-gray-100">{(ing.name ?? '')}</span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ing.amount} {ing.unit ?? ''}
+                        {ig.amount} {ing.unit ?? ''}
                       </span>
                     )}
                   </li>
@@ -701,8 +708,12 @@ export default function RecipeViewPage() {
           </div>
         </section>
 
-        {/* Comments */}
-        {recipe?.id ? <CommentsSection recipeId={recipe.id} user={user} /> : null}
+        {/* Comments (lazy) */}
+        {recipe?.id ? (
+          <Suspense fallback={<div className="text-sm text-gray-500 dark:text-gray-400">Loading comments…</div>}>
+            <CommentsSection recipeId={recipe.id} user={user} />
+          </Suspense>
+        ) : null}
       </div>
 
       {/* Back link */}
