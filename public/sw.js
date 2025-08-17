@@ -2,8 +2,6 @@
 const SW_VERSION = 'v1.0.0';
 const STATIC_CACHE = `static-${SW_VERSION}`;
 const RUNTIME_CACHE = `runtime-${SW_VERSION}`;
-
-/* Adjust these if you have a custom 404/offline page */
 const CORE_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -21,20 +19,15 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-/* Strategy:
-   - HTML/navigation: network-first, fallback to cache
-   - Images (incl. Supabase storage): cache-first
-   - JS/CSS: stale-while-revalidate
-*/
+// HTML: network-first; Images: cache-first; JS/CSS: stale-while-revalidate
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
   const dest = request.destination;
 
-  // Bypass for non-GET and 3rd-party analytics
   if (request.method !== 'GET' || /plausible\.io/.test(url.hostname)) return;
 
-  // HTML navigations
+  // Navigations / HTML
   if (request.mode === 'navigate' || (dest === 'document' && request.headers.get('accept')?.includes('text/html'))) {
     event.respondWith(
       fetch(request)
@@ -48,7 +41,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Images (cache first)
+  // Images (incl. Supabase storage)
   if (dest === 'image' || /\/storage\/v1\/object\/public\/recipe-images/.test(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -65,7 +58,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // JS / CSS (stale-while-revalidate)
+  // JS/CSS
   if (dest === 'script' || dest === 'style') {
     event.respondWith(
       caches.match(request).then((cached) => {
@@ -77,6 +70,5 @@ self.addEventListener('fetch', (event) => {
         return cached || fetchPromise;
       })
     );
-    return;
   }
 });
