@@ -15,6 +15,10 @@ import YourRecipesPage from './pages/YourRecipesPage';
 import ProfilePage from '@/pages/ProfilePage';
 import MyProfileRedirect from '@/pages/MyProfileRedirect';
 import { AnalyticsTracker } from './analytics';
+import PrivacyPage from '@/pages/PrivacyPage';
+import TermsPage from '@/pages/TermsPage';
+import ContactPage from '@/pages/ContactPage';
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -62,6 +66,9 @@ export default function App() {
           <Route path="/your-recipes" element={<YourRecipesPage />} />
           <Route path="/u/:username" element={<ProfilePage />} />
           <Route path="/profile" element={<MyProfileRedirect />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
 
 
           {/* New canonical route */}
