@@ -7,6 +7,7 @@ import SEO from '@/components/SEO';
 import SmartImage from '@/components/SmartImage';
 import EmptyState from '@/components/states/EmptyState';
 import ErrorState from '@/components/states/ErrorState';
+import { Heart } from 'lucide-react';
 
 /* ---------------- Card ---------------- */
 function Card({ r }) {
@@ -19,6 +20,7 @@ function Card({ r }) {
     <Link
       to={`/recipe/${r.id}`}
       className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
+      aria-label={r.title || 'Recipe'}
     >
       <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
         {hero ? (
@@ -39,90 +41,85 @@ function Card({ r }) {
             {r.description}
           </div>
         ) : null}
+
+        {/* Likes badge */}
+        {Number.isFinite(r.likes_count) && (
+          <div className="mt-2 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200">
+            <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
+            <span>{r.likes_count}</span>
+          </div>
+        )}
       </div>
     </Link>
   );
 }
 
-/* --------------- Helpers (no is_public anywhere) --------------- */
+/* ---------------- Helpers ---------------- */
+const SELECT_FIELDS = 'id,title,description,cover_image,images,created_at';
 
-// Safe “latest” fallback
-async function fetchLatest(limit = 8) {
-  const { data, error } = await supabase
-    .from('recipes')
-    .select('id,title,description,cover_image,images,created_at')
-    .order('created_at', { ascending: false })
-    .limit(limit);
+/** Fetch recipes and merge like counts */
+async function fetchWithLikes(baseQuery) {
+  const { data: recipes, error } = await baseQuery;
   if (error) throw error;
-  return data || [];
+  if (!recipes?.length) return [];
+
+  const ids = recipes.map((r) => r.id);
+  const { data: likesData, error: likesError } = await supabase
+    .from('recipe_likes')
+    .select('recipe_id, count:recipe_id')
+    .in('recipe_id', ids);
+
+  if (likesError) {
+    console.error('Likes fetch error', likesError);
+    return recipes.map((r) => ({ ...r, likes_count: 0 }));
+  }
+
+  // Count per recipe_id
+  const counts = {};
+  likesData.forEach((row) => {
+    counts[row.recipe_id] = (counts[row.recipe_id] || 0) + 1;
+  });
+
+  return recipes.map((r) => ({
+    ...r,
+    likes_count: counts[r.id] || 0,
+  }));
 }
 
-// Try multiple strategies to get admin-authored recipes.
-// If any fails (missing FKs, RLS, etc.), we fall back to latest.
-async function fetchLatestFromAdmins(limit = 8) {
-  // 1) Try join through author_id → users.is_admin
+/** Latest from admins (fallback to latest) */
+async function fetchLatestFromAdmins(limit = 4) {
   try {
-    const { data, error } = await supabase
+    const base = supabase
       .from('recipes')
-      .select(
-        'id,title,description,cover_image,images,created_at,users!inner(id,is_admin)'
-      )
-      .eq('users.is_admin', true)
+      .select(`${SELECT_FIELDS},user_id`)
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (error) throw error;
-    if (data?.length) return data;
-  } catch {}
 
-  // 2) Try join through created_by
-  try {
-    const { data, error } = await supabase
-      .from('recipes')
-      .select(
-        'id,title,description,cover_image,images,created_at,users!created_by(id,is_admin)'
-      )
-      .eq('users.is_admin', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    if (data?.length) return data;
-  } catch {}
-
-  // 3) Try join through user_id
-  try {
-    const { data, error } = await supabase
-      .from('recipes')
-      .select(
-        'id,title,description,cover_image,images,created_at,users!user_id(id,is_admin)'
-      )
-      .eq('users.is_admin', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    if (data?.length) return data;
-  } catch {}
-
-  // 4) Last resort: just latest (so the row isn’t empty)
-  return await fetchLatest(limit);
+    const rows = await fetchWithLikes(base);
+    return rows;
+  } catch (e) {
+    console.error('Admin fetch failed', e);
+    return [];
+  }
 }
 
-// Prefer likes_count if present; otherwise use latest as a soft fallback.
-async function fetchMostLiked(limit = 8) {
+/** Most liked recipes */
+async function fetchMostLiked(limit = 4) {
   try {
-    const { data, error } = await supabase
+    const base = supabase
       .from('recipes')
-      .select('id,title,description,cover_image,images,created_at,likes_count')
-      .order('likes_count', { ascending: false, nullsFirst: false })
+      .select(SELECT_FIELDS)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(limit * 3); // grab extra to sort by likes client-side
 
-    if (error) throw error;
+    const rows = await fetchWithLikes(base);
 
-    const rows = data || [];
-    const hasLikes = rows.some((r) => Number(r?.likes_count) > 0);
-    return hasLikes ? rows : await fetchLatest(limit);
-  } catch {
-    return await fetchLatest(limit);
+    return rows
+      .sort((a, b) => b.likes_count - a.likes_count)
+      .slice(0, limit);
+  } catch (e) {
+    console.error('Most liked fetch failed', e);
+    return [];
   }
 }
 
@@ -140,14 +137,13 @@ export default function FrontPage() {
       setLoading(true);
       setErr('');
       try {
-        const [a, m] = await Promise.allSettled([
+        const [admins, liked] = await Promise.all([
           fetchLatestFromAdmins(4),
           fetchMostLiked(4),
         ]);
         if (!alive) return;
-
-        setAdminRows(a.status === 'fulfilled' ? a.value || [] : []);
-        setLikedRows(m.status === 'fulfilled' ? m.value || [] : []);
+        setAdminRows(admins);
+        setLikedRows(liked);
       } catch (e) {
         if (!alive) return;
         setErr(e?.message || 'Failed to load recipes');
