@@ -1,208 +1,179 @@
 // src/pages/FrontPage.jsx
-import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import supabase from "@/supabaseClient";
-import { useTranslation } from "react-i18next";
-import SEO from "@/components/SEO";
-import { supaRender, supaSrcSet, CARD_SIZES } from "@/utils/img";
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import supabase from '@/supabaseClient';
+import { useTranslation } from 'react-i18next';
+import SEO from '@/components/SEO';
+import SmartImage from '@/components/SmartImage';
+import EmptyState from '@/components/states/EmptyState';
+import ErrorState from '@/components/states/ErrorState';
 
-// small picture helper for cards/heroes
-function PictureImg({
-  url,
-  alt = "",
-  className = "",
-  sizes = "100vw",
-  widths = [640, 1200],
-  eager = false,
-  quality = 72,
-}) {
-  if (!url) return <div className={`bg-gray-200 dark:bg-slate-800 ${className}`} />;
+function Card({ r }) {
+  const hero =
+    r?.cover_image ||
+    (Array.isArray(r?.images) && (typeof r.images[0] === 'string' ? r.images[0] : r.images[0]?.url)) ||
+    null;
+
   return (
-    <picture>
-      <source
-        type="image/avif"
-        srcSet={supaSrcSet(url, widths, { format: "avif", quality })}
-        sizes={sizes}
-      />
-      <source
-        type="image/webp"
-        srcSet={supaSrcSet(url, widths, { format: "webp", quality })}
-        sizes={sizes}
-      />
-      <img
-        src={supaRender(url, { width: widths[widths.length - 1], format: "webp", quality })}
-        alt={alt}
-        className={className}
-        loading={eager ? "eager" : "lazy"}
-        fetchPriority={eager ? "high" : "auto"}
-        decoding={eager ? "sync" : "async"}
-        draggable="false"
-      />
-    </picture>
+    <Link
+      to={`/recipe/${r.id}`}
+      className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
+    >
+      <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+        {hero ? (
+          <SmartImage
+            src={hero}
+            alt={r.title || 'Recipe'}
+            className="w-full h-full object-cover"
+            sizes="(min-width:1280px) 22vw, (min-width:1024px) 28vw, (min-width:640px) 45vw, 100vw"
+          />
+        ) : null}
+      </div>
+      <div className="p-3">
+        <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+          {r.title || 'Recipe'}
+        </div>
+        {r.description ? (
+          <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+            {r.description}
+          </div>
+        ) : null}
+      </div>
+    </Link>
   );
 }
-
-const ADMIN_USERNAMES = ["ville_jlehtola"]; // tweak as needed
 
 export default function FrontPage() {
   const { t } = useTranslation();
 
-  const [latestAdmin, setLatestAdmin] = useState([]);
-  const [mostLiked, setMostLiked] = useState([]);
-  const [hero, setHero] = useState(null);
+  const [adminRows, setAdminRows] = useState([]);
+  const [likedRows, setLikedRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+
+  // ---- helpers ----
+  async function fetchLatestPublic(limit = 8) {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id,title,description,cover_image,images,created_at,is_public')
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function fetchLatestFromAdmins(limit = 8) {
+    // inner join to users with is_admin = true
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id,title,description,cover_image,images,created_at,is_public,users!inner(id,is_admin)')
+      .eq('is_public', true)
+      .eq('users.is_admin', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    return (data || []).map((r) => ({ ...r }));
+  }
+
+  async function fetchMostLiked(limit = 8) {
+    // Try to use likes_count if available
+    let { data, error } = await supabase
+      .from('recipes')
+      .select('id,title,description,cover_image,images,created_at,is_public,likes_count')
+      .eq('is_public', true)
+      .order('likes_count', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      // fallback to browse view or latest public
+      try {
+        const fallback = await fetchLatestPublic(limit);
+        return fallback;
+      } catch {
+        throw error;
+      }
+    }
+
+    // If likes_count column doesn’t exist or all zeros → fallback to latest public
+    const allZero = !data || data.every((r) => !r?.likes_count);
+    if (!data || data.length === 0 || allZero) {
+      const fallback = await fetchLatestPublic(limit);
+      return fallback;
+    }
+    return data;
+  }
 
   useEffect(() => {
-    let cancelled = false;
-
+    let alive = true;
     (async () => {
       setLoading(true);
+      setErr('');
       try {
-        // Latest from admins
-        const { data: latestRows } = await supabase
-          .from("browse_recipes_v")
-          .select(
-            "id,title,description,cover_image,images,username,tags,likes_count,created_at"
-          )
-          .in("username", ADMIN_USERNAMES)
-          .order("created_at", { ascending: false })
-          .limit(8);
+        // Run in parallel
+        const [a, m] = await Promise.allSettled([
+          fetchLatestFromAdmins(8),
+          fetchMostLiked(8),
+        ]);
 
-        // Most liked (site-wide)
-        const { data: likedRows } = await supabase
-          .from("browse_recipes_v")
-          .select(
-            "id,title,description,cover_image,images,username,tags,likes_count,created_at"
-          )
-          .order("likes_count", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false })
-          .limit(8);
+        if (!alive) return;
 
-        if (cancelled) return;
+        // Admin list (fallback if empty)
+        if (a.status === 'fulfilled' && a.value?.length) {
+          setAdminRows(a.value);
+        } else {
+          const fallback = await fetchLatestPublic(8);
+          setAdminRows(fallback);
+        }
 
-        setLatestAdmin(latestRows || []);
-        setMostLiked(likedRows || []);
-
-        // Hero from the newest admin recipe that has an image
-        const heroRow = (latestRows || []).find((r) => {
-          if (r?.cover_image) return true;
-          return Array.isArray(r?.images) && r.images.length > 0;
-        });
-        const heroUrl =
-          heroRow?.cover_image ||
-          (Array.isArray(heroRow?.images) ? heroRow.images[0] : null);
-        setHero(typeof heroUrl === "string" ? heroUrl : heroUrl?.url || null);
+        // Most liked (already self-falls back)
+        if (m.status === 'fulfilled') {
+          setLikedRows(m.value || []);
+        } else {
+          const fallback = await fetchLatestPublic(8);
+          setLikedRows(fallback);
+        }
+      } catch (e) {
+        if (!alive) return;
+        setErr(e?.message || 'Failed to load');
       } finally {
-        if (!cancelled) setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
-
     return () => {
-      cancelled = true;
+      alive = false;
     };
   }, []);
 
-  const cardImageFor = (row) => {
-    if (row?.cover_image) return row.cover_image;
-    if (Array.isArray(row?.images) && row.images.length) {
-      const first = row.images[0];
-      return typeof first === "string" ? first : first?.url;
-    }
-    return null;
-  };
-
-  const renderCard = (r) => {
-    const img = cardImageFor(r);
-    return (
-      <Link
-        key={r.id}
-        to={`/recipe/${r.id}`}
-        className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
-      >
-        <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
-          {img ? (
-            <PictureImg
-              url={img}
-              alt={r.title || "Recipe"}
-              className="w-full h-full object-cover"
-              sizes={CARD_SIZES}
-              widths={[360, 600, 900]}
-              eager={false}
-              quality={72}
-            />
-          ) : null}
-        </div>
-        <div className="p-3">
-          <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
-            {r.title}
-          </div>
-          {r.description ? (
-            <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-              {r.description}
-            </div>
-          ) : null}
-
-          {Array.isArray(r.tags) && r.tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {r.tags.slice(0, 5).map((tag) => (
-                <span
-                  key={`${r.id}-${tag}`}
-                  className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
-                >
-                  #{tag}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </Link>
-    );
-  };
+  const isEmptyAdmins = adminRows.length === 0;
+  const isEmptyLiked = likedRows.length === 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <SEO
         title="Everything Dough • Home"
-        description="Latest recipes from the team and the community’s most liked bakes."
+        description="Fresh bread & pizza recipes from the team and the community."
         canonical="https://www.breadcalculator.online/"
       />
 
-      {/* HERO (no toolbar text) */}
-      <div className="relative w-full aspect-[21/6] rounded-2xl overflow-hidden mb-6 ring-1 ring-white/10">
-        {hero ? (
-          <PictureImg
-            url={hero}
-            alt="Hero"
-            className="w-full h-full object-cover"
-            sizes="100vw"
-            widths={[640, 1200, 1600]}
-            eager
-            quality={70}
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-100 dark:bg-slate-900" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
-      </div>
+      {/* Removed the old hero entirely */}
 
-      {/* LATEST FROM THE TEAM */}
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {t("latest_from_team", "Latest from the team")}
+      {/* Admin section */}
+      <div className="mt-4 mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-300 uppercase tracking-wide">
+          {t('latest_from_team', 'Latest from the team')}
         </h2>
-        <Link
-          to="/browse"
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          {t("browse_all", "Browse all")}
+        <Link to="/browse" className="text-xs text-blue-500 hover:underline">
+          {t('browse_all', 'Browse all')}
         </Link>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
             <div
-              key={`s-${i}`}
+              key={`s-a-${i}`}
               className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
               <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
@@ -213,34 +184,35 @@ export default function FrontPage() {
             </div>
           ))}
         </div>
-      ) : latestAdmin?.length ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {latestAdmin.map(renderCard)}
-        </div>
+      ) : err ? (
+        <ErrorState title={t('fetch_error', 'Could not load recipes')} detail={err} />
+      ) : isEmptyAdmins ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {t('no_recent_admin_recipes', 'No recent admin recipes.')}
+        </p>
       ) : (
-        <div className="text-gray-600 dark:text-gray-300 mb-8">
-          {t("no_latest", "No recent admin recipes.")}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {adminRows.map((r) => (
+            <Card key={`a-${r.id}`} r={r} />
+          ))}
         </div>
       )}
 
-      {/* MOST LIKED */}
-      <div className="mt-8 flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {t("most_liked", "Most liked")}
+      {/* Most liked */}
+      <div className="mt-8 mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-300 uppercase tracking-wide">
+          {t('most_liked', 'Most liked')}
         </h2>
-        <Link
-          to="/browse"
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          {t("browse_all", "Browse all")}
+        <Link to="/browse" className="text-xs text-blue-500 hover:underline">
+          {t('browse_all', 'Browse all')}
         </Link>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {[...Array(8)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
             <div
-              key={`s2-${i}`}
+              key={`s-m-${i}`}
               className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
               <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
@@ -251,13 +223,15 @@ export default function FrontPage() {
             </div>
           ))}
         </div>
-      ) : mostLiked?.length ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {mostLiked.map(renderCard)}
-        </div>
+      ) : isEmptyLiked ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {t('no_most_liked_yet', 'No most liked recipes yet.')}
+        </p>
       ) : (
-        <div className="text-gray-600 dark:text-gray-300">
-          {t("no_mostliked", "No most liked recipes yet.")}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {likedRows.map((r) => (
+            <Card key={`m-${r.id}`} r={r} />
+          ))}
         </div>
       )}
     </div>
