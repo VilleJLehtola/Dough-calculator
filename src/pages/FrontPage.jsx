@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import supabase from '@/supabaseClient';
 import SEO from '@/components/SEO';
 import SmartImage from '@/components/SmartImage';
-import EmptyState from '@/components/states/EmptyState';
 import ErrorState from '@/components/states/ErrorState';
 
 function cardImage(r) {
@@ -20,45 +19,51 @@ function cardImage(r) {
 export default function FrontPage() {
   const { t } = useTranslation();
 
+  const [adminRecipes, setAdminRecipes] = useState([]);
+  const [mostLiked, setMostLiked] = useState([]);
+
   const [loadingAdmins, setLoadingAdmins] = useState(true);
   const [loadingLiked, setLoadingLiked] = useState(true);
   const [errAdmins, setErrAdmins] = useState('');
   const [errLiked, setErrLiked] = useState('');
 
-  const [adminRecipes, setAdminRecipes] = useState([]);      // latest from team
-  const [mostLiked, setMostLiked] = useState([]);            // most liked with likeCount
-
-  // -------------------- Latest from the team (admins) --------------------
+  // ================ LATEST FROM THE TEAM =================
   useEffect(() => {
     let cancel = false;
     (async () => {
       setLoadingAdmins(true);
       setErrAdmins('');
-
       try {
-        // 1) Who are admins?
-        const { data: admins, error: adminErr } = await supabase
+        // Try to get admin IDs. Some RLS setups return an empty list without error.
+        const { data: admins, error: adminsErr } = await supabase
           .from('users')
           .select('id')
           .eq('is_admin', true);
 
-        if (adminErr) throw adminErr;
+        if (adminsErr) throw adminsErr;
+
         const adminIds = (admins || []).map(a => a.id);
-        if (!adminIds.length) {
-          if (!cancel) setAdminRecipes([]);
-          return;
+
+        if (adminIds.length) {
+          const { data: recs, error: recErr } = await supabase
+            .from('recipes')
+            .select('id,title,description,cover_image,images,created_at,tags')
+            .in('author_id', adminIds)
+            .order('created_at', { ascending: false })
+            .limit(8);
+          if (recErr) throw recErr;
+          if (!cancel) setAdminRecipes(recs || []);
+        } else {
+          // Fallback: latest recipes overall so the section isn’t empty
+          console.warn('[front] Admin list empty (RLS or none). Falling back to latest recipes.');
+          const { data: recs, error: recErr } = await supabase
+            .from('recipes')
+            .select('id,title,description,cover_image,images,created_at,tags')
+            .order('created_at', { ascending: false })
+            .limit(8);
+          if (recErr) throw recErr;
+          if (!cancel) setAdminRecipes(recs || []);
         }
-
-        // 2) Latest recipes from admins
-        const { data: recs, error: recErr } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,tags')
-          .in('author_id', adminIds)
-          .order('created_at', { ascending: false })
-          .limit(8);
-
-        if (recErr) throw recErr;
-        if (!cancel) setAdminRecipes(recs || []);
       } catch (e) {
         if (!cancel) setErrAdmins(e?.message || 'Failed to load admin recipes');
       } finally {
@@ -68,23 +73,21 @@ export default function FrontPage() {
     return () => { cancel = true; };
   }, []);
 
-  // -------------------- Most liked (recipe_likes) --------------------
+  // ================ MOST LIKED =================
   useEffect(() => {
     let cancel = false;
     (async () => {
       setLoadingLiked(true);
       setErrLiked('');
-
       try {
-        // Pull a capped set of likes to avoid huge transfers.
-        // If you expect >10k likes, consider a SQL view that aggregates server-side.
         const { data: likesRows, error: likesErr } = await supabase
           .from('recipe_likes')
-          .select('recipe_id')
+          .select('recipe_id')     // if RLS blocks, we’ll fallback below
           .limit(10000);
+
         if (likesErr) throw likesErr;
 
-        // Aggregate counts client-side
+        let list = [];
         const counts = new Map();
         (likesRows || []).forEach(row => {
           const id = row.recipe_id;
@@ -92,32 +95,33 @@ export default function FrontPage() {
           counts.set(id, (counts.get(id) || 0) + 1);
         });
 
-        const top = [...counts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8);
-
-        if (!top.length) {
-          if (!cancel) setMostLiked([]);
-          return;
+        const top = [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, 8);
+        if (top.length) {
+          const ids = top.map(([id]) => id);
+          const countById = Object.fromEntries(top);
+          const { data: recs, error: recErr } = await supabase
+            .from('recipes')
+            .select('id,title,description,cover_image,images,created_at,tags')
+            .in('id', ids);
+          if (recErr) throw recErr;
+          list = (recs || [])
+            .map(r => ({ ...r, likeCount: countById[r.id] || 0 }))
+            .sort((a,b) => (countById[b.id]||0) - (countById[a.id]||0));
         }
 
-        const ids = top.map(([id]) => id);
+        // Fallback if no likes / blocked
+        if (!list.length) {
+          console.warn('[front] Likes empty (no data or RLS). Falling back to recent recipes as “Most liked”.');
+          const { data: recs, error: recErr } = await supabase
+            .from('recipes')
+            .select('id,title,description,cover_image,images,created_at,tags')
+            .order('created_at', { ascending: false })
+            .limit(8);
+          if (recErr) throw recErr;
+          list = (recs || []).map(r => ({ ...r, likeCount: 0 }));
+        }
 
-        // Fetch those recipes
-        const { data: recs, error: recErr } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,tags')
-          .in('id', ids);
-
-        if (recErr) throw recErr;
-
-        // Attach likeCount & keep original order (by like count desc)
-        const countById = Object.fromEntries(top);
-        const withCounts = (recs || [])
-          .map(r => ({ ...r, likeCount: countById[r.id] || 0 }))
-          .sort((a, b) => (countById[b.id] || 0) - (countById[a.id] || 0));
-
-        if (!cancel) setMostLiked(withCounts);
+        if (!cancel) setMostLiked(list);
       } catch (e) {
         if (!cancel) setErrLiked(e?.message || 'Failed to load most liked');
       } finally {
@@ -127,7 +131,6 @@ export default function FrontPage() {
     return () => { cancel = true; };
   }, []);
 
-  // -------------------- Render --------------------
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <SEO
@@ -139,7 +142,7 @@ export default function FrontPage() {
       {/* LATEST FROM THE TEAM */}
       <section className="mt-4">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold tracking-wide text-gray-600 dark:text-gray-300">
+          <h2 className="text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300 uppercase">
             {t('latest_from_the_team', 'Latest from the team')}
           </h2>
           <Link to="/browse" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
@@ -195,7 +198,7 @@ export default function FrontPage() {
       {/* MOST LIKED */}
       <section className="mt-8">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold tracking-wide text-gray-600 dark:text-gray-300">
+          <h2 className="text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300 uppercase">
             {t('most_liked', 'Most liked')}
           </h2>
           <Link to="/browse" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
@@ -238,9 +241,7 @@ export default function FrontPage() {
                 </div>
                 <div className="p-3">
                   <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">{r.title}</div>
-                  <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
-                    ❤️ {r.likeCount ?? 0}
-                  </div>
+                  <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">❤️ {r.likeCount ?? 0}</div>
                 </div>
               </Link>
             ))}
