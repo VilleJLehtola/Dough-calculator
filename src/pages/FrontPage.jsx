@@ -1,5 +1,5 @@
 // src/pages/FrontPage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import SmartImage from '@/components/SmartImage';
 import EmptyState from '@/components/states/EmptyState';
 import ErrorState from '@/components/states/ErrorState';
 
+/* ---------------- Card ---------------- */
 function Card({ r }) {
   const hero =
     r?.cover_image ||
@@ -43,67 +44,95 @@ function Card({ r }) {
   );
 }
 
-export default function FrontPage() {
-  const { t } = useTranslation();
+/* --------------- Helpers (no is_public anywhere) --------------- */
 
-  const [adminRows, setAdminRows] = useState([]);
-  const [likedRows, setLikedRows] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState('');
+// Safe “latest” fallback
+async function fetchLatest(limit = 8) {
+  const { data, error } = await supabase
+    .from('recipes')
+    .select('id,title,description,cover_image,images,created_at')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
 
-  // ---- helpers ----
-  async function fetchLatestPublic(limit = 8) {
+// Try multiple strategies to get admin-authored recipes.
+// If any fails (missing FKs, RLS, etc.), we fall back to latest.
+async function fetchLatestFromAdmins(limit = 8) {
+  // 1) Try join through author_id → users.is_admin
+  try {
     const { data, error } = await supabase
       .from('recipes')
-      .select('id,title,description,cover_image,images,created_at,is_public')
-      .eq('is_public', true)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (error) throw error;
-    return data || [];
-  }
-
-  async function fetchLatestFromAdmins(limit = 8) {
-    // inner join to users with is_admin = true
-    const { data, error } = await supabase
-      .from('recipes')
-      .select('id,title,description,cover_image,images,created_at,is_public,users!inner(id,is_admin)')
-      .eq('is_public', true)
+      .select(
+        'id,title,description,cover_image,images,created_at,users!inner(id,is_admin)'
+      )
       .eq('users.is_admin', true)
       .order('created_at', { ascending: false })
       .limit(limit);
     if (error) throw error;
-    return (data || []).map((r) => ({ ...r }));
-  }
+    if (data?.length) return data;
+  } catch {}
 
-  async function fetchMostLiked(limit = 8) {
-    // Try to use likes_count if available
-    let { data, error } = await supabase
+  // 2) Try join through created_by
+  try {
+    const { data, error } = await supabase
       .from('recipes')
-      .select('id,title,description,cover_image,images,created_at,is_public,likes_count')
-      .eq('is_public', true)
+      .select(
+        'id,title,description,cover_image,images,created_at,users!created_by(id,is_admin)'
+      )
+      .eq('users.is_admin', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    if (data?.length) return data;
+  } catch {}
+
+  // 3) Try join through user_id
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select(
+        'id,title,description,cover_image,images,created_at,users!user_id(id,is_admin)'
+      )
+      .eq('users.is_admin', true)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) throw error;
+    if (data?.length) return data;
+  } catch {}
+
+  // 4) Last resort: just latest (so the row isn’t empty)
+  return await fetchLatest(limit);
+}
+
+// Prefer likes_count if present; otherwise use latest as a soft fallback.
+async function fetchMostLiked(limit = 8) {
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('id,title,description,cover_image,images,created_at,likes_count')
       .order('likes_count', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) {
-      // fallback to browse view or latest public
-      try {
-        const fallback = await fetchLatestPublic(limit);
-        return fallback;
-      } catch {
-        throw error;
-      }
-    }
+    if (error) throw error;
 
-    // If likes_count column doesn’t exist or all zeros → fallback to latest public
-    const allZero = !data || data.every((r) => !r?.likes_count);
-    if (!data || data.length === 0 || allZero) {
-      const fallback = await fetchLatestPublic(limit);
-      return fallback;
-    }
-    return data;
+    const rows = data || [];
+    const hasLikes = rows.some((r) => Number(r?.likes_count) > 0);
+    return hasLikes ? rows : await fetchLatest(limit);
+  } catch {
+    return await fetchLatest(limit);
   }
+}
+
+/* ---------------- Page ---------------- */
+export default function FrontPage() {
+  const { t } = useTranslation();
+  const [adminRows, setAdminRows] = useState([]);
+  const [likedRows, setLikedRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -111,32 +140,17 @@ export default function FrontPage() {
       setLoading(true);
       setErr('');
       try {
-        // Run in parallel
         const [a, m] = await Promise.allSettled([
-          fetchLatestFromAdmins(8),
-          fetchMostLiked(8),
+          fetchLatestFromAdmins(4),
+          fetchMostLiked(4),
         ]);
-
         if (!alive) return;
 
-        // Admin list (fallback if empty)
-        if (a.status === 'fulfilled' && a.value?.length) {
-          setAdminRows(a.value);
-        } else {
-          const fallback = await fetchLatestPublic(8);
-          setAdminRows(fallback);
-        }
-
-        // Most liked (already self-falls back)
-        if (m.status === 'fulfilled') {
-          setLikedRows(m.value || []);
-        } else {
-          const fallback = await fetchLatestPublic(8);
-          setLikedRows(fallback);
-        }
+        setAdminRows(a.status === 'fulfilled' ? a.value || [] : []);
+        setLikedRows(m.status === 'fulfilled' ? m.value || [] : []);
       } catch (e) {
         if (!alive) return;
-        setErr(e?.message || 'Failed to load');
+        setErr(e?.message || 'Failed to load recipes');
       } finally {
         if (alive) setLoading(false);
       }
@@ -146,25 +160,20 @@ export default function FrontPage() {
     };
   }, []);
 
-  const isEmptyAdmins = adminRows.length === 0;
-  const isEmptyLiked = likedRows.length === 0;
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <SEO
         title="Everything Dough • Home"
-        description="Fresh bread & pizza recipes from the team and the community."
+        description="Fresh recipes from the team and the community."
         canonical="https://www.breadcalculator.online/"
       />
 
-      {/* Removed the old hero entirely */}
-
-      {/* Admin section */}
+      {/* Top row: Latest from the team */}
       <div className="mt-4 mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-300 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide">
           {t('latest_from_team', 'Latest from the team')}
         </h2>
-        <Link to="/browse" className="text-xs text-blue-500 hover:underline">
+        <Link to="/browse" className="text-xs text-blue-600 hover:underline">
           {t('browse_all', 'Browse all')}
         </Link>
       </div>
@@ -186,7 +195,7 @@ export default function FrontPage() {
         </div>
       ) : err ? (
         <ErrorState title={t('fetch_error', 'Could not load recipes')} detail={err} />
-      ) : isEmptyAdmins ? (
+      ) : adminRows.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {t('no_recent_admin_recipes', 'No recent admin recipes.')}
         </p>
@@ -198,12 +207,12 @@ export default function FrontPage() {
         </div>
       )}
 
-      {/* Most liked */}
+      {/* Bottom row: Most liked */}
       <div className="mt-8 mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-400 dark:text-gray-300 uppercase tracking-wide">
+        <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide">
           {t('most_liked', 'Most liked')}
         </h2>
-        <Link to="/browse" className="text-xs text-blue-500 hover:underline">
+        <Link to="/browse" className="text-xs text-blue-600 hover:underline">
           {t('browse_all', 'Browse all')}
         </Link>
       </div>
@@ -223,7 +232,7 @@ export default function FrontPage() {
             </div>
           ))}
         </div>
-      ) : isEmptyLiked ? (
+      ) : likedRows.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
           {t('no_most_liked_yet', 'No most liked recipes yet.')}
         </p>
