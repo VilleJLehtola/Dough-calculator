@@ -1,19 +1,12 @@
 // src/pages/RecipeViewPage.jsx
-import React, {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  lazy,
-  Suspense,
-} from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
 import { Clock, Users, ChefHat, Pencil, Scale } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LikeFavoriteBar from '@/components/LikeFavoriteBar';
 import ShareButton from '@/components/ShareButton';
-const CommentsSection = lazy(() => import('@/components/CommentsSection')); // lazy for perf
+import CommentsSection from '@/components/CommentsSection';
 import { track } from '@/analytics';
 import SEO from '@/components/SEO';
 import { recipeJsonLd } from '@/seo/jsonld';
@@ -117,10 +110,10 @@ function HeroCarousel({ items = [], title = '', overlay = null, t }) {
             alt={title || `Slide ${i + 1}`}
             className="w-full h-full object-cover flex-shrink-0"
             draggable="false"
-            /* perf hints */
+            /* ✅ perf tweaks */
             sizes="100vw"
             loading={i === 0 ? 'eager' : 'lazy'}
-            fetchpriority={i === 0 ? 'high' : 'low'}
+            fetchPriority={i === 0 ? 'high' : 'low'}
           />
         ))}
       </div>
@@ -354,7 +347,7 @@ export default function RecipeViewPage() {
     const base = tData?.ingredients ?? recipe?.ingredients ?? [];
     if (Array.isArray(base)) return base;
     return String(base || '')
-      .split('\n')
+      .split('\\n')
       .map((l) => l.trim())
       .filter(Boolean)
       .map((name) => ({ name }));
@@ -364,7 +357,7 @@ export default function RecipeViewPage() {
     const base = tData?.steps ?? recipe?.steps ?? [];
     if (Array.isArray(base)) return base;
     return String(base || '')
-      .split('\n')
+      .split('\\n')
       .map((l) => l.trim())
       .filter(Boolean)
       .map((text, i) => ({ position: i + 1, text }));
@@ -382,7 +375,7 @@ export default function RecipeViewPage() {
   const totalTime = useMemo(() => {
     const raw = recipe?.prep_time_minutes ?? recipe?.total_time ?? recipe?.time ?? null;
     if (raw == null) return null;
-    const n = Number(String(raw).replace(/[^\d.,]/g, '').replace(',', '.'));
+    const n = Number(String(raw).replace(/[^\\d.,]/g, '').replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }, [recipe]);
 
@@ -522,7 +515,7 @@ export default function RecipeViewPage() {
         </div>
 
         {/* Meta pills + Like/Favorite + Edit */}
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
+        <div className="flex items-center gap-2 flex-wrap w/full sm:w-auto min-w-0">
           {totalTime != null && (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
               <Clock className="w-3.5 h-3.5" />
@@ -671,7 +664,7 @@ export default function RecipeViewPage() {
                     <span className="text-gray-800 dark:text-gray-100">{(ing.name ?? '')}</span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ig.amount} {ing.unit ?? ''}
+                        {ing.amount} {ing.unit ?? ''}
                       </span>
                     )}
                   </li>
@@ -708,12 +701,8 @@ export default function RecipeViewPage() {
           </div>
         </section>
 
-        {/* Comments (lazy) */}
-        {recipe?.id ? (
-          <Suspense fallback={<div className="text-sm text-gray-500 dark:text-gray-400">Loading comments…</div>}>
-            <CommentsSection recipeId={recipe.id} user={user} />
-          </Suspense>
-        ) : null}
+        {/* Comments */}
+        {recipe?.id ? <CommentsSection recipeId={recipe.id} user={user} /> : null}
       </div>
 
       {/* Back link */}
