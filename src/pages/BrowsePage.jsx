@@ -10,6 +10,7 @@ import SmartImage from '@/components/SmartImage';
 import useDebouncedValue from '@/hooks/useDebouncedValue';
 import EmptyState from '@/components/states/EmptyState';
 import ErrorState from '@/components/states/ErrorState';
+import { CARD_SIZES } from '@/utils/img';
 
 const USE_FTS =
   (import.meta.env?.VITE_USE_FTS === 'true') ||
@@ -190,8 +191,9 @@ export default function BrowsePage() {
         </EmptyState>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-          {filtered.map((r) => {
+          {filtered.map((r, i) => {
             const hero = heroFor(r);
+            const isFirst = i === 0; // small LCP win for first card
             return (
               <Link
                 key={r.id}
@@ -204,7 +206,12 @@ export default function BrowsePage() {
                       src={hero}
                       alt={r.title || 'Recipe'}
                       className="w-full h-full object-cover"
-                      sizes="(min-width:1280px) 20vw, (min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"
+                      sizes={CARD_SIZES}
+                      preferredFormats={['avif','webp']}
+                      // modest hints for the very first above-the-fold card
+                      loading={isFirst ? 'eager' : 'lazy'}
+                      fetchPriority={isFirst ? 'high' : 'low'}
+                      decoding="async"
                     />
                   ) : null}
                 </div>
