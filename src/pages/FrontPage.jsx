@@ -42,7 +42,6 @@ function Card({ r }) {
           </div>
         ) : null}
 
-        {/* Likes badge */}
         {Number.isFinite(r.likes_count) && (
           <div className="mt-2 inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-200">
             <Heart className="w-3.5 h-3.5 fill-current text-rose-600" />
@@ -55,7 +54,7 @@ function Card({ r }) {
 }
 
 /* ---------------- Helpers ---------------- */
-const SELECT_FIELDS = 'id,title,description,cover_image,images,created_at';
+const SELECT_FIELDS = 'id,title,description,cover_image,images,created_at,author_id,created_by,user_id';
 
 /** Fetch recipes and merge like counts */
 async function fetchWithLikes(baseQuery) {
@@ -66,7 +65,7 @@ async function fetchWithLikes(baseQuery) {
   const ids = recipes.map((r) => r.id);
   const { data: likesData, error: likesError } = await supabase
     .from('recipe_likes')
-    .select('recipe_id, count:recipe_id')
+    .select('recipe_id')
     .in('recipe_id', ids);
 
   if (likesError) {
@@ -74,9 +73,8 @@ async function fetchWithLikes(baseQuery) {
     return recipes.map((r) => ({ ...r, likes_count: 0 }));
   }
 
-  // Count per recipe_id
   const counts = {};
-  likesData.forEach((row) => {
+  likesData?.forEach((row) => {
     counts[row.recipe_id] = (counts[row.recipe_id] || 0) + 1;
   });
 
@@ -86,37 +84,57 @@ async function fetchWithLikes(baseQuery) {
   }));
 }
 
-/** Latest from admins (fallback to latest) */
+/** Latest from admins: find admin user IDs first, then OR across author columns */
 async function fetchLatestFromAdmins(limit = 4) {
-  try {
-    const base = supabase
-      .from('recipes')
-      .select(`${SELECT_FIELDS},user_id`)
-      .order('created_at', { ascending: false })
-      .limit(limit);
+  // 1) fetch admin ids
+  const { data: admins, error: adminsErr } = await supabase
+    .from('users')
+    .select('id')
+    .eq('is_admin', true)
+    .limit(200);
 
+  if (adminsErr) {
+    console.error('Admin user fetch failed', adminsErr);
+    return [];
+  }
+  const adminIds = (admins || []).map((u) => u.id);
+  if (adminIds.length === 0) return [];
+
+  // 2) recipes where any author column is in adminIds
+  const idList = `(${adminIds.join(',')})`;
+  const orFilter = [
+    `author_id.in.${idList}`,
+    `created_by.in.${idList}`,
+    `user_id.in.${idList}`,
+  ].join(',');
+
+  const base = supabase
+    .from('recipes')
+    .select(SELECT_FIELDS)
+    .or(orFilter)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  try {
     const rows = await fetchWithLikes(base);
     return rows;
   } catch (e) {
-    console.error('Admin fetch failed', e);
+    console.error('Admin recipes fetch failed', e);
     return [];
   }
 }
 
-/** Most liked recipes */
+/** Most liked recipes (client-side sort by counted likes) */
 async function fetchMostLiked(limit = 4) {
   try {
     const base = supabase
       .from('recipes')
       .select(SELECT_FIELDS)
       .order('created_at', { ascending: false })
-      .limit(limit * 3); // grab extra to sort by likes client-side
+      .limit(limit * 3); // grab extra, then sort by likes
 
     const rows = await fetchWithLikes(base);
-
-    return rows
-      .sort((a, b) => b.likes_count - a.likes_count)
-      .slice(0, limit);
+    return rows.sort((a, b) => b.likes_count - a.likes_count).slice(0, limit);
   } catch (e) {
     console.error('Most liked fetch failed', e);
     return [];
@@ -164,7 +182,7 @@ export default function FrontPage() {
         canonical="https://www.breadcalculator.online/"
       />
 
-      {/* Top row: Latest from the team */}
+      {/* Latest from the team */}
       <div className="mt-4 mb-2 flex items-center justify-between">
         <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide">
           {t('latest_from_team', 'Latest from the team')}
@@ -203,7 +221,7 @@ export default function FrontPage() {
         </div>
       )}
 
-      {/* Bottom row: Most liked */}
+      {/* Most liked */}
       <div className="mt-8 mb-2 flex items-center justify-between">
         <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide">
           {t('most_liked', 'Most liked')}
