@@ -13,7 +13,7 @@ import { recipeJsonLd } from "@/seo/jsonld";
 import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { supaRender, supaSrcSet } from "@/utils/img";
-import NutritionCard from "@/components/NutritionCard"; // ⬅️ NEW
+import NutritionCard from "@/components/NutritionCard"; // ⬅️ Nutrition
 
 const BUCKET = "recipe-images";
 
@@ -463,6 +463,14 @@ export default function RecipeViewPage() {
     });
   }, [ingredientsRaw, scale]);
 
+  // ⬇️ Build a nutrition-ready recipe that follows the current scale
+  const recipeForNutrition = useMemo(() => {
+    return {
+      ...recipe,
+      ingredients: (scaledIngredients?.length ? scaledIngredients : recipe?.ingredients) || []
+    };
+  }, [recipe, scaledIngredients]);
+
   const setByPercent = (p) => {
     const val = Number(p);
     if (!Number.isFinite(val) || val <= 0) return;
@@ -807,7 +815,8 @@ export default function RecipeViewPage() {
 
         {/* Nutrition (right column) */}
         <section className="lg:col-start-2">
-          <NutritionCard recipe={recipe} />
+          {/* ⬇️ Pass scaled ingredients so Per loaf reacts to scaling */}
+          <NutritionCard recipe={recipeForNutrition} />
         </section>
 
         {/* Comments */}
