@@ -1,20 +1,22 @@
 {
   "brand": "Everything Dough",
   "welcome_user": "Welcome, {{email}}",
-  "login": "Login",
+  "login": "Log in",
   "logout": "Log out",
   "register": "Register",
   "have_account_login": "Already have an account? Log in",
   "no_account_register": "No account? Register",
-  "back_to_calculator": "← Back to calculator without logging in",
+  "back_to_calculator": "← Back to the calculator without logging in",
   "email": "Email",
   "password": "Password",
+
   "flour": "Flour",
   "water": "Water",
   "grams": "Grams",
   "milliliters": "Milliliters",
   "hydration": "Hydration",
   "salt": "Salt",
+
   "ingredients": "Ingredients",
   "instructions": "Instructions",
   "recipe_library": "Recipe library",
@@ -31,34 +33,42 @@
   "go_to_slide": "Go to slide {{index}}",
   "minutes_short": "min",
   "quick_recipe": "Quick recipe",
+
   "bread": "Bread",
   "pizza": "Pizza",
-  "cold_ferment": "Cold-ferment",
-  "cold_fermentation": "Cold-fermentation",
+
+  "cold_ferment": "Cold fermentation",
+  "cold_fermentation": "Cold fermentation",
+
   "switch_to_water_input": "Switch input: use water",
   "switch_to_flour_input": "Switch input: use flour",
   "show_recipe": "Show recipe",
   "reset": "Reset",
+
   "include_rye": "Include 20% rye flour",
   "include_seeds": "Include seeds (15%)",
-  "include_oil": "Add oil",
+  "include_oil": "Include oil",
+
   "ingredient_amounts": "Ingredient amounts",
   "starter": "Starter",
   "oil": "Oil",
   "seeds": "Seeds",
   "total": "Total",
   "flour_types": "Flour types",
+
   "search_placeholder": "Search recipes or tags…",
   "filter_all": "All",
   "filter_bread": "Bread only",
   "filter_pizza": "Pizza only",
+
   "forgot_password": "Forgot password?",
   "send_reset_link": "Send reset link",
   "back_to_login": "← Back to login",
   "login_to_save_favorites": "Log in to save favorites.",
+
   "admin_all_recipes": "Admin: All recipes",
   "no_permissions": "No permissions",
-  "loading_recipes": "Loading recipes...",
+  "loading_recipes": "Loading recipes…",
   "edit": "Edit",
   "duplicate": "Duplicate",
   "recipe_images": "Recipe images",
@@ -66,63 +76,71 @@
   "recipe_not_found": "Recipe not found.",
   "no_ingredients_listed": "No ingredients listed.",
   "no_instructions_provided": "No instructions provided.",
+
   "amount": "Amount",
   "name": "Name",
-  "bakers_percent": "Baker's %",
+  "bakers_percent": "Baker’s %",
   "dutch_oven_bread": "Dutch oven bread",
   "copyright": "© 2025 Taikinalaskin",
+
   "amount_flour": "Amount (flour)",
   "amount_water": "Amount (water)",
   "hydration_base": "Hydration (base)",
   "rye": "Rye",
   "rye_pct_total_flour": "Rye % of total flour",
   "seeds_pct_total_flour": "Seeds % of total flour",
-  "tipo00_flour": "Tipo 00 Flour",
-  "white_flour": "White Flour",
-  "rye_flour": "Rye Flour",
+  "tipo00_flour": "Tipo 00 flour",
+  "white_flour": "White flour",
+  "rye_flour": "Rye flour",
   "total_dough_weight": "Total dough weight",
+
   "search_recipes": "Search recipes",
   "clear": "Clear",
   "most_liked_recipes": "Most liked recipes",
-  "most_liked_subtitle": "Most liked community recipes",
+  "most_liked_subtitle": "Community’s most liked recipes",
   "coming_soon": "Coming soon",
+
+  "All": "All",
+  "Bread": "Bread",
+  "Pizza": "Pizza",
+
   "faq": {
-  "title": "UKK & ohjeet",
-  "intro": "Lyhyet selitykset yleisimmistä taikinatermeistä ja -vaiheista, joita sovellus käyttää.",
-  "sections": {
-    "general": "Yleiset käsitteet",
-    "handling": "Taikinan käsittely",
-    "baking": "Paisto & viimeistely"
-  },
-  "items": {
-    "autolyse": {
-      "title": "Autolyysi",
-      "desc": "Jauhojen ja veden lepo ennen suolan ja juuren lisäämistä. Parantaa gluteenin kehitystä ja taikinan käsiteltävyyttä."
+    "title": "FAQ & Instructions",
+    "intro": "Short explanations for common dough terms and steps used in the app.",
+    "sections": {
+      "general": "General concepts",
+      "handling": "Dough handling",
+      "baking": "Baking & finishing"
     },
-    "levain": {
-      "title": "Juuri / Levain %",
-      "desc": "Etukäteen fermentoituneen juuren osuus taikinassa. Suurempi % nopeuttaa, pienempi % hidastaa."
-    },
-    "stretch_fold": {
-      "title": "Taittelut (stretch & fold)",
-      "desc": "Taittelutekniikka bulk-kohotuksen aikana gluteenin vahvistamiseksi ilman vaivaamista. Yleensä 30–60 min välein."
-    },
-    "bulk": {
-      "title": "Bulk-kohotus",
-      "desc": "Ensimmäinen kohotus sekoittamisen jälkeen, jolloin taikina kehittää makua ja rakennetta."
-    },
-    "cold": {
-      "title": "Hidas kohotus (kylmälepo)",
-      "desc": "Taikinan hidas kohotus jääkaapissa. Syventää makua ja helpottaa ajoitusta."
-    },
-    "scoring": {
-      "title": "Viiltely",
-      "desc": "Taikinan pinnan viiltäminen ennen paistoa kohotuksen hallitsemiseksi ja kuvioiden luomiseksi."
-    },
-    "hydration": {
-      "title": "Hydrataatio %",
-      "desc": "Veden ja jauhojen suhde. Korkeampi hydrataatio = kosteampi, ilmavampi sisus; matalampi = kiinteämpi, helpompi käsitellä."
+    "items": {
+      "autolyse": {
+        "title": "Autolyse",
+        "desc": "Letting flour and water rest before adding salt and starter. Improves gluten development and dough extensibility."
+      },
+      "levain": {
+        "title": "Levain / Starter %",
+        "desc": "The portion of prefermented flour used in the dough. Higher % speeds fermentation, lower % slows it."
+      },
+      "stretch_fold": {
+        "title": "Stretch & fold",
+        "desc": "A folding method during bulk fermentation to strengthen gluten without kneading. Usually done every 30–60 minutes."
+      },
+      "bulk": {
+        "title": "Bulk fermentation",
+        "desc": "The first rise after mixing, when the dough develops flavor and strength."
+      },
+      "cold": {
+        "title": "Cold fermentation",
+        "desc": "Letting dough rise slowly in the fridge. Enhances flavor and makes timing more flexible."
+      },
+      "scoring": {
+        "title": "Scoring",
+        "desc": "Cutting the dough surface before baking to control expansion and create patterns."
+      },
+      "hydration": {
+        "title": "Hydration %",
+        "desc": "Ratio of water to flour. Higher hydration = wetter, more open crumb; lower hydration = tighter, easier to handle."
+      }
     }
   }
-}
 }
