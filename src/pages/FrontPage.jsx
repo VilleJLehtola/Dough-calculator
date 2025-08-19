@@ -103,53 +103,32 @@ export default function FrontPage() {
     return () => { cancel = true; };
   }, []);
 
-  // --- Most liked (safe aggregation from recipe_likes) ---
+  // --- Most liked (via SQL view) ---
   useEffect(() => {
     let cancel = false;
     (async () => {
       setLoadingLiked(true);
       try {
-        // Group likes by recipe_id, order by count desc
-        const { data: likeAgg, error: likeErr } = await supabase
-          .from('recipe_likes')
-          .select('recipe_id, count:recipe_id', { head: false })
-          .group('recipe_id')
-          .order('count', { ascending: false })
+        const { data, error } = await supabase
+          .from('most_liked_recipes_v')
+          .select('id,title,description,cover_image,images,created_at,like_count')
+          .order('like_count', { ascending: false })
           .limit(8);
 
-        if (likeErr) throw likeErr;
+        if (error) throw error;
 
-        const top = likeAgg || [];
-        if (!top.length) {
-          // No likes yet → just mirror latest so section isn't empty.
-          if (!cancel) setMostLiked(latest.map(r => ({ ...r, likeCount: 0 })));
-          return;
+        const rows = (data || []).map(r => ({ ...r, likeCount: r.like_count }));
+        if (!cancel) {
+          setMostLiked(rows.length ? rows : latest.map(r => ({ ...r, likeCount: 0 })));
         }
-
-        const ids = top.map(row => row.recipe_id);
-        const countById = Object.fromEntries(top.map(r => [r.recipe_id, r.count]));
-
-        const { data: recs, error: recErr } = await supabase
-          .from('browse_recipes_v')
-          .select('id,title,description,cover_image,images,created_at')
-          .in('id', ids);
-
-        if (recErr) throw recErr;
-
-        const withCounts = (recs || []).map(r => ({ ...r, likeCount: countById[r.id] || 0 }));
-        withCounts.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
-
-        if (!cancel) setMostLiked(withCounts);
       } catch (e) {
         console.warn('[front] liked fallback', e?.message || e);
-        // Last resort fallback
         if (!cancel) setMostLiked(latest.map(r => ({ ...r, likeCount: 0 })));
       } finally {
         if (!cancel) setLoadingLiked(false);
       }
     })();
     return () => { cancel = true; };
-    // depend on latest so fallback mirrors it when needed
   }, [latest]);
 
   return (
