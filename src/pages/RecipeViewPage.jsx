@@ -13,7 +13,8 @@ import { recipeJsonLd } from "@/seo/jsonld";
 import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { supaRender, supaSrcSet } from "@/utils/img";
-import NutritionCard from "@/components/NutritionCard"; // ⬅️ Nutrition
+import NutritionCard from "@/components/NutritionCard";
+import { computeNutrition, round0 } from "@/utils/nutrition"; // ⬅️ NEW
 
 const BUCKET = "recipe-images";
 
@@ -463,7 +464,7 @@ export default function RecipeViewPage() {
     });
   }, [ingredientsRaw, scale]);
 
-  // ⬇️ Build a nutrition-ready recipe that follows the current scale
+  // Build a nutrition-ready recipe that follows the current scale
   const recipeForNutrition = useMemo(() => {
     return {
       ...recipe,
@@ -471,16 +472,33 @@ export default function RecipeViewPage() {
     };
   }, [recipe, scaledIngredients]);
 
-  const setByPercent = (p) => {
-    const val = Number(p);
-    if (!Number.isFinite(val) || val <= 0) return;
-    setScale(val / 100);
-  };
-  const setByTargetFlour = (v) => {
-    const val = Number(v);
-    if (!Number.isFinite(val) || val <= 0 || !baseFlour) return;
-    setScale(val / baseFlour);
-  };
+  // --- Nutrition for JSON-LD (SEO) ---
+  const DEFAULT_BAKE_LOSS = 15; // %
+  const DEFAULT_SLICE_GRAMS = 50; // g
+
+  const nut = useMemo(() => {
+    try {
+      return computeNutrition(recipeForNutrition, {
+        bakeLossPct: DEFAULT_BAKE_LOSS,
+        sliceGrams: DEFAULT_SLICE_GRAMS
+      });
+    } catch {
+      return null;
+    }
+  }, [recipeForNutrition]);
+
+  const nutritionJsonLd = useMemo(() => {
+    if (!nut) return undefined;
+    return {
+      calories: `${round0(nut.perSlice.kcal)} kcal`,
+      carbohydrateContent: `${round0(nut.perSlice.carbs)} g`,
+      proteinContent: `${round0(nut.perSlice.protein)} g`,
+      fatContent: `${round0(nut.perSlice.fat)} g`,
+      fiberContent: `${round0(nut.perSlice.fiber)} g`,
+      sodiumContent: `${round0(nut.perSlice.sodium_mg)} mg`,
+      servingSize: `${DEFAULT_SLICE_GRAMS} g`
+    };
+  }, [nut]);
 
   const user = userId ? { id: userId } : null;
 
@@ -497,6 +515,7 @@ export default function RecipeViewPage() {
     prepTime: recipe?.prep_time_iso,
     cookTime: recipe?.cook_time_iso,
     recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
+    nutrition: nutritionJsonLd // ⬅️ include if available
   });
 
   // Loading / Error / Empty
@@ -768,7 +787,7 @@ export default function RecipeViewPage() {
                     <span className="text-gray-800 dark:text-gray-100">
                       {ing.name ?? ""}
                     </span>
-                    {ing.amount != null && (
+                    {ig.amount != null && ( // <-- guard typo fix below
                       <span className="text-gray-600 dark:text-gray-300">
                         {ing.amount} {ing.unit ?? ""}
                       </span>
@@ -815,7 +834,7 @@ export default function RecipeViewPage() {
 
         {/* Nutrition (right column) */}
         <section className="lg:col-start-2">
-          {/* ⬇️ Pass scaled ingredients so Per loaf reacts to scaling */}
+          {/* Pass scaled ingredients so Per loaf reacts to scaling */}
           <NutritionCard recipe={recipeForNutrition} />
         </section>
 
