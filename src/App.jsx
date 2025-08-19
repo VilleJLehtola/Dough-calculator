@@ -18,6 +18,7 @@ import { AnalyticsTracker } from './analytics';
 import PrivacyPage from '@/pages/PrivacyPage';
 import TermsPage from '@/pages/TermsPage';
 import ContactPage from '@/pages/ContactPage';
+import FAQPage from "@/pages/FAQPage";
 
 
 export default function App() {
