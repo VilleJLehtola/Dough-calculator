@@ -13,6 +13,7 @@ import { recipeJsonLd } from "@/seo/jsonld";
 import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { supaRender, supaSrcSet } from "@/utils/img";
+import NutritionCard from "@/components/NutritionCard"; // ⬅️ NEW
 
 const BUCKET = "recipe-images";
 
@@ -89,7 +90,7 @@ function HeroCarousel({ items = [], title = "", overlay = null, t }) {
   const onTouchMove = (e) => {
     if (!dragging) return;
     dx.current = e.touches[0].clientX - startX.current;
-    setDragging((d) => d); // trigger style recompute
+    setDragging((d) => d);
   };
   const onTouchEnd = () => {
     if (!dragging) return;
@@ -159,14 +160,14 @@ function HeroCarousel({ items = [], title = "", overlay = null, t }) {
 
       {/* Prev/Next */}
       <button
-        aria-label="Previous image"
+        aria-label={t("prev_image", "Previous image")}
         className="z-10 absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
         onClick={() => go(-1)}
       >
         ‹
       </button>
       <button
-        aria-label="Next image"
+        aria-label={t("next_image", "Next image")}
         className="z-10 absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full w-9 h-9 flex items-center justify-center"
         onClick={() => go(1)}
       >
@@ -178,7 +179,7 @@ function HeroCarousel({ items = [], title = "", overlay = null, t }) {
         {urls.map((_, i) => (
           <button
             key={i}
-            aria-label={t ? t("go_to_slide", { index: i + 1 }) : `Go to slide ${i + 1}`}
+            aria-label={t("go_to_slide", { index: i + 1 })}
             className={`w-2.5 h-2.5 rounded-full ${
               i === idx ? "bg-white" : "bg-white/50 hover:bg-white/80"
             }`}
@@ -207,7 +208,7 @@ async function listFolderUrls(folder) {
 
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
-  const { t } = useTranslation();
+  const { t } = useTranslation("common"); // ensure "common" ns, fallback-safe
   const { id } = useParams();
 
   // Loading / error states
@@ -527,14 +528,23 @@ export default function RecipeViewPage() {
 
       {/* Quick help links */}
       <div className="my-4 text-sm text-gray-600 dark:text-gray-300 flex flex-wrap gap-3">
-        <span className="font-medium">Help:</span>
-        <Link to="/faq#hydration" className="underline">Hydration</Link>
-        <Link to="/faq#stretch_fold" className="underline">Stretch & fold</Link>
-        <Link to="/faq#cold" className="underline">Cold ferment</Link>
-        <Link to="/faq#scoring" className="underline">Scoring</Link>
+        <span className="font-medium">{t("help", "Help")}:</span>
+        <Link to="/faq#hydration" className="underline">
+          {t("faq.items.hydration.title", "Hydration %")}
+        </Link>
+        <Link to="/faq#stretch_fold" className="underline">
+          {t("faq.items.stretch_fold.title", "Stretch & fold")}
+        </Link>
+        <Link to="/faq#cold" className="underline">
+          {t("faq.items.cold.title", "Cold ferment")}
+        </Link>
+        <Link to="/faq#scoring" className="underline">
+          {t("faq.items.scoring.title", "Scoring")}
+        </Link>
       </div>
+
       <SEO
-        title={`${title || t("recipe", "Recipe")} • Recipe`}
+        title={`${title || t("recipe", "Recipe")} • ${t("recipe", "Recipe")}`}
         description={
           description ||
           t("recipe_description_fallback", "Recipe details and instructions")
@@ -793,6 +803,11 @@ export default function RecipeViewPage() {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Nutrition (right column) */}
+        <section className="lg:col-start-2">
+          <NutritionCard recipe={recipe} />
         </section>
 
         {/* Comments */}
