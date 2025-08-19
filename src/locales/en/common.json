@@ -9,6 +9,15 @@
   "back_to_calculator": "← Back to the calculator without logging in",
   "email": "Email",
   "password": "Password",
+
+  "browse_all":"Browse all",
+  "tagline":"Smarter sourdough, faster. Explore community recipes or build your own with the calculator.",
+  "open_calculator":"Open calculator",
+  "browse_recipes":"Browse recipes",
+  "latest_from_the_team":"Latest from the team",
+  "most_liked":"Most liked",
+  "no_recent_admin_recipes":"No recent admin recipes.",
+  "no_most_liked_yet":"No most liked recipes yet.",
   
   "whats_new_title": "What’s new",
   "learn_more": "Learn more",
