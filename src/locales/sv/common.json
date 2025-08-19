@@ -12,6 +12,16 @@
   "flour": "Mjöl",
   "water": "Vatten",
   "grams": "Gram",
+
+  "browse_all":"Bläddra alla",
+  "tagline":"Smartare surdeg, snabbare. Utforska communityrecept eller bygg ditt eget med kalkylatorn.",
+  "open_calculator":"Öppna kalkylator",
+  "browse_recipes":"Bläddra recept",
+  "latest_from_the_team":"Senaste från teamet",
+  "most_liked":"Mest gillade",
+  "no_recent_admin_recipes":"Inga nya adminrecept.",
+  "no_most_liked_yet":"Inga mest gillade recept ännu.",
+  
   "whats_new_title": "Vad är nytt",
   "learn_more": "Läs mer",
   "view_examples": "Visa exempel",
