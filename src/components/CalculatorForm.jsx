@@ -63,7 +63,7 @@ const CalculatorForm = ({
         </div>
 
         <div>
-          <label className="block text-white">Hydraatio (%)</label>
+          <label className="block text-white">Hydraatio (%) <a href="/faq#hydration" className="ml-2 text-blue-300 underline hover:text-blue-200" title="FAQ">?</a></label>
           <input
             type="number"
             value={hydration}

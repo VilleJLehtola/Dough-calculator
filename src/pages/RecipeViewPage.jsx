@@ -524,6 +524,15 @@ export default function RecipeViewPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
+
+      {/* Quick help links */}
+      <div className="my-4 text-sm text-gray-600 dark:text-gray-300 flex flex-wrap gap-3">
+        <span className="font-medium">Help:</span>
+        <Link to="/faq#hydration" className="underline">Hydration</Link>
+        <Link to="/faq#stretch_fold" className="underline">Stretch & fold</Link>
+        <Link to="/faq#cold" className="underline">Cold ferment</Link>
+        <Link to="/faq#scoring" className="underline">Scoring</Link>
+      </div>
       <SEO
         title={`${title || t("recipe", "Recipe")} • Recipe`}
         description={
