@@ -11,6 +11,9 @@ export function recipeJsonLd({
   prepTime,
   cookTime,
   recipeYield,
+  // NEW: pass a plain object with NutritionInformation fields (strings with units)
+  // e.g. { calories: "210 kcal", carbohydrateContent: "40 g", ... , servingSize: "1 slice" }
+  nutrition
 }) {
   const howToSteps = (instructions || []).map((s, i) => ({
     '@type': 'HowToStep',
@@ -22,7 +25,8 @@ export function recipeJsonLd({
     .map((r) => (typeof r === 'string' ? r : (r?.text ?? r?.name ?? '')))
     .filter(Boolean);
 
-  return {
+  // Build JSON-LD
+  const json = {
     '@context': 'https://schema.org',
     '@type': 'Recipe',
     name,
@@ -36,5 +40,12 @@ export function recipeJsonLd({
     prepTime,
     cookTime,
     recipeYield,
+    // Include NutritionInformation only if provided
+    nutrition: nutrition ? { '@type': 'NutritionInformation', ...nutrition } : undefined
   };
+
+  // Remove undefined fields to keep the output tidy
+  return Object.fromEntries(
+    Object.entries(json).filter(([, v]) => v !== undefined && v !== null)
+  );
 }
