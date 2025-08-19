@@ -9,7 +9,7 @@
   "back_to_calculator": "← Palaa laskimeen ilman kirjautumista",
   "email": "Sähköposti",
   "password": "Salasana",
-  "flour": "Jauhot",
+  "flour": "Jauho",
   "water": "Vesi",
   "grams": "Grammat",
   "milliliters": "Millilitrat",
@@ -71,27 +71,61 @@
   "bakers_percent": "Leipurin %",
   "dutch_oven_bread": "Pataleipä",
   "copyright": "© 2025 Taikinalaskin",
-    "flour": "Jauho",
-  "water": "Vesi",
   "amount_flour": "Määrä (jauho)",
   "amount_water": "Määrä (vesi)",
   "hydration_base": "Hydraatio (pohja)",
-  "salt": "Suola",
-  "starter": "Juuri",
   "rye": "Ruis",
-  "seeds": "Siemenet",
   "rye_pct_total_flour": "Ruis % kokonaisjauhosta",
   "seeds_pct_total_flour": "Siemenet % kokonaisjauhosta",
   "tipo00_flour": "Tipo 00 -jauho",
   "white_flour": "Vehnäjauho",
   "rye_flour": "Ruisjauho",
-  "oil": "Öljy",
   "total_dough_weight": "Taikinan kokonaispaino",
-    "search_recipes": "Hae reseptejä",
+  "search_recipes": "Hae reseptejä",
   "clear": "Tyhjennä",
   "most_liked_recipes": "Tykkätyimmät reseptit",
   "most_liked_subtitle": "Yhteisön suosituimmat reseptit",
   "coming_soon": "Tulossa pian",
-  "no_ingredients_listed": "Ainesosia ei listattu.",
-  "no_instructions_provided": "Ohjeita ei annettu."
+  "All": "Kaikki",
+  "Bread": "Leipä",
+  "Pizza": "Pizza",
+  "faq": {
+    "title": "UKK & ohjeet",
+    "intro": "Lyhyet selitykset yleisimmistä taikinatermeistä ja -vaiheista, joita sovellus käyttää.",
+    "sections": {
+      "general": "Yleiset käsitteet",
+      "handling": "Taikinan käsittely",
+      "baking": "Paisto & viimeistely"
+    },
+    "items": {
+      "autolyse": {
+        "title": "Autolyysi",
+        "desc": "Jauhojen ja veden lepo ennen suolan ja juuren lisäämistä. Parantaa gluteenin kehitystä ja taikinan käsiteltävyyttä."
+      },
+      "levain": {
+        "title": "Juuri / Levain %",
+        "desc": "Etukäteen fermentoituneen juuren osuus taikinassa. Suurempi % nopeuttaa, pienempi % hidastaa."
+      },
+      "stretch_fold": {
+        "title": "Taittelut (stretch & fold)",
+        "desc": "Taittelutekniikka bulk-kohotuksen aikana gluteenin vahvistamiseksi ilman vaivaamista. Yleensä 30–60 min välein."
+      },
+      "bulk": {
+        "title": "Bulk-kohotus",
+        "desc": "Ensimmäinen kohotus sekoittamisen jälkeen, jolloin taikina kehittää makua ja rakennetta."
+      },
+      "cold": {
+        "title": "Hidas kohotus (kylmälepo)",
+        "desc": "Taikinan hidas kohotus jääkaapissa. Syventää makua ja helpottaa ajoitusta."
+      },
+      "scoring": {
+        "title": "Viiltely",
+        "desc": "Taikinan pinnan viiltäminen ennen paistoa kohotuksen hallitsemiseksi ja kuvioiden luomiseksi."
+      },
+      "hydration": {
+        "title": "Hydrataatio %",
+        "desc": "Veden ja jauhojen suhde. Korkeampi hydrataatio = kosteampi, ilmavampi sisus; matalampi = kiinteämpi, helpompi käsitellä."
+      }
+    }
+  }
 }

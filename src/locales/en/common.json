@@ -71,27 +71,61 @@
   "bakers_percent": "Baker's %",
   "dutch_oven_bread": "Dutch oven bread",
   "copyright": "© 2025 Taikinalaskin",
-  "flour": "Flour",
-  "water": "Water",
   "amount_flour": "Amount (flour)",
   "amount_water": "Amount (water)",
   "hydration_base": "Hydration (base)",
-  "salt": "Salt",
-  "starter": "Starter",
   "rye": "Rye",
-  "seeds": "Seeds",
   "rye_pct_total_flour": "Rye % of total flour",
   "seeds_pct_total_flour": "Seeds % of total flour",
   "tipo00_flour": "Tipo 00 Flour",
   "white_flour": "White Flour",
   "rye_flour": "Rye Flour",
-  "oil": "Oil",
   "total_dough_weight": "Total dough weight",
-    "search_recipes": "Search recipes",
+  "search_recipes": "Search recipes",
   "clear": "Clear",
   "most_liked_recipes": "Most liked recipes",
   "most_liked_subtitle": "Most liked community recipes",
   "coming_soon": "Coming soon",
-  "no_ingredients_listed": "No ingredients listed.",
-  "no_instructions_provided": "No instructions provided."
+  "All": "All",
+  "Bread": "Bread",
+  "Pizza": "Pizza",
+  "faq": {
+    "title": "FAQ & Instructions",
+    "intro": "Short explanations for common dough terms and steps used in the app.",
+    "sections": {
+      "general": "General concepts",
+      "handling": "Dough handling",
+      "baking": "Baking & finishing"
+    },
+    "items": {
+      "autolyse": {
+        "title": "Autolyse",
+        "desc": "Letting flour and water rest before adding salt and starter. Improves gluten development and dough extensibility."
+      },
+      "levain": {
+        "title": "Levain / Starter %",
+        "desc": "The portion of prefermented flour used in the dough. Higher % speeds fermentation, lower % slows it."
+      },
+      "stretch_fold": {
+        "title": "Stretch & fold",
+        "desc": "A folding method during bulk fermentation to strengthen gluten without kneading. Usually done every 30–60 minutes."
+      },
+      "bulk": {
+        "title": "Bulk fermentation",
+        "desc": "The first rise after mixing, when the dough develops flavor and strength."
+      },
+      "cold": {
+        "title": "Cold fermentation",
+        "desc": "Letting dough rise slowly in the fridge. Enhances flavor and makes timing more flexible."
+      },
+      "scoring": {
+        "title": "Scoring",
+        "desc": "Cutting the dough surface before baking to control expansion and create patterns."
+      },
+      "hydration": {
+        "title": "Hydration %",
+        "desc": "Ratio of water to flour. Higher hydration = wetter, more open crumb; lower hydration = tighter, easier to handle."
+      }
+    }
+  }
 }

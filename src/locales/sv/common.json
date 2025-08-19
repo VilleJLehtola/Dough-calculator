@@ -64,34 +64,68 @@
   "recipe_images": "Receptbilder",
   "save_recipe": "Spara recept",
   "recipe_not_found": "Recept hittades inte.",
-  "no_ingredients_listed": "Inga ingredienser listade.",
+  "no_ingredients_listed": "Inga ingredienser angivna.",
   "no_instructions_provided": "Inga instruktioner angivna.",
   "amount": "Mängd",
   "name": "Namn",
   "bakers_percent": "Bagare %",
   "dutch_oven_bread": "Grytbröd",
   "copyright": "© 2025 Taikinalaskin",
-  "flour": "Mjöl",
-  "water": "Vatten",
   "amount_flour": "Mängd (mjöl)",
   "amount_water": "Mängd (vatten)",
   "hydration_base": "Hydrering (bas)",
-  "salt": "Salt",
-  "starter": "Surdeg",
   "rye": "Råg",
-  "seeds": "Frön",
   "rye_pct_total_flour": "Råg % av total mjölmängd",
   "seeds_pct_total_flour": "Frön % av total mjölmängd",
   "tipo00_flour": "Tipo 00-mjöl",
   "white_flour": "Vitt mjöl",
   "rye_flour": "Rågmjöl",
-  "oil": "Olja",
   "total_dough_weight": "Total degvikt",
-    "search_recipes": "Sök recept",
+  "search_recipes": "Sök recept",
   "clear": "Rensa",
   "most_liked_recipes": "Mest gillade recept",
   "most_liked_subtitle": "Communityns mest gillade recept",
   "coming_soon": "Kommer snart",
-  "no_ingredients_listed": "Inga ingredienser angivna.",
-  "no_instructions_provided": "Inga instruktioner angivna."
+  "All": "Alla",
+  "Bread": "Bröd",
+  "Pizza": "Pizza",
+  "faq": {
+    "title": "FAQ & instruktioner",
+    "intro": "Korta förklaringar av vanliga degtermer och steg som appen använder.",
+    "sections": {
+      "general": "Allmänna begrepp",
+      "handling": "Deg­hantering",
+      "baking": "Gräddning & finish"
+    },
+    "items": {
+      "autolyse": {
+        "title": "Autolys",
+        "desc": "Mjöl och vatten får vila innan salt och surdeg tillsätts. Förbättrar glutenutvecklingen och gör degen mer lätthanterlig."
+      },
+      "levain": {
+        "title": "Levain / Surdeg %",
+        "desc": "Andelen förjäst surdeg i degen. Högre % påskyndar jäsningen, lägre % gör den långsammare."
+      },
+      "stretch_fold": {
+        "title": "Stretch & fold",
+        "desc": "En vikningsteknik under bulkjäsningen för att stärka gluten utan knådning. Görs ofta var 30–60 minut."
+      },
+      "bulk": {
+        "title": "Bulkjäsning",
+        "desc": "Den första jäsningen efter blandning, då degen utvecklar smak och styrka."
+      },
+      "cold": {
+        "title": "Kalljäsning",
+        "desc": "Långsam jäsning i kylskåp. Fördjupar smaken och gör bakningen mer flexibel."
+      },
+      "scoring": {
+        "title": "Snittning",
+        "desc": "Snitt i degens yta före gräddning för att styra expansionen och skapa mönster."
+      },
+      "hydration": {
+        "title": "Hydrering %",
+        "desc": "Förhållandet mellan vatten och mjöl. Högre hydrering = blötare, öppnare inkråm; lägre = fastare, lättare att hantera."
+      }
+    }
+  }
 }

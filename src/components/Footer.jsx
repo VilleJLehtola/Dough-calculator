@@ -11,6 +11,7 @@ export default function Footer() {
           <Link className="hover:underline" to="/privacy">Privacy</Link>
           <Link className="hover:underline" to="/terms">Terms</Link>
           <Link className="hover:underline" to="/contact">Contact</Link>
+          <Link className="hover:underline" to="/faq">FAQ</Link>
         </nav>
       </div>
     </footer>

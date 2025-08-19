@@ -18,6 +18,7 @@ import { AnalyticsTracker } from './analytics';
 import PrivacyPage from '@/pages/PrivacyPage';
 import TermsPage from '@/pages/TermsPage';
 import ContactPage from '@/pages/ContactPage';
+import FAQPage from '@/pages/FAQPage';
 
 
 export default function App() {
@@ -69,6 +70,7 @@ export default function App() {
           <Route path="/privacy" element={<PrivacyPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/faq" element={<FAQPage />} />
 
 
           {/* New canonical route */}
