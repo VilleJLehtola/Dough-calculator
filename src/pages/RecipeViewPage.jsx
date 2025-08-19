@@ -787,7 +787,7 @@ export default function RecipeViewPage() {
                     <span className="text-gray-800 dark:text-gray-100">
                       {ing.name ?? ""}
                     </span>
-                    {ig.amount != null && ( // <-- guard typo fix below
+                    {ing.amount != null && ( // <-- guard typo fix below
                       <span className="text-gray-600 dark:text-gray-300">
                         {ing.amount} {ing.unit ?? ""}
                       </span>
