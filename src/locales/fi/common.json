@@ -12,6 +12,16 @@
   "flour": "Jauho",
   "water": "Vesi",
   "grams": "Grammat",
+
+  "browse_all":"Selaa kaikkia",
+  "tagline":"Fiksumpaa hapanjuurta nopeammin. Tutki yhteisön reseptejä tai tee omasi laskimella.",
+  "open_calculator":"Avaa laskin",
+  "browse_recipes":"Selaa reseptejä",
+  "latest_from_the_team":"Tiimin uusimmat",
+  "most_liked":"Tykkätyimmät",
+  "no_recent_admin_recipes":"Ei uusia ylläpidon reseptejä.",
+  "no_most_liked_yet":"Ei vielä tykkätyimpiä reseptejä.",
+
   "whats_new_title": "Mitä uutta",
   "learn_more": "Lue lisää",
   "view_examples": "Katso esimerkkejä",
