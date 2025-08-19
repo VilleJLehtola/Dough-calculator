@@ -14,7 +14,8 @@ import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { supaRender, supaSrcSet } from "@/utils/img";
 import NutritionCard from "@/components/NutritionCard";
-import { computeNutrition, round0 } from "@/utils/nutrition"; // ⬅️ NEW
+import { computeNutrition, round0 } from "@/utils/nutrition";
+import ReportIssueLink from "@/components/ReportIssueLink"; // ⬅️ NEW
 
 const BUCKET = "recipe-images";
 
@@ -232,8 +233,7 @@ export default function RecipeViewPage() {
   );
   useEffect(() => {
     const onStorage = (e) => {
-      if (e.key === "lang")
-        setUiLang(localStorage.getItem("lang") || "auto");
+      if (e.key === "lang") setUiLang(localStorage.getItem("lang") || "auto");
     };
     const onLangChange = (e) =>
       setUiLang(e.detail || localStorage.getItem("lang") || "auto");
@@ -552,7 +552,6 @@ export default function RecipeViewPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6">
-
       {/* Quick help links */}
       <div className="my-4 text-sm text-gray-600 dark:text-gray-300 flex flex-wrap gap-3">
         <span className="font-medium">{t("help", "Help")}:</span>
@@ -657,6 +656,9 @@ export default function RecipeViewPage() {
               </span>
             </Link>
           )}
+
+          {/* Report issue (header actions) */}
+          <ReportIssueLink context="RecipeView" extra={{ recipeId: id }} />
         </div>
       </div>
 
@@ -787,7 +789,7 @@ export default function RecipeViewPage() {
                     <span className="text-gray-800 dark:text-gray-100">
                       {ing.name ?? ""}
                     </span>
-                    {ing.amount != null && ( // <-- guard typo fix below
+                    {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
                         {ing.amount} {ing.unit ?? ""}
                       </span>
@@ -844,14 +846,16 @@ export default function RecipeViewPage() {
         ) : null}
       </div>
 
-      {/* Back link */}
-      <div className="mt-6">
+      {/* Back link + report issue */}
+      <div className="mt-6 flex items-center gap-3">
         <Link
           to="/browse"
           className="inline-block text-sm text-blue-600 dark:text-blue-400 hover:underline"
         >
           ← {t("back_to_recipes")}
         </Link>
+        <span className="text-gray-400">•</span>
+        <ReportIssueLink context="RecipeView" extra={{ recipeId: id }} />
       </div>
 
       {/* Mobile scale bottom sheet */}
