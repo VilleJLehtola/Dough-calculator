@@ -10,6 +10,11 @@
   "email": "Email",
   "password": "Password",
 
+  "tagline": "Smarter sourdough, faster. Explore community recipes or build your own with the calculator.",
+  "browse_all": "Browse all",
+  "open_calculator": "Open calculator",
+  "browse_recipes": "Browse recipes",
+
   "browse_all":"Browse all",
   "tagline":"Smarter sourdough, faster. Explore community recipes or build your own with the calculator.",
   "open_calculator":"Open calculator",
