@@ -1,5 +1,5 @@
 // src/pages/FrontPage.jsx
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import supabase from '@/supabaseClient';
@@ -15,7 +15,7 @@ function heroOf(r) {
   return null;
 }
 
-function SectionShell({ title, children }) {
+function Section({ title, children }) {
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between mb-2">
@@ -31,135 +31,134 @@ function SectionShell({ title, children }) {
   );
 }
 
+function Cards({ rows, showLikes }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {rows.map((r) => (
+        <Link
+          key={r.id}
+          to={`/recipe/${r.id}`}
+          className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
+        >
+          <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+            {heroOf(r) && (
+              <SmartImage
+                src={heroOf(r)}
+                alt={r.title || 'Recipe'}
+                className="w-full h-full object-cover"
+                sizes="(min-width:1280px) 22vw, (min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"
+              />
+            )}
+          </div>
+          <div className="p-3">
+            <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+              {r.title}
+            </div>
+            {showLikes ? (
+              <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                ❤️ {r.likeCount ?? 0}
+              </div>
+            ) : null}
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export default function FrontPage() {
   const { t } = useTranslation();
 
-  const [adminRecipes, setAdminRecipes] = useState([]);
+  const [latest, setLatest] = useState([]);
   const [mostLiked, setMostLiked] = useState([]);
-  const [loadingAdmins, setLoadingAdmins] = useState(true);
+
+  const [loadingLatest, setLoadingLatest] = useState(true);
   const [loadingLiked, setLoadingLiked] = useState(true);
 
-  // ---- Latest from the team (admins) ----
+  // --- Latest recipes (safe: from browse_recipes_v) ---
   useEffect(() => {
     let cancel = false;
     (async () => {
-      setLoadingAdmins(true);
+      setLoadingLatest(true);
       try {
-        // Get admin IDs. Some RLS configs will return [] but not error.
-        const { data: admins, error: adminsErr } = await supabase
-          .from('users')
-          .select('id')
-          .eq('is_admin', true);
-
-        if (adminsErr) throw adminsErr;
-        const adminIds = (admins || []).map(a => a.id);
-
-        let query = supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,tags')
+        const { data, error } = await supabase
+          .from('browse_recipes_v')
+          .select('id,title,description,cover_image,images,created_at')
           .order('created_at', { ascending: false })
           .limit(8);
-
-        if (adminIds.length) {
-          query = query.in('author_id', adminIds);
-        }
-        // If adminIds is empty, we intentionally keep the query without .in()
-        // so we fall back to latest overall.
-
-        const { data: recs, error: recErr } = await query;
-        if (recErr) throw recErr;
-        if (!cancel) setAdminRecipes(recs || []);
+        if (error) throw error;
+        if (!cancel) setLatest(data || []);
       } catch (e) {
-        console.warn('[front] admin section fallback:', e?.message || e);
-        // Last‑resort fallback: latest overall
-        const { data: recs } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,tags')
-          .order('created_at', { ascending: false })
-          .limit(8);
-        if (!cancel) setAdminRecipes(recs || []);
+        console.warn('[front] latest fallback', e?.message || e);
+        if (!cancel) setLatest([]);
       } finally {
-        if (!cancel) setLoadingAdmins(false);
+        if (!cancel) setLoadingLatest(false);
       }
     })();
     return () => { cancel = true; };
   }, []);
 
-  // ---- Most liked (from recipe_likes) ----
+  // --- Most liked (safe aggregation from recipe_likes) ---
   useEffect(() => {
     let cancel = false;
     (async () => {
       setLoadingLiked(true);
       try {
-        const { data: likesRows, error: likesErr } = await supabase
+        // Group likes by recipe_id, order by count desc
+        const { data: likeAgg, error: likeErr } = await supabase
           .from('recipe_likes')
-          .select('recipe_id')
-          .limit(20000); // generous cap; adjust if needed
+          .select('recipe_id, count:recipe_id', { head: false })
+          .group('recipe_id')
+          .order('count', { ascending: false })
+          .limit(8);
 
-        if (likesErr) throw likesErr;
+        if (likeErr) throw likeErr;
 
-        const counts = new Map();
-        (likesRows || []).forEach(row => {
-          const id = row.recipe_id;
-          if (!id) return;
-          counts.set(id, (counts.get(id) || 0) + 1);
-        });
-
-        const top = [...counts.entries()].sort((a,b) => b[1]-a[1]).slice(0, 8);
+        const top = likeAgg || [];
         if (!top.length) {
-          // no likes yet → show latest overall
-          const { data: recs } = await supabase
-            .from('recipes')
-            .select('id,title,description,cover_image,images,created_at,tags')
-            .order('created_at', { ascending: false })
-            .limit(8);
-          if (!cancel) setMostLiked((recs || []).map(r => ({ ...r, likeCount: 0 })));
+          // No likes yet → just mirror latest so section isn't empty.
+          if (!cancel) setMostLiked(latest.map(r => ({ ...r, likeCount: 0 })));
           return;
         }
 
-        const ids = top.map(([id]) => id);
-        const countById = Object.fromEntries(top);
+        const ids = top.map(row => row.recipe_id);
+        const countById = Object.fromEntries(top.map(r => [r.recipe_id, r.count]));
 
         const { data: recs, error: recErr } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,tags')
+          .from('browse_recipes_v')
+          .select('id,title,description,cover_image,images,created_at')
           .in('id', ids);
 
         if (recErr) throw recErr;
 
-        const sorted = (recs || [])
-          .map(r => ({ ...r, likeCount: countById[r.id] || 0 }))
-          .sort((a,b) => (b.likeCount||0) - (a.likeCount||0));
+        const withCounts = (recs || []).map(r => ({ ...r, likeCount: countById[r.id] || 0 }));
+        withCounts.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
 
-        if (!cancel) setMostLiked(sorted);
+        if (!cancel) setMostLiked(withCounts);
       } catch (e) {
-        console.warn('[front] likes section fallback:', e?.message || e);
-        // Last‑resort fallback: latest overall
-        const { data: recs } = await supabase
-          .from('recipes')
-          .select('id,title,description,cover_image,images,created_at,tags')
-          .order('created_at', { ascending: false })
-          .limit(8);
-        if (!cancel) setMostLiked((recs || []).map(r => ({ ...r, likeCount: 0 })));
+        console.warn('[front] liked fallback', e?.message || e);
+        // Last resort fallback
+        if (!cancel) setMostLiked(latest.map(r => ({ ...r, likeCount: 0 })));
       } finally {
         if (!cancel) setLoadingLiked(false);
       }
     })();
     return () => { cancel = true; };
-  }, []);
+    // depend on latest so fallback mirrors it when needed
+  }, [latest]);
 
-  // ---- UI ----
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <SEO
         title="Everything Dough — Home"
-        description="Latest from the team and most liked recipes."
+        description="Latest recipes and most liked by the community."
         canonical="https://www.breadcalculator.online/"
       />
 
-      {/* Latest from the team */}
-      <SectionShell title={t('latest_from_the_team','Latest from the team')}>
-        {loadingAdmins ? (
+      {/* Latest */}
+      <Section title={t('latest_from_the_team', 'Latest from the team')}>
+        {loadingLatest ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
               <div key={`s1-${i}`} className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700">
@@ -168,40 +167,17 @@ export default function FrontPage() {
               </div>
             ))}
           </div>
-        ) : adminRecipes.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('no_recent_admin_recipes','No recent admin recipes.')}</p>
+        ) : latest.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('no_recent_admin_recipes', 'No recent admin recipes.')}
+          </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {adminRecipes.map((r) => (
-              <Link
-                key={`admin-${r.id}`}
-                to={`/recipe/${r.id}`}
-                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
-              >
-                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
-                  {heroOf(r) && (
-                    <SmartImage
-                      src={heroOf(r)}
-                      alt={r.title || 'Recipe'}
-                      className="w-full h-full object-cover"
-                      sizes="(min-width:1280px) 22vw, (min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"
-                    />
-                  )}
-                </div>
-                <div className="p-3">
-                  <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">{r.title}</div>
-                  {r.description && (
-                    <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{r.description}</div>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
+          <Cards rows={latest} />
         )}
-      </SectionShell>
+      </Section>
 
       {/* Most liked */}
-      <SectionShell title={t('most_liked','Most liked')}>
+      <Section title={t('most_liked', 'Most liked')}>
         {loadingLiked ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
@@ -212,34 +188,13 @@ export default function FrontPage() {
             ))}
           </div>
         ) : mostLiked.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{t('no_most_liked_yet','No most liked recipes yet.')}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t('no_most_liked_yet', 'No most liked recipes yet.')}
+          </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {mostLiked.map((r) => (
-              <Link
-                key={`liked-${r.id}`}
-                to={`/recipe/${r.id}`}
-                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
-              >
-                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
-                  {heroOf(r) && (
-                    <SmartImage
-                      src={heroOf(r)}
-                      alt={r.title || 'Recipe'}
-                      className="w-full h-full object-cover"
-                      sizes="(min-width:1280px) 22vw, (min-width:1024px) 25vw, (min-width:640px) 50vw, 100vw"
-                    />
-                  )}
-                </div>
-                <div className="p-3">
-                  <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">{r.title}</div>
-                  <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">❤️ {r.likeCount ?? 0}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <Cards rows={mostLiked} showLikes />
         )}
-      </SectionShell>
+      </Section>
     </div>
   );
 }
