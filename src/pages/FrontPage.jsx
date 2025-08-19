@@ -16,14 +16,18 @@ function heroOf(r) {
 }
 
 function Section({ title, children }) {
+  const { t } = useTranslation();
   return (
     <section className="mt-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300 uppercase">
           {title}
         </h2>
-        <Link to="/browse" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
-          Browse all
+        <Link
+          to="/browse"
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {t('browse_all', 'Browse all')}
         </Link>
       </div>
       {children}
@@ -155,6 +159,30 @@ export default function FrontPage() {
         description="Latest recipes and most liked by the community."
         canonical="https://www.breadcalculator.online/"
       />
+
+      {/* HERO / Intro */}
+      <div className="mt-6 rounded-2xl bg-gradient-to-br from-amber-300/20 to-rose-300/20 dark:from-amber-400/10 dark:to-rose-400/10 p-6 ring-1 ring-black/5 dark:ring-white/10">
+        <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 dark:text-white">
+          {t('brand', 'Everything Dough')}
+        </h1>
+        <p className="mt-1 text-sm md:text-base text-gray-700 dark:text-gray-300">
+          {t('tagline', 'Smarter sourdough, faster. Explore community recipes or build your own with the calculator.')}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            to="/calculator"
+            className="inline-flex items-center px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm"
+          >
+            {t('open_calculator', 'Open calculator')}
+          </Link>
+          <Link
+            to="/browse"
+            className="inline-flex items-center px-3 py-1.5 rounded-md border border-blue-600 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
+          >
+            {t('browse_recipes', 'Browse recipes')}
+          </Link>
+        </div>
+      </div>
 
       {/* Latest */}
       <Section title={t('latest_from_the_team', 'Latest from the team')}>
