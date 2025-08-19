@@ -6,7 +6,7 @@ import ToggleButton from '../components/common/ToggleButton';
 import { clamp, round1, gPct, calcStarter } from '../utils/doughHelpers';
 import { track } from '@/analytics'; // Plausible
 import SEO from '@/components/SEO';    // SEO
-import SmartImage from '@/components/SmartImage';
+import ReportIssueLink from '@/components/ReportIssueLink'; // ⬅️ NEW
 
 export default function CalculatorPage() {
   const { t } = useTranslation();
@@ -50,6 +50,8 @@ export default function CalculatorPage() {
     setRyeOn(!!p.rye);
     setColdFerment(!!p.cold);
     setActivePreset(p.key);
+    // Analytics: preset click
+    track('Preset Applied', { preset: p.key, mode: p.mode, hydration: p.hydration, salt: p.salt });
   };
 
   // -------- Math (base-only hydration) --------
@@ -176,15 +178,17 @@ export default function CalculatorPage() {
       starter: starterPct,
       oil: oilOn ? 'yes' : 'no',
       garlic: garlicOn ? 'yes' : 'no',
-      seeds: seedsOn ? 'yes' : 'no',
-      rye: ryeOn ? 'yes' : 'no',
-      cold_fermentation: coldFerment ? 'yes' : 'no',
+      seeds: yesNo(seedsOn),
+      rye: yesNo(ryeOn),
+      cold_fermentation: yesNo(coldFerment),
       preset: activePreset || '',
     });
   }, [
     inputMode, amount, mode, hydrationBasePct, saltPct, starterPct,
     ryeOn, ryePct, seedsOn, seedsPct, oilOn, garlicOn, coldFerment, activePreset
   ]);
+
+  function yesNo(v) { return v ? 'yes' : 'no'; }
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6">
@@ -200,15 +204,20 @@ export default function CalculatorPage() {
           src="https://images.unsplash.com/photo-1608198093002-ad4e005484ec?q=80&w=2070&auto=format&fit=crop"
           alt="Calculator hero"
           className="w-full h-full object-cover"
-          /* ✅ perf */
           loading="eager"
-          fetchpriority="high"
+          fetchPriority="high"   // ⬅️ React-friendly casing
           decoding="async"
           sizes="100vw"
           width="2100"
           height="600"
         />
         <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+      </div>
+
+      <div className="mb-3 flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{t('calculator', 'Calculator')}</h1>
+        <span className="text-gray-400">•</span>
+        <ReportIssueLink context="Calculator" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -353,7 +362,9 @@ export default function CalculatorPage() {
                 {t('pizza_options','Pizza options')}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>Oil (7%)</ToggleButton>
+                <ToggleButton active={oilOn} onClick={() => setOilOn(!oilOn)}>
+                  {t('oil','Oil')} (7%)
+                </ToggleButton>
                 <ToggleButton active={garlicOn} onClick={() => setGarlicOn(!garlicOn)}>Garlic</ToggleButton>
                 <ToggleButton active={coldFerment} onClick={() => setColdFerment(!coldFerment)}>{t('cold_ferment','Cold ferment')}</ToggleButton>
               </div>
@@ -394,6 +405,11 @@ export default function CalculatorPage() {
             </ol>
           </div>
         </div>
+      </div>
+
+      {/* Footer utility */}
+      <div className="mt-6">
+        <ReportIssueLink context="Calculator" />
       </div>
     </div>
   );
