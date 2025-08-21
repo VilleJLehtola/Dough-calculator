@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+  <!-- Frontpage -->
+  <url>
+    <loc>https://www.breadcalculator.online/</loc>
+    <priority>1.0</priority>
+    <changefreq>daily</changefreq>
+  </url>
+
+  <!-- Recipes browse page -->
+  <url>
+    <loc>https://www.breadcalculator.online/browse</loc>
+    <priority>0.8</priority>
+    <changefreq>daily</changefreq>
+  </url>
+
+  <!-- FAQ -->
+  <url>
+    <loc>https://www.breadcalculator.online/faq</loc>
+    <priority>0.5</priority>
+    <changefreq>monthly</changefreq>
+  </url>
+
+  <!-- Example dynamic recipe pages -->
+  <!-- Replace with your actual recipe slugs or IDs -->
+  <url>
+    <loc>https://www.breadcalculator.online/recipe/garlic-bread</loc>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>
+
+</urlset>
