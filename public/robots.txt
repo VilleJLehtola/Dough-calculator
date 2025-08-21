@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://www.breadcalculator.online/api/sitemap
+Sitemap: https://www.breadcalculator.online/sitemap.xml
