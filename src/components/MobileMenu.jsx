@@ -1,15 +1,26 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Sun, Moon, LogOut, LogIn, Menu, Plus, BookOpen, Heart, User } from 'lucide-react';
+import {
+  Menu,
+  LogOut,
+  LogIn,
+  Plus,
+  BookOpen,
+  Heart,
+  User,
+  Home,
+  Calculator,
+  Globe,
+} from 'lucide-react';
 import DarkModeToggle from './DarkModeToggle';
 import { useTranslation } from 'react-i18next';
 
 export default function MobileMenu(props) {
   const {
-    // optional controlled state (preferred)
+    // Preferred controlled props
     isOpen,
     setIsOpen,
-    // legacy props some layouts still pass (ignored unless you also pass setIsOpen)
+    // Legacy props (ignored unless setIsOpen is provided)
     open: _legacyOpen,
     onClose: _legacyOnClose,
     user,
@@ -17,34 +28,44 @@ export default function MobileMenu(props) {
     onLogout,
   } = props;
 
-  // If parent provides setIsOpen, use controlled mode; otherwise keep our own state
+  // If parent provides setIsOpen, use controlled mode; else keep internal state
   const controlled = typeof setIsOpen === 'function';
   const [internalOpen, setInternalOpen] = React.useState(false);
   const open = controlled ? !!isOpen : internalOpen;
   const setOpen = controlled ? setIsOpen : setInternalOpen;
 
   const { i18n, t } = useTranslation();
-  const isDark = document.documentElement.classList.contains('dark');
 
+  // --- Language picker ---
   const langs = [
     { code: 'fi', label: 'FI' },
     { code: 'en', label: 'EN' },
     { code: 'sv', label: 'SV' },
   ];
-  const activeLang = localStorage.getItem('lang') || i18n.language || 'fi';
+  const activeLang =
+    (typeof localStorage !== 'undefined' && localStorage.getItem('lang')) ||
+    i18n.language ||
+    'fi';
 
   const changeLang = (code) => {
-    localStorage.setItem('lang', code);
+    try {
+      localStorage.setItem('lang', code);
+    } catch (_) {}
     i18n.changeLanguage(code);
     window.dispatchEvent(new CustomEvent('langchange', { detail: code }));
   };
 
+  const closeAnd = (fn) => () => {
+    setOpen(false);
+    if (typeof fn === 'function') fn();
+  };
+
   return (
     <>
-      {/* Hamburger (mobile only) */}
+      {/* Hamburger (mobile only) — raised higher + safe-area aware */}
       <button
         type="button"
-        className="fixed top-4 left-4 z-[60] p-2 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-md shadow-md md:hidden"
+        className="fixed left-4 z-[60] p-2 bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-md shadow-md md:hidden top-[max(0.5rem,env(safe-area-inset-top)+0.25rem)] md:top-4"
         onClick={() => setOpen(!open)}
         aria-label="Toggle menu"
       >
@@ -63,64 +84,73 @@ export default function MobileMenu(props) {
 
       {/* Drawer */}
       <aside
-        className={`fixed top-0 left-0 h-full w-72 z-50 bg-white dark:bg-slate-900 shadow-lg transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 z-50 bg-white dark:bg-slate-900 shadow-lg transform transition-transform duration-300 ease-in-out md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         role="dialog"
         aria-modal="true"
       >
         {/* Push content down so it doesn't sit under the hamburger */}
-        <nav className="flex flex-col px-6 pb-6 pt-16 space-y-3 text-gray-900 dark:text-gray-100 overflow-y-auto h-full">
+        <nav className="flex flex-col px-6 pb-6 pt-16 space-y-4 text-gray-900 dark:text-gray-100 overflow-y-auto h-full">
           {/* --- Discover --- */}
-          <div className="text-xs uppercase tracking-wide opacity-60">{t('discover', 'Discover')}</div>
-          <Link to="/" onClick={() => setOpen(false)} className="py-2">{t('home','Home')}</Link>
-          <Link to="/browse" onClick={() => setOpen(false)} className="py-2">{t('browse','Browse')}</Link>
-          <Link to="/calculator" onClick={() => setOpen(false)} className="py-2">{t('calculator','Calculator')}</Link>
+          <div className="text-xs uppercase tracking-wide opacity-60">
+            {t('discover', 'Discover')}
+          </div>
+
+          <Link to="/" onClick={closeAnd()} className="flex items-center gap-3 py-2">
+            <Home className="w-4 h-4" /> {t('home', 'Home')}
+          </Link>
+
+          <Link to="/browse" onClick={closeAnd()} className="flex items-center gap-3 py-2">
+            <BookOpen className="w-4 h-4" /> {t('browse', 'Browse')}
+          </Link>
+
+          <Link to="/calculator" onClick={closeAnd()} className="flex items-center gap-3 py-2">
+            <Calculator className="w-4 h-4" /> {t('calculator', 'Calculator')}
+          </Link>
+
+          {/* --- My stuff --- */}
+          <div className="mt-2 text-xs uppercase tracking-wide opacity-60">
+            {t('mystuff', 'My stuff')}
+          </div>
+
+          <Link to="/favorites" onClick={closeAnd()} className="flex items-center gap-3 py-2">
+            <Heart className="w-4 h-4" /> {t('favorites', 'Favorites')}
+          </Link>
+
+          {user ? (
+            <Link to="/account" onClick={closeAnd()} className="flex items-center gap-3 py-2">
+              <User className="w-4 h-4" /> {t('account', 'Account')}
+            </Link>
+          ) : null}
+
+          {/* --- Actions --- */}
+          {user ? (
+            <Link to="/admin" onClick={closeAnd()} className="flex items-center gap-3 py-2">
+              <Plus className="w-4 h-4" /> {t('addRecipe', 'Add recipe')}
+            </Link>
+          ) : null}
 
           {/* Divider */}
-          <div className="border-t border-gray-200 dark:border-slate-700 my-2" />
+          <hr className="border-gray-200 dark:border-slate-700 my-2" />
 
-          {/* --- Create --- */}
-          <div className="text-xs uppercase tracking-wide opacity-60">{t('create', 'Create')}</div>
-          <Link to="/create" onClick={() => setOpen(false)} className="py-2 inline-flex items-center gap-2">
-            <Plus className="w-4 h-4" /> {t('create_recipe','Create a recipe')}
-          </Link>
-
-          {/* Divider */}
-          <div className="border-t border-gray-200 dark:border-slate-700 my-2" />
-
-          {/* --- Library --- */}
-          <div className="text-xs uppercase tracking-wide opacity-60">{t('library', 'Library')}</div>
-          {/* If you have a "Your recipes" route, keep this; otherwise remove/adjust */}
-          <Link to="/your-recipes" onClick={() => setOpen(false)} className="py-2 inline-flex items-center gap-2">
-            <BookOpen className="w-4 h-4" /> {t('your_recipes','Your recipes')}
-          </Link>
-          <Link to="/favorites" onClick={() => setOpen(false)} className="py-2 inline-flex items-center gap-2">
-            <Heart className="w-4 h-4" /> {t('favorites','Favorites')}
-          </Link>
-          <Link to="/profile" onClick={() => setOpen(false)} className="py-2 inline-flex items-center gap-2">
-            <User className="w-4 h-4" /> {t('your_profile','Your profile')}
-          </Link>
-
-          {/* Divider */}
-          <div className="border-t border-gray-200 dark:border-slate-700 my-3" />
-
-          {/* Language selector */}
-          <div>
-            <div className="mb-2 text-xs uppercase tracking-wide opacity-60">
-              {t('language','Language')}
+          {/* --- Language + Theme --- */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 opacity-70" />
+              <span className="text-sm opacity-80">{t('language', 'Language')}</span>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               {langs.map((l) => (
                 <button
                   key={l.code}
-                  type="button"
                   onClick={() => changeLang(l.code)}
-                  className={`px-2.5 py-1 rounded-md border text-sm ${
-                    activeLang === l.code
+                  className={[
+                    'px-2 py-1 text-xs rounded-md border',
+                    activeLang?.startsWith(l.code)
                       ? 'bg-blue-600 text-white border-blue-600'
-                      : 'border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800'
-                  }`}
+                      : 'bg-transparent text-gray-800 dark:text-gray-100 border-gray-300 dark:border-slate-600',
+                  ].join(' ')}
                 >
                   {l.label}
                 </button>
@@ -128,39 +158,33 @@ export default function MobileMenu(props) {
             </div>
           </div>
 
-          {/* Theme toggle */}
-          <div className="flex items-center gap-3 pt-3 border-t border-gray-200 dark:border-slate-700">
-            {isDark ? (
-              <Moon className="w-5 h-5 text-yellow-400" />
-            ) : (
-              <Sun className="w-5 h-5 text-blue-500" />
-            )}
-            <span className="text-sm">{t('dark_mode','Dark mode')}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-sm opacity-80">{t('appearance', 'Appearance')}</span>
             <DarkModeToggle />
           </div>
 
-          {/* Auth */}
-          <div className="pt-3 border-t border-gray-200 dark:border-slate-700">
-            {user ? (
-              <button
-                type="button"
-                onClick={() => { onLogout?.(); setOpen(false); }}
-                className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400 hover:underline"
-              >
-                {/* lucide logout icon included above */}
-                {t('logout','Log out')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => { onLoginClick?.(); setOpen(false); }}
-                className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                <LogIn className="w-4 h-4" />
-                {t('login','Login')}
-              </button>
-            )}
-          </div>
+          {/* Divider */}
+          <hr className="border-gray-200 dark:border-slate-700 my-2" />
+
+          {/* --- Auth --- */}
+          {user ? (
+            <button
+              onClick={closeAnd(onLogout)}
+              className="flex items-center gap-3 py-2 text-rose-600 hover:text-rose-700 dark:text-rose-400"
+            >
+              <LogOut className="w-4 h-4" /> {t('logout', 'Log out')}
+            </button>
+          ) : (
+            <button
+              onClick={closeAnd(onLoginClick)}
+              className="flex items-center gap-3 py-2 text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            >
+              <LogIn className="w-4 h-4" /> {t('login', 'Log in')}
+            </button>
+          )}
+
+          {/* Spacer to avoid bottom cut-off on phones with home indicator */}
+          <div className="pt-[env(safe-area-inset-bottom)]" />
         </nav>
       </aside>
     </>
