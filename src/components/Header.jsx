@@ -7,6 +7,7 @@ import supabase from '@/supabaseClient';
  * - Reserves space for the fixed hamburger (MobileMenu places it at top-4 left-4).
  * - Centers the title on mobile; uses normal flow on md+.
  * - Truncates long titles and prevents overlap.
+ * - Displays a friendly name: user_metadata -> DB -> email prefix.
  */
 export default function Header({ user }) {
   const [displayName, setDisplayName] = useState('');
@@ -14,32 +15,52 @@ export default function Header({ user }) {
   useEffect(() => {
     let active = true;
 
-    const load = async () => {
-      if (!user?.id) {
-        setDisplayName('');
-        return;
-      }
+    const fromEmail = (em) => (em ? em.split('@')[0] : '');
+
+    // 1) Instant local value (no DB call)
+    const meta = user?.user_metadata || {};
+    const immediate =
+      meta.username ||
+      meta.user_name ||
+      meta.full_name ||
+      meta.name ||
+      fromEmail(user?.email) ||
+      '';
+
+    setDisplayName(user?.id ? immediate : '');
+
+    // 2) Optional: try to upgrade from your public table if it exists
+    (async () => {
+      if (!user?.id) return;
+
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('username, full_name')
-          .eq('id', user.id)
-          .single();
+        // Try common table names in order. Safe even if a table doesn't exist.
+        const candidates = ['profiles', 'users'];
+        for (const tbl of candidates) {
+          const { data, error } = await supabase
+            .from(tbl)
+            .select('username, display_name, full_name')
+            .eq('id', user.id)
+            .maybeSingle();
 
-        if (!active) return;
+          if (error) continue;
 
-        if (error) {
-          setDisplayName(user.email || '');
-        } else {
-          const name = data?.username || data?.full_name || user.email || '';
-          setDisplayName(name);
+          const dbName =
+            data?.username ||
+            data?.display_name ||
+            data?.full_name ||
+            '';
+
+          if (dbName && active) {
+            setDisplayName(dbName);
+            break;
+          }
         }
       } catch {
-        if (active) setDisplayName(user?.email || '');
+        // swallow; fallback already set
       }
-    };
+    })();
 
-    load();
     return () => {
       active = false;
     };
@@ -59,7 +80,7 @@ export default function Header({ user }) {
       ].join(' ')}
       role="banner"
     >
-      {/* Left spacer on mobile so the hamburger doesn't overlap */}
+      {/* Left spacer on mobile so the fixed hamburger doesn't overlap */}
       <div className="w-6 h-6 md:hidden" aria-hidden="true" />
 
       {/* Center title (absolute centered on mobile; normal flow on md+) */}
