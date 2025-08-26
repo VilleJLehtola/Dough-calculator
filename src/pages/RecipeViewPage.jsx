@@ -803,7 +803,7 @@ export default function RecipeViewPage() {
                     </span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ing.amount} {ig.unit ?? ""}
+                        {ing.amount} {ing.unit ?? ""}
                       </span>
                     )}
                   </li>
