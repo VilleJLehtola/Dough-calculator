@@ -17,6 +17,7 @@ import NutritionCard from "@/components/NutritionCard";
 import { computeNutrition, round0 } from "@/utils/nutrition";
 import ReportIssueLink from "@/components/ReportIssueLink"; // ⬅️ NEW
 import StepTimers from "@/components/StepTimers"; // ⬅️ NEW
+import ShoppingListButton from "@/components/ShoppingListButton"; // ⬅️ NEW
 
 const BUCKET = "recipe-images";
 
@@ -533,14 +534,14 @@ export default function RecipeViewPage() {
   // Loading / Error / Empty
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto p-4 md:p-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
         <div className="h-48 bg-gray-100 dark:bg-slate-800 rounded-xl animate-pulse" />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="max-w-5xl mx-auto p-4 md:p-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
         <ErrorState
           title={t("fetch_error", "Could not load recipe")}
           detail={error}
@@ -550,7 +551,7 @@ export default function RecipeViewPage() {
   }
   if (!recipe) {
     return (
-      <div className="max-w-5xl mx-auto p-4 md:p-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6">
         <EmptyState title={t("no_recipe", "Recipe not found")} />
       </div>
     );
@@ -563,7 +564,7 @@ export default function RecipeViewPage() {
       isAdmin);
 
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-6">
+    <div className="max-w-7xl mx-auto p-4 md:p-6">
       {/* Quick help links */}
       <div className="my-4 text-sm text-gray-600 dark:text-gray-300 flex flex-wrap gap-3">
         <span className="font-medium">{t("help", "Help")}:</span>
@@ -699,13 +700,18 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {t("ingredients")}
             </h2>
-            <button
-              onClick={() => setShowScale(true)}
-              className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-            >
-              <Scale className="w-4 h-4" />
-              {t("scale_recipe", "Scale")}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowScale(true)}
+                className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+              >
+                <Scale className="w-4 h-4" />
+                {t("scale_recipe", "Scale")}
+              </button>
+
+              {/* ⬇️ New: export shopping list (respects scaling) */}
+              <ShoppingListButton items={scaledIngredients} />
+            </div>
           </div>
 
           {showScale && !isMobile && (
@@ -825,7 +831,7 @@ export default function RecipeViewPage() {
             </h2>
           </div>
 
-          {/* ⬇️ NEW: step timers (reads steps with s.time minutes) */}
+          {/* ⬇️ step timers (reads steps with s.time minutes) */}
           <div className="px-4 pt-3">
             <StepTimers steps={steps} />
           </div>
