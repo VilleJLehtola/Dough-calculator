@@ -3,7 +3,7 @@ import React, { useMemo, useState } from "react";
 export default function ShoppingListButton({ items = [], title = "Shopping list" }) {
   const [status, setStatus] = useState("");
 
-  // Normalize: lines like "500 g Bread flour"
+  // Normalize list like: "500 g Bread flour"
   const lines = useMemo(() => {
     const rows = [];
     for (const it of items) {
@@ -20,11 +20,10 @@ export default function ShoppingListButton({ items = [], title = "Shopping list"
   const asText = () => lines.join("\n");
   const asCSV  = () => {
     const header = "amount,unit,name";
-    const rows = items.map(it => {
-      const amt = it?.amount != null && it?.amount !== "" ? String(it.amount) : "";
+    const rows = items.map((it) => {
+      const amt  = it?.amount != null && it?.amount !== "" ? String(it.amount) : "";
       const unit = it?.unit ? String(it.unit) : "";
       const name = it?.name ? String(it.name) : "";
-      // naive CSV escaping
       const esc = (s) => `"${String(s).replace(/"/g, '""')}"`;
       return [amt, unit, name].map(esc).join(",");
     });
@@ -68,7 +67,7 @@ export default function ShoppingListButton({ items = [], title = "Shopping list"
         className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 opacity-60 cursor-not-allowed"
         title="No ingredients to export"
       >
-        🛒 Shopping list
+        🛒 {title}
       </button>
     );
   }
@@ -80,7 +79,16 @@ export default function ShoppingListButton({ items = [], title = "Shopping list"
         className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
         title="Copy as text"
       >
-        🛒 Shopping list
+        🛒 {title}
       </button>
       <button
-        onClick={
+        onClick={downloadCSV}
+        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+        title="Download CSV"
+      >
+        CSV
+      </button>
+      {status && <span className="text-xs opacity-70">{status}</span>}
+    </div>
+  );
+}
