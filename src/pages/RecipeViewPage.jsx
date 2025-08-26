@@ -16,6 +16,7 @@ import { supaRender, supaSrcSet } from "@/utils/img";
 import NutritionCard from "@/components/NutritionCard";
 import { computeNutrition, round0 } from "@/utils/nutrition";
 import ReportIssueLink from "@/components/ReportIssueLink"; // ⬅️ NEW
+import StepTimers from "@/components/StepTimers"; // ⬅️ NEW
 
 const BUCKET = "recipe-images";
 
@@ -455,6 +456,17 @@ export default function RecipeViewPage() {
   const percent = Math.round(scale * 100);
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
+  // ⬇️ Helpers to update scale from inputs
+  const setByPercent = (val) => {
+    const p = Math.max(5, Math.min(400, Number(val) || 0));
+    setScale(p / 100);
+  };
+  const setByTargetFlour = (val) => {
+    const tg = Math.max(1, Number(val) || 0);
+    if (!baseFlour) return;
+    setScale(tg / baseFlour);
+  };
+
   const scaledIngredients = useMemo(() => {
     if (!ingredientsRaw?.length) return [];
     return ingredientsRaw.map((ing) => {
@@ -615,7 +627,7 @@ export default function RecipeViewPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap w/full sm:w-auto min-w-0">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto min-w-0">
           {totalTime != null && (
             <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
               <Clock className="w-3.5 h-3.5" />
@@ -791,7 +803,7 @@ export default function RecipeViewPage() {
                     </span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ing.amount} {ing.unit ?? ""}
+                        {ing.amount} {ig.unit ?? ""}
                       </span>
                     )}
                   </li>
@@ -812,6 +824,12 @@ export default function RecipeViewPage() {
               {t("instructions")}
             </h2>
           </div>
+
+          {/* ⬇️ NEW: step timers (reads steps with s.time minutes) */}
+          <div className="px-4 pt-3">
+            <StepTimers steps={steps} />
+          </div>
+
           <div className="p-4">
             {steps?.length ? (
               <ol className="list-decimal pl-5 space-y-2">
