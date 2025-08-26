@@ -12,7 +12,9 @@ import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { CARD_SIZES } from "@/utils/img";
 
-const PAGE_SIZE = 24;
+const DEFAULT_SIZE = 24;
+const MIN_SIZE = 6;
+const MAX_SIZE = 60;
 
 export default function BrowsePage() {
   const { t } = useTranslation();
@@ -26,11 +28,14 @@ export default function BrowsePage() {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const initialSize = clampInt(parseInt(sp.get("size") || DEFAULT_SIZE, 10), MIN_SIZE, MAX_SIZE);
 
   const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+
   const [q, setQ] = useState(initialQ);
   const qDebounced = useDebouncedValue(q, 300);
 
@@ -43,29 +48,29 @@ export default function BrowsePage() {
 
   // Pagination
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(initialSize);
   const [hasMore, setHasMore] = useState(true);
 
   const reload = () => setQ((s) => s);
 
-  // --- Sync to URL whenever search/filters change ---
+  // --- Sync to URL whenever search/filters/pageSize change ---
   useEffect(() => {
     const next = new URLSearchParams(sp);
     q ? next.set("q", q) : next.delete("q");
     next.set("sort", filters.sort);
     filters.hasImage ? next.set("img", "1") : next.delete("img");
-    filters.tags?.length
-      ? next.set("tags", filters.tags.join(","))
-      : next.delete("tags");
+    filters.tags?.length ? next.set("tags", filters.tags.join(",")) : next.delete("tags");
+    pageSize !== DEFAULT_SIZE ? next.set("size", String(pageSize)) : next.delete("size");
     setSp(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, filters.sort, filters.hasImage, filters.tags]);
+  }, [q, filters.sort, filters.hasImage, filters.tags, pageSize]);
 
   // --- Reset pagination when core inputs change ---
   useEffect(() => {
     setPage(0);
-  }, [qDebounced, filters.sort, filters.tags]);
+  }, [qDebounced, filters.sort, filters.tags, pageSize]);
 
-  // --- Fetch page ---
+  // --- Fetch current page ---
   useEffect(() => {
     let cancelled = false;
 
@@ -76,7 +81,7 @@ export default function BrowsePage() {
       else setLoadingMore(true);
 
       try {
-        // Base select: recipe fields + join tag names
+        // Base select: recipe fields + join tag names; include count
         let query = supabase
           .from("recipes")
           .select(
@@ -97,7 +102,7 @@ export default function BrowsePage() {
             .in("recipe_tags.tags.name", filters.tags);
         }
 
-        // Text search (title/description)
+        // Text search (title/description) — simple ILIKE
         const needle = qDebounced.trim();
         if (needle.length >= 2) {
           const term = `%${needle}%`;
@@ -105,8 +110,8 @@ export default function BrowsePage() {
         }
 
         // Pagination
-        const from = page * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
+        const from = page * pageSize;
+        const to = from + pageSize - 1;
         const { data, count, error } = await query.range(from, to);
         if (cancelled) return;
 
@@ -115,19 +120,21 @@ export default function BrowsePage() {
         const normalized =
           (data || []).map((r) => ({
             ...r,
-            tag_names: (r.recipe_tags || [])
-              .map((rt) => rt?.tags?.name)
-              .filter(Boolean),
+            tag_names: (r.recipe_tags || []).map((rt) => rt?.tags?.name).filter(Boolean),
           })) || [];
 
         setRows((prev) => (isFirstPage ? normalized : [...prev, ...normalized]));
-        const loadedSoFar = (isFirstPage ? 0 : from) + normalized.length;
+        setTotal(count || 0);
+
+        // Determine if there's more to load (based on full count)
+        const loadedSoFar = from + (normalized.length || 0);
         setHasMore((count || 0) > loadedSoFar);
       } catch (e) {
         if (!cancelled) {
           setError(e?.message || "Unexpected error");
           if (page === 0) setRows([]);
           setHasMore(false);
+          setTotal(0);
         }
       } finally {
         if (!cancelled) {
@@ -141,7 +148,7 @@ export default function BrowsePage() {
     return () => {
       cancelled = true;
     };
-  }, [qDebounced, filters.sort, filters.tags, page]);
+  }, [qDebounced, filters.sort, filters.tags, page, pageSize]);
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -155,13 +162,11 @@ export default function BrowsePage() {
   // Unique tags available in current result set (for the sheet)
   const availableTags = useMemo(() => {
     const s = new Set();
-    rows.forEach((r) =>
-      Array.isArray(r.tag_names) && r.tag_names.forEach((t) => s.add(t))
-    );
+    rows.forEach((r) => Array.isArray(r.tag_names) && r.tag_names.forEach((t) => s.add(t)));
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  // Client-side image filter
+  // Client-side image filter (doesn't affect total/hasMore)
   const filtered = useMemo(() => {
     let list = rows;
     if (filters.hasImage) list = list.filter((r) => !!heroFor(r));
@@ -201,9 +206,37 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      <p className="text-gray-600 dark:text-gray-400 mb-4">
-        {t("latest_recipes", "Latest recipes")}
-      </p>
+      {/* Subheader: info line + page size selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <p className="text-gray-600 dark:text-gray-400">
+          {t("latest_recipes", "Latest recipes")}
+        </p>
+
+        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3">
+          <span>
+            {t("showing_of", "Showing")} <strong>{filtered.length}</strong>{" "}
+            {t("of", "of")} <strong>{total}</strong> • {t("page", "Page")}{" "}
+            <strong>{page + 1}</strong> • {t("page_size", "Page size")}{" "}
+            <strong>{pageSize}</strong>
+          </span>
+
+          <label className="inline-flex items-center gap-1">
+            <span className="sr-only">{t("page_size", "Page size")}</span>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(clampInt(Number(e.target.value), MIN_SIZE, MAX_SIZE))}
+              className="border border-gray-300 dark:border-slate-600 rounded px-2 py-1 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200"
+              aria-label={t("page_size", "Page size")}
+            >
+              {[12, 24, 36, 48, 60].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
 
       {/* Grid / states */}
       {loading && page === 0 ? (
@@ -240,7 +273,7 @@ export default function BrowsePage() {
         </EmptyState>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2XL:grid-cols-5 gap-6">
             {filtered.map((r, i) => {
               const hero = heroFor(r);
               const isFirst = i === 0; // small LCP win
@@ -285,9 +318,7 @@ export default function BrowsePage() {
                               e.preventDefault();
                               setFilters((prev) => ({
                                 ...prev,
-                                tags: Array.from(
-                                  new Set([...(prev.tags || []), tag])
-                                ),
+                                tags: Array.from(new Set([...(prev.tags || []), tag])),
                               }));
                               setFiltersOpen(true);
                             }}
@@ -340,4 +371,9 @@ export default function BrowsePage() {
       />
     </div>
   );
+}
+
+function clampInt(n, min, max) {
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
 }
