@@ -20,7 +20,7 @@ export default function BrowsePage() {
   const { t } = useTranslation();
   const [sp, setSp] = useSearchParams();
 
-  // --- Init from URL ---
+  // --- init from URL ---
   const initialQ = sp.get("q") || "";
   const initialSort = sp.get("sort") === "oldest" ? "oldest" : "newest";
   const initialImg = sp.get("img") === "1";
@@ -30,6 +30,7 @@ export default function BrowsePage() {
     .filter(Boolean);
   const initialSize = clampInt(parseInt(sp.get("size") || DEFAULT_SIZE, 10), MIN_SIZE, MAX_SIZE);
 
+  // core state
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -41,19 +42,35 @@ export default function BrowsePage() {
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
-    sort: initialSort, // 'newest' | 'oldest'
-    hasImage: initialImg, // client-side filter
-    tags: initialTags, // array of tag names
+    sort: initialSort,     // 'newest' | 'oldest'
+    hasImage: initialImg,  // client-side filter
+    tags: initialTags,     // tag names
   });
 
-  // Pagination
+  // pagination
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(initialSize);
   const [hasMore, setHasMore] = useState(true);
 
-  const reload = () => setQ((s) => s);
+  // Popular tags (DB-wide, not just current results)
+  const [popularTags, setPopularTags] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from("tags_popular") // view suggested earlier
+      .select("name")
+      .limit(24)
+      .then(({ data }) => {
+        if (!alive) return;
+        setPopularTags((data || []).map((x) => x.name));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  // --- Sync to URL whenever search/filters/pageSize change ---
+  // reflect state -> URL
   useEffect(() => {
     const next = new URLSearchParams(sp);
     q ? next.set("q", q) : next.delete("q");
@@ -65,12 +82,12 @@ export default function BrowsePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, filters.sort, filters.hasImage, filters.tags, pageSize]);
 
-  // --- Reset pagination when core inputs change ---
+  // restart pagination when core inputs change
   useEffect(() => {
     setPage(0);
   }, [qDebounced, filters.sort, filters.tags, pageSize]);
 
-  // --- Fetch current page ---
+  // fetch a page
   useEffect(() => {
     let cancelled = false;
 
@@ -81,7 +98,7 @@ export default function BrowsePage() {
       else setLoadingMore(true);
 
       try {
-        // Base select: recipe fields + join tag names; include count
+        // base select: join tag names for display, ask for count
         let query = supabase
           .from("recipes")
           .select(
@@ -90,7 +107,7 @@ export default function BrowsePage() {
           )
           .order("created_at", { ascending: filters.sort === "oldest" });
 
-        // Tag filter (ANY-of names) -> force inner join and filter on joined column
+        // tag filter (ANY-of)
         if (filters.tags?.length) {
           query = supabase
             .from("recipes")
@@ -102,19 +119,19 @@ export default function BrowsePage() {
             .in("recipe_tags.tags.name", filters.tags);
         }
 
-        // Text search (title/description) — simple ILIKE
+        // text search (simple ILIKE on title/description)
         const needle = qDebounced.trim();
         if (needle.length >= 2) {
           const term = `%${needle}%`;
           query = query.or(`title.ilike.${term},description.ilike.${term}`);
         }
 
-        // Pagination
+        // pagination
         const from = page * pageSize;
         const to = from + pageSize - 1;
         const { data, count, error } = await query.range(from, to);
-        if (cancelled) return;
 
+        if (cancelled) return;
         if (error) throw error;
 
         const normalized =
@@ -126,7 +143,6 @@ export default function BrowsePage() {
         setRows((prev) => (isFirstPage ? normalized : [...prev, ...normalized]));
         setTotal(count || 0);
 
-        // Determine if there's more to load (based on full count)
         const loadedSoFar = from + (normalized.length || 0);
         setHasMore((count || 0) > loadedSoFar);
       } catch (e) {
@@ -150,6 +166,7 @@ export default function BrowsePage() {
     };
   }, [qDebounced, filters.sort, filters.tags, page, pageSize]);
 
+  // derived helpers
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
     if (Array.isArray(r?.images) && r.images.length) {
@@ -159,14 +176,13 @@ export default function BrowsePage() {
     return null;
   };
 
-  // Unique tags available in current result set (for the sheet)
   const availableTags = useMemo(() => {
     const s = new Set();
     rows.forEach((r) => Array.isArray(r.tag_names) && r.tag_names.forEach((t) => s.add(t)));
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  // Client-side image filter (doesn't affect total/hasMore)
+  // client-side image filter
   const filtered = useMemo(() => {
     let list = rows;
     if (filters.hasImage) list = list.filter((r) => !!heroFor(r));
@@ -183,16 +199,14 @@ export default function BrowsePage() {
         canonical="https://www.breadcalculator.online/browse"
       />
 
-      {/* Header */}
-      <div className="flex items-end justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            {t("recipe_library", "Recipe library")}
-          </h1>
-        </div>
+      {/* Header (stack on mobile) */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-2">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          {t("recipe_library", "Recipe library")}
+        </h1>
 
         {/* Search */}
-        <div className="w-full max-w-xl">
+        <div className="w-full sm:max-w-xl">
           <SearchBar
             value={q}
             onChange={setQ}
@@ -206,14 +220,14 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* Subheader: info line + page size selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+      {/* Subheader: info + page size, wraps on mobile */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
         <p className="text-gray-600 dark:text-gray-400">
           {t("latest_recipes", "Latest recipes")}
         </p>
 
-        <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3">
-          <span>
+        <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2">
+          <span className="whitespace-normal">
             {t("showing_of", "Showing")} <strong>{filtered.length}</strong>{" "}
             {t("of", "of")} <strong>{total}</strong> • {t("page", "Page")}{" "}
             <strong>{page + 1}</strong> • {t("page_size", "Page size")}{" "}
@@ -238,15 +252,36 @@ export default function BrowsePage() {
         </div>
       </div>
 
+      {/* Popular tags row (helps on mobile) */}
+      {Array.isArray(popularTags) && popularTags.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {popularTags.slice(0, 10).map((tag) => (
+            <button
+              key={`pop-${tag}`}
+              className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+              onClick={() =>
+                setFilters((prev) => ({
+                  ...prev,
+                  tags: Array.from(new Set([...(prev.tags || []), tag])),
+                }))
+              }
+              title={`#${tag}`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Grid / states */}
       {loading && page === 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={`s-${i}`}
               className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800"
             >
-              <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
+              <div className="w-full aspect-[4/3] sm:aspect-[16/9] bg-gray-100 dark:bg-slate-900 animate-pulse" />
               <div className="p-3 space-y-2">
                 <div className="h-5 w-2/3 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-4 w-4/5 bg-gray-100 dark:bg-slate-700 rounded animate-pulse" />
@@ -260,7 +295,7 @@ export default function BrowsePage() {
           detail={error}
           action={
             <button
-              onClick={reload}
+              onClick={() => setQ((s) => s)}
               className="px-3 py-1.5 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-500"
             >
               {t("retry", "Retry")}
@@ -273,17 +308,17 @@ export default function BrowsePage() {
         </EmptyState>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2XL:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
             {filtered.map((r, i) => {
               const hero = heroFor(r);
-              const isFirst = i === 0; // small LCP win
+              const isFirst = i === 0; // mild LCP win
               return (
                 <Link
                   key={r.id}
                   to={`/recipe/${r.id}`}
                   className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
                 >
-                  <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+                  <div className="w-full aspect-[4/3] sm:aspect-[16/9] bg-gray-100 dark:bg-slate-900">
                     {hero ? (
                       <SmartImage
                         src={hero}
@@ -367,7 +402,7 @@ export default function BrowsePage() {
           setFiltersOpen(false);
         }}
         initial={filters}
-        availableTags={availableTags}
+        availableTags={Array.from(new Set([...(popularTags || []), ...availableTags]))}
       />
     </div>
   );
