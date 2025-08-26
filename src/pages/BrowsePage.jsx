@@ -1,6 +1,6 @@
 // src/pages/BrowsePage.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import supabase from "@/supabaseClient";
 import { useTranslation } from "react-i18next";
 import SearchBar from "@/components/SearchBar";
@@ -12,97 +12,136 @@ import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { CARD_SIZES } from "@/utils/img";
 
+const PAGE_SIZE = 24;
+
 export default function BrowsePage() {
   const { t } = useTranslation();
+  const [sp, setSp] = useSearchParams();
+
+  // --- Init from URL ---
+  const initialQ = sp.get("q") || "";
+  const initialSort = sp.get("sort") === "oldest" ? "oldest" : "newest";
+  const initialImg = sp.get("img") === "1";
+  const initialTags = (sp.get("tags") || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ);
   const qDebounced = useDebouncedValue(q, 300);
 
-  // Filters
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({
-    sort: "newest", // 'newest' | 'oldest'
-    hasImage: false, // client-side filter
-    tags: [], // array of tag *names*
+    sort: initialSort, // 'newest' | 'oldest'
+    hasImage: initialImg, // client-side filter
+    tags: initialTags, // array of tag names
   });
+
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
 
   const reload = () => setQ((s) => s);
 
+  // --- Sync to URL whenever search/filters change ---
+  useEffect(() => {
+    const next = new URLSearchParams(sp);
+    q ? next.set("q", q) : next.delete("q");
+    next.set("sort", filters.sort);
+    filters.hasImage ? next.set("img", "1") : next.delete("img");
+    filters.tags?.length
+      ? next.set("tags", filters.tags.join(","))
+      : next.delete("tags");
+    setSp(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, filters.sort, filters.hasImage, filters.tags]);
+
+  // --- Reset pagination when core inputs change ---
+  useEffect(() => {
+    setPage(0);
+  }, [qDebounced, filters.sort, filters.tags]);
+
+  // --- Fetch page ---
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
-      setLoading(true);
+    const run = async () => {
+      const isFirstPage = page === 0;
       setError("");
+      if (isFirstPage) setLoading(true);
+      else setLoadingMore(true);
 
       try {
-        // Base select: recipe fields + join to tag names
-        // NOTE: When filtering by tags, we force an inner join so only
-        // recipes with those tags are returned.
-        const baseFields =
-          "id,title,description,cover_image,images,created_at,recipe_tags(tags(name),tag_id)";
+        // Base select: recipe fields + join tag names
+        let query = supabase
+          .from("recipes")
+          .select(
+            "id,title,description,cover_image,images,created_at,recipe_tags(tags(name),tag_id)",
+            { count: "exact" }
+          )
+          .order("created_at", { ascending: filters.sort === "oldest" });
 
-        let query = supabase.from("recipes").select(baseFields);
-
-        // Tag filter (ANY-of, by tag *names*)
+        // Tag filter (ANY-of names) -> force inner join and filter on joined column
         if (filters.tags?.length) {
           query = supabase
             .from("recipes")
             .select(
-              "id,title,description,cover_image,images,created_at,recipe_tags!inner(tags(name),tag_id)"
+              "id,title,description,cover_image,images,created_at,recipe_tags!inner(tags(name),tag_id)",
+              { count: "exact" }
             )
+            .order("created_at", { ascending: filters.sort === "oldest" })
             .in("recipe_tags.tags.name", filters.tags);
         }
 
-        // Sort
-        query = query.order("created_at", {
-          ascending: filters.sort === "oldest",
-        });
-
-        // Search (debounced) — simple title/description ILIKE
+        // Text search (title/description)
         const needle = qDebounced.trim();
         if (needle.length >= 2) {
           const term = `%${needle}%`;
-          query = query.or(
-            [`title.ilike.${term}`, `description.ilike.${term}`].join(",")
-          );
+          query = query.or(`title.ilike.${term},description.ilike.${term}`);
         }
 
-        // Limit (you can add pagination later)
-        const { data, error } = await query.limit(60);
+        // Pagination
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+        const { data, count, error } = await query.range(from, to);
         if (cancelled) return;
 
-        if (error) {
-          setRows([]);
-          setError(error.message || "Error fetching recipes");
-        } else {
-          // Normalize: flatten tag names for UI
-          const normalized =
-            (data || []).map((r) => ({
-              ...r,
-              tag_names: (r.recipe_tags || [])
-                .map((rt) => rt?.tags?.name)
-                .filter(Boolean),
-            })) || [];
-          setRows(normalized);
-        }
+        if (error) throw error;
+
+        const normalized =
+          (data || []).map((r) => ({
+            ...r,
+            tag_names: (r.recipe_tags || [])
+              .map((rt) => rt?.tags?.name)
+              .filter(Boolean),
+          })) || [];
+
+        setRows((prev) => (isFirstPage ? normalized : [...prev, ...normalized]));
+        const loadedSoFar = (isFirstPage ? 0 : from) + normalized.length;
+        setHasMore((count || 0) > loadedSoFar);
       } catch (e) {
         if (!cancelled) {
-          setRows([]);
           setError(e?.message || "Unexpected error");
+          if (page === 0) setRows([]);
+          setHasMore(false);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
-    })();
+    };
 
+    run();
     return () => {
       cancelled = true;
     };
-  }, [qDebounced, filters.sort, filters.tags]);
+  }, [qDebounced, filters.sort, filters.tags, page]);
 
   const heroFor = (r) => {
     if (r?.cover_image) return r.cover_image;
@@ -122,7 +161,7 @@ export default function BrowsePage() {
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  // Client-side “has image” filter
+  // Client-side image filter
   const filtered = useMemo(() => {
     let list = rows;
     if (filters.hasImage) list = list.filter((r) => !!heroFor(r));
@@ -167,7 +206,7 @@ export default function BrowsePage() {
       </p>
 
       {/* Grid / states */}
-      {loading ? (
+      {loading && page === 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
           {Array.from({ length: 8 }).map((_, i) => (
             <div
@@ -200,68 +239,92 @@ export default function BrowsePage() {
           {t("try_adjusting_filters", "Try adjusting filters or clearing the search.")}
         </EmptyState>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-          {filtered.map((r, i) => {
-            const hero = heroFor(r);
-            const isFirst = i === 0; // small LCP win for first card
-            return (
-              <Link
-                key={r.id}
-                to={`/recipe/${r.id}`}
-                className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
-              >
-                <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
-                  {hero ? (
-                    <SmartImage
-                      src={hero}
-                      alt={r.title || "Recipe"}
-                      className="w-full h-full object-cover"
-                      sizes={CARD_SIZES}
-                      preferredFormats={["avif", "webp"]}
-                      loading={isFirst ? "eager" : "lazy"}
-                      fetchPriority={isFirst ? "high" : "low"}
-                      decoding="async"
-                    />
-                  ) : null}
-                </div>
-                <div className="p-3">
-                  <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
-                    {r.title}
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {filtered.map((r, i) => {
+              const hero = heroFor(r);
+              const isFirst = i === 0; // small LCP win
+              return (
+                <Link
+                  key={r.id}
+                  to={`/recipe/${r.id}`}
+                  className="rounded-xl overflow-hidden border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow transition"
+                >
+                  <div className="w-full aspect-[16/9] bg-gray-100 dark:bg-slate-900">
+                    {hero ? (
+                      <SmartImage
+                        src={hero}
+                        alt={r.title || "Recipe"}
+                        className="w-full h-full object-cover"
+                        sizes={CARD_SIZES}
+                        preferredFormats={["avif", "webp"]}
+                        loading={isFirst ? "eager" : "lazy"}
+                        fetchPriority={isFirst ? "high" : "low"}
+                        decoding="async"
+                      />
+                    ) : null}
                   </div>
-                  {r.description ? (
-                    <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
-                      {r.description}
+                  <div className="p-3">
+                    <div className="font-semibold text-gray-900 dark:text-white line-clamp-1">
+                      {r.title}
                     </div>
-                  ) : null}
+                    {r.description ? (
+                      <div className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                        {r.description}
+                      </div>
+                    ) : null}
 
-                  {/* Tags */}
-                  {Array.isArray(r.tag_names) && r.tag_names.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {r.tag_names.slice(0, 6).map((tag) => (
-                        <button
-                          key={tag}
-                          className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            // Add to active tag filters
-                            setFilters((prev) => ({
-                              ...prev,
-                              tags: Array.from(new Set([...(prev.tags || []), tag])),
-                            }));
-                            setFiltersOpen(true);
-                          }}
-                          title={`#${tag}`}
-                        >
-                          #{tag}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+                    {/* Tag chips */}
+                    {Array.isArray(r.tag_names) && r.tag_names.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {r.tag_names.slice(0, 6).map((tag) => (
+                          <button
+                            key={tag}
+                            className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setFilters((prev) => ({
+                                ...prev,
+                                tags: Array.from(
+                                  new Set([...(prev.tags || []), tag])
+                                ),
+                              }));
+                              setFiltersOpen(true);
+                            }}
+                            title={`#${tag}`}
+                          >
+                            #{tag}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Load more */}
+          {(hasMore || loadingMore) && (
+            <div className="flex justify-center mt-6">
+              {loadingMore ? (
+                <button
+                  disabled
+                  className="px-4 py-2 rounded-md border border-gray-300 dark:border-slate-600 text-sm opacity-70"
+                >
+                  {t("loading", "Loading…")}
+                </button>
+              ) : hasMore ? (
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-500"
+                >
+                  {t("load_more", "Load more")}
+                </button>
+              ) : null}
+            </div>
+          )}
+        </>
       )}
 
       {/* Filters sheet */}
