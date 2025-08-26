@@ -1,6 +1,6 @@
 // /api/p/[id].js
-// OG-enabled share page for a recipe ID.
-// Bots see OG tags with the recipe's cover image; users redirect to /recipe/:id.
+// Share page with real OG tags. Bots read this HTML; users are redirected.
+// Requires env vars: PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY
 export const config = { runtime: "edge" };
 
 export default async function handler(req) {
@@ -11,43 +11,52 @@ export default async function handler(req) {
   let title = "Everything Dough — Recipe";
   let description = "Recipe details and instructions";
   let cover = `${origin}/og-image.jpg`;
-  let tags = "";
+  let tagNames = [];
 
   try {
     const SUPABASE_URL = process.env.PUBLIC_SUPABASE_URL;
     const ANON = process.env.PUBLIC_SUPABASE_ANON_KEY;
 
     if (SUPABASE_URL && ANON && id) {
-      const q = new URL(`${SUPABASE_URL}/rest/v1/recipes`);
-      q.searchParams.set("id", `eq.${id}`);
-      q.searchParams.set("select", "title,description,images,cover_image,tags");
+      // --- 1) Fetch recipe basics ---
+      const rq = new URL(`${SUPABASE_URL}/rest/v1/recipes`);
+      rq.searchParams.set("id", `eq.${id}`);
+      rq.searchParams.set("select", "title,description,images,cover_image");
 
-      const res = await fetch(q.toString(), {
+      const rres = await fetch(rq.toString(), {
         headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
         cache: "no-store",
       });
 
-      if (res.ok) {
-        const rows = await res.json();
+      if (rres.ok) {
+        const rows = await rres.json();
         const r = rows?.[0];
         if (r) {
           title = r.title || title;
           description = r.description || description;
 
-          // prefer explicit cover_image, then first of images[]
           const firstImg =
             (Array.isArray(r.images) && r.images.length && (r.images[0]?.url || r.images[0])) ||
             r.cover_image ||
             "";
           if (firstImg) cover = firstImg;
-
-          tags = String(r.tags || "")
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .slice(0, 3)
-            .join(", ");
         }
+      }
+
+      // --- 2) Fetch tag names via join: recipe_tags -> tags(name) ---
+      // Requires FK: recipe_tags.tag_id -> tags.id
+      const tq = new URL(`${SUPABASE_URL}/rest/v1/recipe_tags`);
+      tq.searchParams.set("select", "tags(name)");
+      tq.searchParams.set("recipe_id", `eq.${id}`);
+
+      const tres = await fetch(tq.toString(), {
+        headers: { apikey: ANON, Authorization: `Bearer ${ANON}` },
+        cache: "no-store",
+      });
+
+      if (tres.ok) {
+        const trows = await tres.json();
+        tagNames = [...new Set(trows.map((row) => row?.tags?.name).filter(Boolean))];
       }
     }
   } catch {
@@ -56,6 +65,10 @@ export default async function handler(req) {
 
   const recipeUrl = `${origin}/recipe/${id}`;
   const ogImage = cover || `${origin}/og-image.jpg`;
+  const tagMeta = tagNames
+    .slice(0, 3)
+    .map((t) => `<meta property="article:tag" content="${esc(t)}">`)
+    .join("\n");
 
   const html = `<!doctype html>
 <html lang="en">
@@ -73,7 +86,7 @@ export default async function handler(req) {
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="${recipeUrl}">
-${tags ? `<meta property="article:tag" content="${esc(tags)}">` : ""}
+${tagMeta}
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${esc(title)}">
@@ -88,7 +101,11 @@ ${tags ? `<meta property="article:tag" content="${esc(tags)}">` : ""}
 </html>`;
 
   return new Response(html, {
-    headers: { "content-type": "text/html; charset=utf-8" },
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      // cache a bit on the edge; adjust as you like
+      "cache-control": "public, max-age=0, s-maxage=60",
+    },
   });
 }
 
