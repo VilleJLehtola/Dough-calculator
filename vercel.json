@@ -1,9 +1,5 @@
 {
   "version": 2,
-  "functions": {
-    "api/og/recipe.js": { "runtime": "edge" },
-    "api/p/[id].js": { "runtime": "edge" }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
