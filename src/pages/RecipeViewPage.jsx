@@ -1,23 +1,24 @@
 // src/pages/RecipeViewPage.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { useParams, Link } from "react-router-dom";
 import supabase from "@/supabaseClient";
 import { Clock, Users, ChefHat, Pencil, Scale } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LikeFavoriteBar from "@/components/LikeFavoriteBar";
 import ShareButton from "@/components/ShareButton";
-import CommentsSection from "@/components/CommentsSection";
 import { track } from "@/analytics";
 import SEO from "@/components/SEO";
 import { recipeJsonLd } from "@/seo/jsonld";
 import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { supaRender, supaSrcSet } from "@/utils/img";
-import NutritionCard from "@/components/NutritionCard";
 import { computeNutrition, round0 } from "@/utils/nutrition";
-import ReportIssueLink from "@/components/ReportIssueLink"; // ⬅️ NEW
-import StepTimers from "@/components/StepTimers"; // ⬅️ NEW
-import ShoppingListButton from "@/components/ShoppingListButton"; // ⬅️ NEW
+import ReportIssueLink from "@/components/ReportIssueLink";
+
+// ⬇️ Lazy-load heavier chunks
+const CommentsSection = lazy(() => import("@/components/CommentsSection"));
+const NutritionCard = lazy(() => import("@/components/NutritionCard"));
+const StepTimers = lazy(() => import("@/components/StepTimers"));
 
 const BUCKET = "recipe-images";
 
@@ -212,7 +213,7 @@ async function listFolderUrls(folder) {
 
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
-  const { t } = useTranslation("common"); // ensure "common" ns, fallback-safe
+  const { t } = useTranslation("common");
   const { id } = useParams();
 
   // Loading / error states
@@ -457,7 +458,7 @@ export default function RecipeViewPage() {
   const percent = Math.round(scale * 100);
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
-  // ⬇️ Helpers to update scale from inputs
+  // Helpers to update scale from inputs
   const setByPercent = (val) => {
     const p = Math.max(5, Math.min(400, Number(val) || 0));
     setScale(p / 100);
@@ -481,7 +482,8 @@ export default function RecipeViewPage() {
   const recipeForNutrition = useMemo(() => {
     return {
       ...recipe,
-      ingredients: (scaledIngredients?.length ? scaledIngredients : recipe?.ingredients) || []
+      ingredients:
+        (scaledIngredients?.length ? scaledIngredients : recipe?.ingredients) || [],
     };
   }, [recipe, scaledIngredients]);
 
@@ -493,7 +495,7 @@ export default function RecipeViewPage() {
     try {
       return computeNutrition(recipeForNutrition, {
         bakeLossPct: DEFAULT_BAKE_LOSS,
-        sliceGrams: DEFAULT_SLICE_GRAMS
+        sliceGrams: DEFAULT_SLICE_GRAMS,
       });
     } catch {
       return null;
@@ -509,7 +511,7 @@ export default function RecipeViewPage() {
       fatContent: `${round0(nut.perSlice.fat)} g`,
       fiberContent: `${round0(nut.perSlice.fiber)} g`,
       sodiumContent: `${round0(nut.perSlice.sodium_mg)} mg`,
-      servingSize: `${DEFAULT_SLICE_GRAMS} g`
+      servingSize: `${DEFAULT_SLICE_GRAMS} g`,
     };
   }, [nut]);
 
@@ -528,20 +530,20 @@ export default function RecipeViewPage() {
     prepTime: recipe?.prep_time_iso,
     cookTime: recipe?.cook_time_iso,
     recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
-    nutrition: nutritionJsonLd // ⬅️ include if available
+    nutrition: nutritionJsonLd,
   });
 
   // Loading / Error / Empty
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
         <div className="h-48 bg-gray-100 dark:bg-slate-800 rounded-xl animate-pulse" />
       </div>
     );
   }
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
         <ErrorState
           title={t("fetch_error", "Could not load recipe")}
           detail={error}
@@ -551,7 +553,7 @@ export default function RecipeViewPage() {
   }
   if (!recipe) {
     return (
-      <div className="max-w-7xl mx-auto p-4 md:p-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6">
         <EmptyState title={t("no_recipe", "Recipe not found")} />
       </div>
     );
@@ -564,7 +566,7 @@ export default function RecipeViewPage() {
       isAdmin);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6">
+    <div className="max-w-5xl mx-auto p-4 md:p-6">
       {/* Quick help links */}
       <div className="my-4 text-sm text-gray-600 dark:text-gray-300 flex flex-wrap gap-3">
         <span className="font-medium">{t("help", "Help")}:</span>
@@ -700,18 +702,13 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {t("ingredients")}
             </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowScale(true)}
-                className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-              >
-                <Scale className="w-4 h-4" />
-                {t("scale_recipe", "Scale")}
-              </button>
-
-              {/* ⬇️ New: export shopping list (respects scaling) */}
-              <ShoppingListButton items={scaledIngredients} />
-            </div>
+            <button
+              onClick={() => setShowScale(true)}
+              className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+            >
+              <Scale className="w-4 h-4" />
+              {t("scale_recipe", "Scale")}
+            </button>
           </div>
 
           {showScale && !isMobile && (
@@ -809,7 +806,7 @@ export default function RecipeViewPage() {
                     </span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ing.amount} {ing.unit ?? ""}
+                        {ing.amount} {(ing.unit ?? "").trim()}
                       </span>
                     )}
                   </li>
@@ -831,9 +828,15 @@ export default function RecipeViewPage() {
             </h2>
           </div>
 
-          {/* ⬇️ step timers (reads steps with s.time minutes) */}
+          {/* Step timers (reads steps with s.time minutes) */}
           <div className="px-4 pt-3">
-            <StepTimers steps={steps} />
+            <Suspense
+              fallback={
+                <div className="h-9 rounded-md bg-gray-100 dark:bg-slate-800 animate-pulse" />
+              }
+            >
+              <StepTimers steps={steps} />
+            </Suspense>
           </div>
 
           <div className="p-4">
@@ -860,13 +863,21 @@ export default function RecipeViewPage() {
 
         {/* Nutrition (right column) */}
         <section className="lg:col-start-2">
-          {/* Pass scaled ingredients so Per loaf reacts to scaling */}
-          <NutritionCard recipe={recipeForNutrition} />
+          <Suspense
+            fallback={
+              <div className="h-40 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 animate-pulse" />
+            }
+          >
+            {/* Pass scaled ingredients so Per loaf reacts to scaling */}
+            <NutritionCard recipe={recipeForNutrition} />
+          </Suspense>
         </section>
 
         {/* Comments */}
         {recipe?.id ? (
-          <CommentsSection recipeId={recipe.id} user={user} />
+          <Suspense fallback={<div className="h-16" />}>
+            <CommentsSection recipeId={recipe.id} user={user} />
+          </Suspense>
         ) : null}
       </div>
 
