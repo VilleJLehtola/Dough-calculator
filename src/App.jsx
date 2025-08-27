@@ -19,7 +19,7 @@ import PrivacyPage from '@/pages/PrivacyPage';
 import TermsPage from '@/pages/TermsPage';
 import ContactPage from '@/pages/ContactPage';
 import FAQPage from "@/pages/FAQPage";
-
+import ShoppingListDock from "@/components/ShoppingListDock";
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -72,7 +72,6 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faq" element={<FAQPage />} />
 
-
           {/* New canonical route */}
           <Route path="/recipe/:id" element={<RecipeViewPage />} />
           {/* Legacy alias so old links keep working */}
@@ -81,6 +80,9 @@ export default function App() {
           {/* Fallback */}
           <Route path="*" element={<FrontPage />} />
         </Routes>
+
+        {/* ✅ Floating shopping list dock, visible on all pages */}
+        <ShoppingListDock />
       </Layout>
     </Router>
   );
