@@ -1,94 +1,49 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { ShoppingCart, Check } from "lucide-react";
+import { addItems } from "@/utils/shoppingList";
 
-export default function ShoppingListButton({ items = [], title = "Shopping list" }) {
-  const [status, setStatus] = useState("");
+export default function ShoppingListButton({ ingredients = [] }) {
+  const [ok, setOk] = useState(false);
 
-  // Normalize list like: "500 g Bread flour"
-  const lines = useMemo(() => {
-    const rows = [];
-    for (const it of items) {
-      const name = (it?.name || "").trim();
-      const amt  = it?.amount != null && it?.amount !== "" ? String(it.amount) : "";
-      const unit = (it?.unit || "").trim();
-      const left = [amt, unit].filter(Boolean).join(" ");
-      const line = [left, name].filter(Boolean).join(" ").trim();
-      if (line) rows.push(line);
-    }
-    return rows;
-  }, [items]);
+  // Normalize & keep even name-only rows; drop empty names
+  const normalized = useMemo(() => {
+    const norm = (s) => (s == null ? "" : String(s)).trim();
+    return (ingredients || [])
+      .map((i) => ({
+        name: norm(i?.name),
+        amount: Number.isFinite(Number(i?.amount))
+          ? Number(i.amount)
+          : undefined,
+        unit: norm(i?.unit),
+      }))
+      .filter((i) => i.name.length > 0);
+  }, [ingredients]);
 
-  const asText = () => lines.join("\n");
-  const asCSV  = () => {
-    const header = "amount,unit,name";
-    const rows = items.map((it) => {
-      const amt  = it?.amount != null && it?.amount !== "" ? String(it.amount) : "";
-      const unit = it?.unit ? String(it.unit) : "";
-      const name = it?.name ? String(it.name) : "";
-      const esc = (s) => `"${String(s).replace(/"/g, '""')}"`;
-      return [amt, unit, name].map(esc).join(",");
-    });
-    return [header, ...rows].join("\n");
+  const disabled = normalized.length === 0;
+
+  const onClick = () => {
+    if (disabled) return;
+    addItems(normalized);
+    setOk(true);
+    setTimeout(() => setOk(false), 1200);
   };
-
-  const copyText = async () => {
-    try {
-      await navigator.clipboard.writeText(asText());
-      setStatus("Copied ✓");
-    } catch {
-      download("shopping-list.txt", asText(), "text/plain");
-      setStatus("Downloaded");
-    } finally {
-      setTimeout(() => setStatus(""), 1500);
-    }
-  };
-
-  const downloadCSV = () => {
-    download("shopping-list.csv", asCSV(), "text/csv");
-    setStatus("Downloaded");
-    setTimeout(() => setStatus(""), 1500);
-  };
-
-  const download = (filename, content, type) => {
-    const blob = new Blob([content], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  if (!lines.length) {
-    return (
-      <button
-        disabled
-        className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 opacity-60 cursor-not-allowed"
-        title="No ingredients to export"
-      >
-        🛒 {title}
-      </button>
-    );
-  }
 
   return (
-    <div className="relative inline-flex items-center gap-2">
-      <button
-        onClick={copyText}
-        className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-        title="Copy as text"
-      >
-        🛒 {title}
-      </button>
-      <button
-        onClick={downloadCSV}
-        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-        title="Download CSV"
-      >
-        CSV
-      </button>
-      {status && <span className="text-xs opacity-70">{status}</span>}
-    </div>
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-sm border ${
+        disabled
+          ? "opacity-60 cursor-not-allowed border-gray-300 dark:border-slate-600"
+          : ok
+          ? "bg-green-600 text-white border-green-600"
+          : "border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-200"
+      }`}
+      title={disabled ? "No ingredients found to add" : ok ? "Added!" : "Add ingredients to shopping list"}
+      aria-label="Add ingredients to shopping list"
+    >
+      {ok ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+      {ok ? "Added!" : "Add to list"}
+    </button>
   );
 }
