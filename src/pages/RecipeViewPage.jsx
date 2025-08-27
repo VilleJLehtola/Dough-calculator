@@ -1,24 +1,24 @@
 // src/pages/RecipeViewPage.jsx
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import supabase from "@/supabaseClient";
 import { Clock, Users, ChefHat, Pencil, Scale } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LikeFavoriteBar from "@/components/LikeFavoriteBar";
 import ShareButton from "@/components/ShareButton";
+import CommentsSection from "@/components/CommentsSection";
 import { track } from "@/analytics";
 import SEO from "@/components/SEO";
 import { recipeJsonLd } from "@/seo/jsonld";
 import EmptyState from "@/components/states/EmptyState";
 import ErrorState from "@/components/states/ErrorState";
 import { supaRender, supaSrcSet } from "@/utils/img";
+import NutritionCard from "@/components/NutritionCard";
 import { computeNutrition, round0 } from "@/utils/nutrition";
 import ReportIssueLink from "@/components/ReportIssueLink";
-
-// ⬇️ Lazy-load heavier chunks
-const CommentsSection = lazy(() => import("@/components/CommentsSection"));
-const NutritionCard = lazy(() => import("@/components/NutritionCard"));
-const StepTimers = lazy(() => import("@/components/StepTimers"));
+import StepTimers from "@/components/StepTimers"; // shows timers for steps with s.time
+import ShoppingListButton from "@/components/ShoppingListButton"; // ⬅️ Add-to-list button
+import CopyIngredientsButton from "@/components/CopyIngredientsButton"; // ⬅️ Optional: copy list
 
 const BUCKET = "recipe-images";
 
@@ -213,7 +213,7 @@ async function listFolderUrls(folder) {
 
 /* ---------------------------------- Page ----------------------------------- */
 export default function RecipeViewPage() {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation("common"); // ensure "common" ns, fallback-safe
   const { id } = useParams();
 
   // Loading / error states
@@ -530,7 +530,7 @@ export default function RecipeViewPage() {
     prepTime: recipe?.prep_time_iso,
     cookTime: recipe?.cook_time_iso,
     recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
-    nutrition: nutritionJsonLd,
+    nutrition: nutritionJsonLd, // include if available
   });
 
   // Loading / Error / Empty
@@ -702,13 +702,19 @@ export default function RecipeViewPage() {
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {t("ingredients")}
             </h2>
-            <button
-              onClick={() => setShowScale(true)}
-              className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-            >
-              <Scale className="w-4 h-4" />
-              {t("scale_recipe", "Scale")}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Optional helper */}
+              <CopyIngredientsButton title={title} ingredients={scaledIngredients} />
+              {/* ✅ Add-to-shopping-list button */}
+              <ShoppingListButton title={title} ingredients={scaledIngredients} />
+              <button
+                onClick={() => setShowScale(true)}
+                className="inline-flex items-center gap-1 text-sm px-2.5 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+              >
+                <Scale className="w-4 h-4" />
+                {t("scale_recipe", "Scale")}
+              </button>
+            </div>
           </div>
 
           {showScale && !isMobile && (
@@ -806,7 +812,7 @@ export default function RecipeViewPage() {
                     </span>
                     {ing.amount != null && (
                       <span className="text-gray-600 dark:text-gray-300">
-                        {ing.amount} {(ing.unit ?? "").trim()}
+                        {ing.amount} {indentedUnit(ing.unit)}
                       </span>
                     )}
                   </li>
@@ -830,13 +836,7 @@ export default function RecipeViewPage() {
 
           {/* Step timers (reads steps with s.time minutes) */}
           <div className="px-4 pt-3">
-            <Suspense
-              fallback={
-                <div className="h-9 rounded-md bg-gray-100 dark:bg-slate-800 animate-pulse" />
-              }
-            >
-              <StepTimers steps={steps} />
-            </Suspense>
+            <StepTimers steps={steps} />
           </div>
 
           <div className="p-4">
@@ -863,21 +863,13 @@ export default function RecipeViewPage() {
 
         {/* Nutrition (right column) */}
         <section className="lg:col-start-2">
-          <Suspense
-            fallback={
-              <div className="h-40 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 animate-pulse" />
-            }
-          >
-            {/* Pass scaled ingredients so Per loaf reacts to scaling */}
-            <NutritionCard recipe={recipeForNutrition} />
-          </Suspense>
+          {/* Pass scaled ingredients so Per loaf reacts to scaling */}
+          <NutritionCard recipe={recipeForNutrition} />
         </section>
 
         {/* Comments */}
         {recipe?.id ? (
-          <Suspense fallback={<div className="h-16" />}>
-            <CommentsSection recipeId={recipe.id} user={user} />
-          </Suspense>
+          <CommentsSection recipeId={recipe.id} user={user} />
         ) : null}
       </div>
 
@@ -904,8 +896,7 @@ export default function RecipeViewPage() {
           <div className="fixed z-50 bottom-0 inset-x-0 rounded-t-2xl bg-white dark:bg-slate-900 shadow-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="font-medium flex items-center gap-2">
-                <Scale className="w-4 h-4" />{" "}
-                {t("scale_recipe", "Scale recipe")}
+                <Scale className="w-4 h-4" /> {t("scale_recipe", "Scale recipe")}
               </div>
               <button
                 onClick={() => setShowScale(false)}
@@ -917,8 +908,7 @@ export default function RecipeViewPage() {
 
             <div className="flex flex-wrap items-center gap-3">
               <span className="opacity-80">
-                {t("total_flour", "Total flour")}:{" "}
-                <strong>{baseFlour || 0} g</strong>
+                {t("total_flour", "Total flour")}: <strong>{baseFlour || 0} g</strong>
               </span>
               <span className="opacity-80">
                 {t("target_flour", "Target flour")}:{" "}
@@ -942,17 +932,13 @@ export default function RecipeViewPage() {
                   onChange={(e) => setByTargetFlour(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white p-2 disabled:opacity-60"
                   placeholder={
-                    baseFlour
-                      ? String(baseFlour)
-                      : t("no_flour_marked", "No flour marked")
+                    baseFlour ? String(baseFlour) : t("no_flour_marked", "No flour marked")
                   }
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block text-xs opacity-80">
-                  {t("percent", "Percent")}
-                </label>
+                <label className="block text-xs opacity-80">{t("percent", "Percent")}</label>
                 <input
                   type="number"
                   min="5"
@@ -1000,4 +986,9 @@ export default function RecipeViewPage() {
       )}
     </div>
   );
+}
+
+// small helper to avoid "undefined" in UI
+function indentedUnit(unit) {
+  return unit ? unit : "";
 }
