@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import supabase from "@/supabaseClient";
-import { Clock, Users, ChefHat, Pencil, Scale } from "lucide-react";
+import { Clock, Users, ChefHat, Pencil, Scale, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LikeFavoriteBar from "@/components/LikeFavoriteBar";
 import ShareButton from "@/components/ShareButton";
@@ -658,6 +658,15 @@ export default function RecipeViewPage() {
               })
             }
           />
+
+          {/* ⬅️ NEW: Print-friendly page */}
+          <Link
+            to={`/recipe/${id}/print`}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+          >
+            <Printer className="w-4 h-4" />
+            {t("print", "Print")}
+          </Link>
 
           {canEdit && (
             <Link
