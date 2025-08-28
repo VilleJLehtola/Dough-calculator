@@ -20,6 +20,7 @@ import TermsPage from '@/pages/TermsPage';
 import ContactPage from '@/pages/ContactPage';
 import FAQPage from "@/pages/FAQPage";
 import ShoppingListDock from "@/components/ShoppingListDock";
+import RecipePrintPage from '@/pages/RecipePrintPage'; // ⬅️ NEW
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -72,8 +73,9 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/faq" element={<FAQPage />} />
 
-          {/* New canonical route */}
+          {/* Recipe routes */}
           <Route path="/recipe/:id" element={<RecipeViewPage />} />
+          <Route path="/recipe/:id/print" element={<RecipePrintPage />} /> {/* ⬅️ NEW */}
           {/* Legacy alias so old links keep working */}
           <Route path="/resepti/:id" element={<RecipeViewPage />} />
 
