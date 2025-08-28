@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
+import InstallAppButton from '@/components/InstallAppButton'; // ⬅️ NEW
 
 /**
  * Header — mobile-safe
@@ -95,8 +96,11 @@ export default function Header({ user }) {
         </Link>
       </div>
 
-      {/* Right: username if logged in (acts as balancing element) */}
+      {/* Right: install button (md+) and username if logged in */}
       <div className="min-w-[40px] flex items-center justify-end gap-3">
+        {/* Install PWA button — hidden on small screens to keep the centered layout clean */}
+        <InstallAppButton className="hidden md:inline-flex" />
+
         {user ? (
           <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[40vw] md:max-w-none">
             {displayName}
