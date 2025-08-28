@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import supabase from '@/supabaseClient';
-import InstallAppButton from '@/components/InstallAppButton'; // ⬅️ NEW
+import InstallAppButton from '@/components/InstallAppButton'; // keep PWA button
 
 /**
  * Header — mobile-safe
  * - Reserves space for the fixed hamburger (MobileMenu places it at top-4 left-4).
  * - Centers the title on mobile; uses normal flow on md+.
  * - Truncates long titles and prevents overlap.
- * - Displays a friendly name: user_metadata -> DB -> email prefix.
+ * - Displays a friendly username/name (never email).
  */
 export default function Header({ user }) {
   const [displayName, setDisplayName] = useState('');
@@ -16,21 +16,20 @@ export default function Header({ user }) {
   useEffect(() => {
     let active = true;
 
-    const fromEmail = (em) => (em ? em.split('@')[0] : '');
-
-    // 1) Instant local value (no DB call)
+    // 1) Instant local value (no DB call). Do NOT fall back to email.
     const meta = user?.user_metadata || {};
     const immediate =
       meta.username ||
       meta.user_name ||
+      meta.preferred_username ||
+      meta.display_name ||
       meta.full_name ||
       meta.name ||
-      fromEmail(user?.email) ||
       '';
 
     setDisplayName(user?.id ? immediate : '');
 
-    // 2) Optional: try to upgrade from your public table if it exists
+    // 2) Try to upgrade from your public table if it exists (no email fallback)
     (async () => {
       if (!user?.id) return;
 
@@ -96,12 +95,12 @@ export default function Header({ user }) {
         </Link>
       </div>
 
-      {/* Right: install button (md+) and username if logged in */}
+      {/* Right: install button (md+) and username if logged in (no email) */}
       <div className="min-w-[40px] flex items-center justify-end gap-3">
         {/* Install PWA button — hidden on small screens to keep the centered layout clean */}
         <InstallAppButton className="hidden md:inline-flex" />
 
-        {user ? (
+        {user && displayName ? (
           <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate max-w-[40vw] md:max-w-none">
             {displayName}
           </span>
