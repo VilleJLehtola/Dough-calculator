@@ -1,19 +1,8 @@
 // src/components/StepTimers.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Play, Pause, RotateCw, Bell, BellOff, SunMoon } from "lucide-react";
+import { Play, Pause, RotateCw, Bell, BellOff, SunMoon, ChevronDown, ChevronUp } from "lucide-react";
 
-/**
- * Robust, mobile-friendly step timers:
- * - Uses wall-clock (endAt = Date.now() + remainingMs) so time stays accurate
- *   even if the tab is throttled or phone screen locks.
- * - Optional "Keep screen awake" (Screen Wake Lock API) while any timer runs.
- * - Beep + (optional) Notification when a timer completes.
- *
- * Props:
- *   steps: Array<{ text?: string, time?: number }>  // time in minutes
- */
 export default function StepTimers({ steps = [] }) {
-  // Build timer models only for steps that have a positive time
   const models = useMemo(() => {
     return steps
       .map((s, idx) => {
@@ -24,7 +13,12 @@ export default function StepTimers({ steps = [] }) {
       .filter(Boolean);
   }, [steps]);
 
-  // State per timer: running, remainingMs, endAt (when running)
+  // 👇 New: stable fingerprint of models so we react when text OR durations change
+  const modelsKey = useMemo(
+    () => models.map(m => `${m.idx}:${m.durMs}:${m.text}`).join("|"),
+    [models]
+  );
+
   const [timers, setTimers] = useState(() =>
     models.map(m => ({
       idx: m.idx,
@@ -32,12 +26,14 @@ export default function StepTimers({ steps = [] }) {
       durMs: m.durMs,
       running: false,
       remainingMs: m.durMs,
-      endAt: null, // timestamp (ms) when it should finish
+      endAt: null,
       doneAtLeastOnce: false,
+      expanded: false,
     }))
   );
+
+  // 🔁 When language (texts) or durations change, sync without losing progress
   useEffect(() => {
-    // If steps change (rare), rebuild timers but try to keep progress where possible
     setTimers(prev => {
       const byIdx = new Map(prev.map(t => [t.idx, t]));
       return models.map(m => {
@@ -51,6 +47,7 @@ export default function StepTimers({ steps = [] }) {
             remainingMs: m.durMs,
             endAt: null,
             doneAtLeastOnce: false,
+            expanded: false,
           };
         }
         // If duration changed, scale remaining proportionally
@@ -59,31 +56,29 @@ export default function StepTimers({ steps = [] }) {
           const ratio = m.durMs / old.durMs;
           remainingMs = Math.max(0, Math.round(remainingMs * ratio));
         }
-        // If it was running, recompute endAt from now
+        // If running, recompute endAt from now
         const endAt = old.running ? Date.now() + remainingMs : null;
         return {
           idx: m.idx,
-          text: m.text,
+          text: m.text,          // 👈 update text to new language
           durMs: m.durMs,
           running: old.running,
           remainingMs,
           endAt,
           doneAtLeastOnce: old.doneAtLeastOnce,
+          expanded: old.expanded,
         };
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [models.length]); // re-init if count changes
+  }, [modelsKey]);
 
-  // Global tick while any timer runs (250ms)
+  // ---- ticking / resume after lock ----
   const tickRef = useRef(null);
   useEffect(() => {
     const anyRunning = timers.some(t => t.running);
     if (!anyRunning) {
-      if (tickRef.current) {
-        clearInterval(tickRef.current);
-        tickRef.current = null;
-      }
+      clearRef(tickRef);
       return;
     }
     if (!tickRef.current) {
@@ -93,30 +88,17 @@ export default function StepTimers({ steps = [] }) {
             if (!t.running || t.endAt == null) return t;
             const remaining = Math.max(0, t.endAt - Date.now());
             if (remaining === 0) {
-              // finished
               notifyDone(t.text);
-              return {
-                ...t,
-                running: false,
-                endAt: null,
-                remainingMs: 0,
-                doneAtLeastOnce: true,
-              };
+              return { ...t, running: false, endAt: null, remainingMs: 0, doneAtLeastOnce: true };
             }
             return { ...t, remainingMs: remaining };
           })
         );
       }, 250);
     }
-    return () => {
-      if (tickRef.current) {
-        clearInterval(tickRef.current);
-        tickRef.current = null;
-      }
-    };
+    return () => clearRef(tickRef);
   }, [timers]);
 
-  // Recalculate on visibility change (helps jump correctly after lock)
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === "visible") {
@@ -126,18 +108,11 @@ export default function StepTimers({ steps = [] }) {
             const remaining = Math.max(0, t.endAt - Date.now());
             if (remaining === 0) {
               notifyDone(t.text);
-              return {
-                ...t,
-                running: false,
-                endAt: null,
-                remainingMs: 0,
-                doneAtLeastOnce: true,
-              };
+              return { ...t, running: false, endAt: null, remainingMs: 0, doneAtLeastOnce: true };
             }
             return { ...t, remainingMs: remaining };
           })
         );
-        // Re-acquire wake lock (if enabled below)
         reAcquireWakeLock();
       }
     };
@@ -145,66 +120,49 @@ export default function StepTimers({ steps = [] }) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  // ---- Keep Screen Awake (Wake Lock API) ----
+  // ---- Keep screen awake (best-effort) ----
   const [keepAwake, setKeepAwake] = useState(isLikelyMobile());
   const wakeSentinelRef = useRef(null);
-
   async function acquireWakeLock() {
-    if (!keepAwake) return;
-    if (!("wakeLock" in navigator)) return; // not supported (e.g., iOS Safari)
+    if (!keepAwake || !("wakeLock" in navigator)) return;
     try {
       if (!wakeSentinelRef.current) {
-        const sentinel = await navigator.wakeLock.request("screen");
-        wakeSentinelRef.current = sentinel;
-        sentinel.addEventListener?.("release", () => {
-          wakeSentinelRef.current = null;
-        });
+        const s = await navigator.wakeLock.request("screen");
+        wakeSentinelRef.current = s;
+        s.addEventListener?.("release", () => (wakeSentinelRef.current = null));
       }
-    } catch {
-      // Ignore; user-agent may block or permission not granted
-    }
+    } catch {}
   }
   function releaseWakeLock() {
     wakeSentinelRef.current?.release?.();
     wakeSentinelRef.current = null;
   }
   function reAcquireWakeLock() {
-    // call after visibility change
     if (timers.some(t => t.running)) acquireWakeLock();
   }
   useEffect(() => {
     const anyRunning = timers.some(t => t.running);
     if (anyRunning) acquireWakeLock();
     else releaseWakeLock();
-    return () => {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timers, keepAwake]);
 
-  // ---- Notifications & Beep/Vibrate on completion ----
+  // ---- Notifications + beep ----
   const [notiAllowed, setNotiAllowed] = useState(
     typeof Notification !== "undefined" && Notification.permission === "granted"
   );
   async function ensureNotifications() {
     if (typeof Notification === "undefined") return false;
-    if (Notification.permission === "granted") {
-      setNotiAllowed(true);
-      return true;
-    }
-    if (Notification.permission === "denied") {
-      setNotiAllowed(false);
-      return false;
-    }
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied") return false;
     try {
       const perm = await Notification.requestPermission();
       setNotiAllowed(perm === "granted");
       return perm === "granted";
     } catch {
-      setNotiAllowed(false);
       return false;
     }
   }
-
-  // Simple beep via WebAudio (works after any user gesture)
   const audioCtxRef = useRef(null);
   function initAudio() {
     if (audioCtxRef.current) return;
@@ -221,48 +179,25 @@ export default function StepTimers({ steps = [] }) {
     const g = ctx.createGain();
     o.type = "sine";
     o.frequency.value = 880;
-    g.gain.value = 0.001; // quiet
-    o.connect(g);
-    g.connect(ctx.destination);
-    const now = ctx.currentTime;
-    o.start(now);
-    o.stop(now + 0.25);
+    g.gain.value = 0.001;
+    o.connect(g); g.connect(ctx.destination);
+    const now = ctx.currentTime; o.start(now); o.stop(now + 0.25);
   }
-  function vibrate() {
-    try {
-      navigator.vibrate?.(200);
-    } catch {}
-  }
+  function vibrate() { try { navigator.vibrate?.(200); } catch {} }
   async function notifyDone(label) {
-    // Sound + haptic
-    beep();
-    vibrate();
-    // Notification (if allowed and page hidden)
+    beep(); vibrate();
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      try {
-        new Notification("Timer finished", {
-          body: label || "Step complete",
-          silent: true,
-        });
-      } catch {}
+      try { new Notification("Timer finished", { body: label || "Step complete", silent: true }); } catch {}
     }
   }
 
-  // ---- Controls ----
+  // ---- controls ----
   const startTimer = (i) => {
-    initAudio();
-    ensureNotifications(); // fire-and-forget; safe if not supported
+    initAudio(); ensureNotifications();
     setTimers(curr =>
-      curr.map((t, idx) => {
-        if (idx !== i) return t;
-        const remaining = t.remainingMs ?? t.durMs;
-        return {
-          ...t,
-          running: true,
-          endAt: Date.now() + remaining,
-          remainingMs: remaining,
-        };
-      })
+      curr.map((t, idx) => idx !== i ? t : ({
+        ...t, running: true, endAt: Date.now() + (t.remainingMs ?? t.durMs), remainingMs: (t.remainingMs ?? t.durMs)
+      }))
     );
   };
   const pauseTimer = (i) => {
@@ -270,102 +205,65 @@ export default function StepTimers({ steps = [] }) {
       curr.map((t, idx) => {
         if (idx !== i) return t;
         const remaining = t.endAt ? Math.max(0, t.endAt - Date.now()) : t.remainingMs;
-        return {
-          ...t,
-          running: false,
-          endAt: null,
-          remainingMs: remaining,
-        };
+        return { ...t, running: false, endAt: null, remainingMs: remaining };
       })
     );
   };
   const resetTimer = (i) => {
     setTimers(curr =>
-      curr.map((t, idx) => {
-        if (idx !== i) return t;
-        return {
-          ...t,
-          running: false,
-          endAt: null,
-          remainingMs: t.durMs,
-          doneAtLeastOnce: false,
-        };
-      })
-    );
-  };
-  const startAll = () => {
-    initAudio();
-    ensureNotifications();
-    setTimers(curr =>
-      curr.map(t => ({
-        ...t,
-        running: true,
-        endAt: Date.now() + (t.remainingMs ?? t.durMs),
-        remainingMs: t.remainingMs ?? t.durMs,
+      curr.map((t, idx) => idx !== i ? t : ({
+        ...t, running: false, endAt: null, remainingMs: t.durMs, doneAtLeastOnce: false
       }))
     );
   };
+  const startAll = () => { initAudio(); ensureNotifications();
+    setTimers(curr => curr.map(t => ({
+      ...t, running: true, endAt: Date.now() + (t.remainingMs ?? t.durMs), remainingMs: (t.remainingMs ?? t.durMs)
+    })));
+  };
   const pauseAll = () => {
-    setTimers(curr =>
-      curr.map(t => {
-        const remaining = t.endAt ? Math.max(0, t.endAt - Date.now()) : t.remainingMs;
-        return { ...t, running: false, endAt: null, remainingMs: remaining };
-      })
-    );
+    setTimers(curr => curr.map(t => {
+      const remaining = t.endAt ? Math.max(0, t.endAt - Date.now()) : t.remainingMs;
+      return { ...t, running: false, endAt: null, remainingMs: remaining };
+    }));
   };
   const resetAll = () => {
-    setTimers(curr =>
-      curr.map(t => ({ ...t, running: false, endAt: null, remainingMs: t.durMs, doneAtLeastOnce: false }))
-    );
+    setTimers(curr => curr.map(t => ({
+      ...t, running: false, endAt: null, remainingMs: t.durMs, doneAtLeastOnce: false
+    })));
   };
 
-  if (!models.length) {
-    return null; // no timed steps
-  }
+  const toggleExpand = (i) => {
+    setTimers(curr => curr.map((t, idx) => idx === i ? { ...t, expanded: !t.expanded } : t));
+  };
+
+  if (!models.length) return null;
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 p-3">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="flex items-center gap-2">
-          <button
-            onClick={startAll}
-            className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1"
-            title="Start all"
-          >
+          <button onClick={startAll} className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1">
             <Play className="w-4 h-4" /> Start all
           </button>
-          <button
-            onClick={pauseAll}
-            className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1"
-            title="Pause all"
-          >
+          <button onClick={pauseAll} className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1">
             <Pause className="w-4 h-4" /> Pause all
           </button>
-          <button
-            onClick={resetAll}
-            className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1"
-            title="Reset all"
-          >
+          <button onClick={resetAll} className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1">
             <RotateCw className="w-4 h-4" /> Reset
           </button>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Keep awake toggle (best-effort; supported mainly on Chromium/Android) */}
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={keepAwake}
-              onChange={(e) => setKeepAwake(e.target.checked)}
-            />
+            <input type="checkbox" checked={keepAwake} onChange={(e) => setKeepAwake(e.target.checked)} />
             <span className="inline-flex items-center gap-1">
               <SunMoon className="w-4 h-4" />
               Keep screen awake
             </span>
           </label>
 
-          {/* Notifications status */}
           {typeof Notification !== "undefined" ? (
             notiAllowed ? (
               <span className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full border border-green-300 text-green-700 dark:text-green-300">
@@ -386,64 +284,78 @@ export default function StepTimers({ steps = [] }) {
 
       {/* Timers list */}
       <div className="mt-3 space-y-2">
-        {timers.map((t, i) => (
-          <div
-            key={t.idx}
-            className="flex items-center justify-between gap-3 rounded-md border border-gray-200 dark:border-slate-700 px-3 py-2"
-          >
-            <div className="min-w-0">
-              <div className="font-medium text-gray-900 dark:text-gray-100 line-clamp-1">{t.text}</div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
-                {formatMs(t.durMs)} total
-                {t.doneAtLeastOnce ? " • completed" : ""}
+        {timers.map((t, i) => {
+          const clamped = t.expanded ? "" : "line-clamp-3 sm:line-clamp-2";
+          return (
+            <div
+              key={t.idx}
+              className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-md border border-gray-200 dark:border-slate-700 px-3 py-2"
+            >
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm text-gray-900 dark:text-gray-100 leading-snug whitespace-normal break-words ${clamped}`}>
+                  {t.text}
+                </p>
+                <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {formatMs(t.durMs)} total{t.doneAtLeastOnce ? " • completed" : ""}
+                </div>
+                <button
+                  className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                  onClick={() => toggleExpand(i)}
+                >
+                  {t.expanded ? (
+                    <span className="inline-flex items-center gap-1"><ChevronUp className="w-3 h-3" /> Show less</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1"><ChevronDown className="w-3 h-3" /> Show more</span>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <span
+                  className={[
+                    "tabular-nums font-semibold",
+                    "text-base sm:text-lg",
+                    t.running ? "text-blue-700 dark:text-blue-300" : "text-gray-800 dark:text-gray-200",
+                  ].join(" ")}
+                  aria-live="polite"
+                >
+                  {formatMs(t.remainingMs)}
+                </span>
+
+                {t.running ? (
+                  <button
+                    onClick={() => pauseTimer(i)}
+                    className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
+                    title="Pause"
+                  >
+                    <Pause className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startTimer(i)}
+                    className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
+                    title="Start"
+                  >
+                    <Play className="w-4 h-4" />
+                  </button>
+                )}
+
+                <button
+                  onClick={() => resetTimer(i)}
+                  className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
+                  title="Reset"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </button>
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <span
-                className={[
-                  "tabular-nums font-semibold text-base",
-                  t.running ? "text-blue-700 dark:text-blue-300" : "text-gray-800 dark:text-gray-200",
-                ].join(" ")}
-                aria-live="polite"
-              >
-                {formatMs(t.remainingMs)}
-              </span>
-
-              {t.running ? (
-                <button
-                  onClick={() => pauseTimer(i)}
-                  className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
-                  title="Pause"
-                >
-                  <Pause className="w-4 h-4" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => startTimer(i)}
-                  className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
-                  title="Start"
-                >
-                  <Play className="w-4 h-4" />
-                </button>
-              )}
-
-              <button
-                onClick={() => resetTimer(i)}
-                className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
-                title="Reset"
-              >
-                <RotateCw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Tiny note for unsupported wake lock */}
       {!("wakeLock" in navigator) && (
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Tip: your browser may not support keeping the screen awake. Timers will still stay accurate and complete with a sound when you return.
+          Tip: Your browser may not support keeping the screen awake. Timers stay accurate and will catch up when you return.
         </p>
       )}
     </div>
@@ -454,16 +366,17 @@ function numberOrNull(v) {
   const n = Number(String(v ?? "").replace(",", "."));
   return Number.isFinite(n) ? n : null;
 }
-
 function formatMs(ms) {
   const total = Math.max(0, Math.round((ms ?? 0) / 1000));
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
-
 function isLikelyMobile() {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || navigator.vendor || "";
   return /android|iphone|ipad|ipod|mobile/i.test(ua);
+}
+function clearRef(ref) {
+  if (ref.current) { clearInterval(ref.current); ref.current = null; }
 }
