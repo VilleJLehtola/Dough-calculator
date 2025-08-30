@@ -6,16 +6,11 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: { '@': path.resolve(__dirname, './src') },
   },
   build: {
-    sourcemap: false,
-    chunkSizeWarningLimit: 1200, // calm the warning after splitting
     rollupOptions: {
       output: {
-        // Create a few sensible vendor chunks so the app code can stay lean
         manualChunks: {
           react: ['react', 'react-dom', 'react-router-dom'],
           supabase: ['@supabase/supabase-js'],
@@ -24,5 +19,6 @@ export default defineConfig({
         },
       },
     },
+    chunkSizeWarningLimit: 900, // silence harmless warning after splitting
   },
 });
