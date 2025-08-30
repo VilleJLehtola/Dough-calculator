@@ -659,7 +659,7 @@ export default function RecipeViewPage() {
             }
           />
 
-          {/* ⬅️ NEW: Print-friendly page */}
+            {/* ⬅️ NEW: Print-friendly page */}
           <Link
             to={`/recipe/${id}/print`}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
