@@ -5,9 +5,15 @@ import Layout from './components/Layout';
 import supabase from './supabaseClient';
 import { AnalyticsTracker } from './analytics';
 import ShoppingListDock from '@/components/ShoppingListDock';
-import OfflineRecipesPage from "@/pages/OfflineRecipesPage";
-import BakeModePage from "@/pages/BakeModePage";
-import RecipeBakePage from '@/pages/RecipeBakePage';
+
+// Simple loading fallback
+function Fallback() {
+  return (
+    <div className="p-8 text-sm text-gray-600 dark:text-gray-300">
+      Loading…
+    </div>
+  );
+}
 
 // Lazy pages (code-splitting)
 const FrontPage         = lazy(() => import('./pages/FrontPage'));
@@ -26,14 +32,9 @@ const TermsPage         = lazy(() => import('./pages/TermsPage'));
 const ContactPage       = lazy(() => import('./pages/ContactPage'));
 const FAQPage           = lazy(() => import('./pages/FAQPage'));
 const RecipePrintPage   = lazy(() => import('./pages/RecipePrintPage'));
-
-function Fallback() {
-  return (
-    <div className="p-8 text-sm text-gray-600 dark:text-gray-300">
-      Loading…
-    </div>
-  );
-}
+const OfflineRecipesPage= lazy(() => import('./pages/OfflineRecipesPage'));
+const BakeModePage      = lazy(() => import('./pages/BakeModePage'));
+const RecipeBakePage    = lazy(() => import('./pages/RecipeBakePage'));
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -85,14 +86,16 @@ export default function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/offline" element={<OfflineRecipesPage />} />
-            <Route path="/recipe/:id/bake" element={<BakeModePage />} />
+
+            {/* Baking */}
             <Route path="/recipe/:id/bake" element={<RecipeBakePage />} />
+            <Route path="/bake" element={<BakeModePage />} />
 
             {/* Recipe routes (id and id/print) */}
             <Route path="/recipe/:id" element={<RecipeViewPage />} />
             <Route path="/recipe/:id/print" element={<RecipePrintPage />} />
-            {/* If you also have slug routes, keep them too: */}
-            {/* <Route path="/recipe/:id/:slug" element={<RecipeViewPage />} />
+            {/* If you also have slug routes, keep them too:
+            <Route path="/recipe/:id/:slug" element={<RecipeViewPage />} />
             <Route path="/recipe/:id/:slug/print" element={<RecipePrintPage />} /> */}
 
             {/* Legacy alias so old links keep working */}
