@@ -854,7 +854,7 @@ export default function RecipeViewPage() {
 
           {/* Step timers (reads steps with s.time minutes) */}
           <div className="px-4 pt-3">
-            <StepTimers steps={steps} />
+            <StepTimers steps={steps} storageKey={`timers:recipe:${id}`} />
           </div>
 
           <div className="p-4">
