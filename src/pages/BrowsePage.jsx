@@ -24,15 +24,10 @@ export default function BrowsePage() {
   const initialQ = sp.get("q") || "";
   const initialSort = sp.get("sort") === "oldest" ? "oldest" : "newest";
   const initialImg = sp.get("img") === "1";
-
-  // Accept both ?tags=foo,bar and one-or-many ?tag=foo&tag=bar
-  const tagsFromComma = (sp.get("tags") || "")
+  const initialTags = (sp.get("tags") || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const tagsFromSingles = (sp.getAll ? sp.getAll("tag") : []).map((s) => s.trim()).filter(Boolean);
-  const initialTags = uniq([...tagsFromComma, ...tagsFromSingles]);
-
   const initialSize = clampInt(parseInt(sp.get("size") || DEFAULT_SIZE, 10), MIN_SIZE, MAX_SIZE);
 
   // core state
@@ -57,12 +52,12 @@ export default function BrowsePage() {
   const [pageSize, setPageSize] = useState(initialSize);
   const [hasMore, setHasMore] = useState(true);
 
-  // Popular tags (DB-wide, not just current results)
+  // Popular tags (DB-wide)
   const [popularTags, setPopularTags] = useState([]);
   useEffect(() => {
     let alive = true;
     supabase
-      .from("tags_popular") // view suggested earlier
+      .from("tags_popular")
       .select("name")
       .limit(24)
       .then(({ data }) => {
@@ -70,33 +65,46 @@ export default function BrowsePage() {
         setPopularTags((data || []).map((x) => x.name));
       })
       .catch(() => {});
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
-  // reflect state -> URL (normalize to tags=... and drop any tag=...)
+  // Tag name -> id map (robust filtering)
+  const [tagMap, setTagMap] = useState({}); // { name: id }
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const names = Array.from(new Set([...(filters.tags || []), ...(popularTags || [])]));
+        if (!names.length) return;
+        const { data, error } = await supabase
+          .from("tags")
+          .select("id,name")
+          .in("name", names);
+        if (error) return;
+        if (!alive) return;
+        const next = {};
+        (data || []).forEach((r) => { if (r?.name && r?.id) next[r.name] = r.id; });
+        setTagMap((prev) => ({ ...prev, ...next }));
+      } catch {/* ignore */}
+    };
+    load();
+    return () => { alive = false; };
+  }, [filters.tags, popularTags]);
+
+  // reflect state -> URL
   useEffect(() => {
     const next = new URLSearchParams(sp);
     q ? next.set("q", q) : next.delete("q");
     next.set("sort", filters.sort);
     filters.hasImage ? next.set("img", "1") : next.delete("img");
-    if (filters.tags?.length) {
-      next.set("tags", filters.tags.join(","));
-    } else {
-      next.delete("tags");
-    }
-    // canonicalize: remove any single tag params if present
-    next.delete("tag");
+    filters.tags?.length ? next.set("tags", filters.tags.join(",")) : next.delete("tags");
     pageSize !== DEFAULT_SIZE ? next.set("size", String(pageSize)) : next.delete("size");
     setSp(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, filters.sort, filters.hasImage, filters.tags, pageSize]);
 
   // restart pagination when core inputs change
-  useEffect(() => {
-    setPage(0);
-  }, [qDebounced, filters.sort, filters.tags, pageSize]);
+  useEffect(() => { setPage(0); }, [qDebounced, filters.sort, filters.tags, pageSize]);
 
   // fetch a page
   useEffect(() => {
@@ -118,8 +126,11 @@ export default function BrowsePage() {
           )
           .order("created_at", { ascending: filters.sort === "oldest" });
 
-        // tag filter (ANY-of)
-        if (filters.tags?.length) {
+        // tag filter (ANY-of) using tag IDs via inner join
+        const selectedTagIds = (filters.tags || [])
+          .map((n) => tagMap[n])
+          .filter((v) => Number.isInteger(v));
+        if (selectedTagIds.length) {
           query = supabase
             .from("recipes")
             .select(
@@ -127,7 +138,7 @@ export default function BrowsePage() {
               { count: "exact" }
             )
             .order("created_at", { ascending: filters.sort === "oldest" })
-            .in("recipe_tags.tags.name", filters.tags);
+            .in("recipe_tags.tag_id", selectedTagIds);
         }
 
         // text search (simple ILIKE on title/description)
@@ -172,10 +183,8 @@ export default function BrowsePage() {
     };
 
     run();
-    return () => {
-      cancelled = true;
-    };
-  }, [qDebounced, filters.sort, filters.tags, page, pageSize]);
+    return () => { cancelled = true; };
+  }, [qDebounced, filters.sort, filters.tags, page, pageSize, tagMap]);
 
   // derived helpers
   const heroFor = (r) => {
@@ -201,6 +210,12 @@ export default function BrowsePage() {
   }, [rows, filters.hasImage]);
 
   const handleSubmit = () => {};
+
+  const clearAllFilters = () =>
+    setFilters({ sort: "newest", hasImage: false, tags: [] });
+
+  const removeTag = (name) =>
+    setFilters((prev) => ({ ...prev, tags: (prev.tags || []).filter((t) => t !== name) }));
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -230,6 +245,33 @@ export default function BrowsePage() {
           />
         </div>
       </div>
+
+      {/* Active filters row */}
+      {(filters.hasImage || (filters.tags && filters.tags.length)) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {filters.hasImage && (
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800">
+              {t("with_images", "With images")}
+            </span>
+          )}
+          {(filters.tags || []).map((tag) => (
+            <button
+              key={`active-${tag}`}
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
+              onClick={() => removeTag(tag)}
+              title={t("remove_tag", { tag })}
+            >
+              #{tag} ×
+            </button>
+          ))}
+          <button
+            onClick={clearAllFilters}
+            className="text-xs px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800"
+          >
+            {t("clear_all", "Clear all")}
+          </button>
+        </div>
+      )}
 
       {/* Subheader: info + page size, wraps on mobile */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
@@ -263,7 +305,7 @@ export default function BrowsePage() {
         </div>
       </div>
 
-      {/* Popular tags row (helps on mobile) */}
+      {/* Popular tags row */}
       {Array.isArray(popularTags) && popularTags.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {popularTags.slice(0, 10).map((tag) => (
@@ -322,7 +364,7 @@ export default function BrowsePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
             {filtered.map((r, i) => {
               const hero = heroFor(r);
-              const isFirst = i === 0; // mild LCP win
+              const isFirst = i === 0;
               return (
                 <Link
                   key={r.id}
@@ -422,8 +464,4 @@ export default function BrowsePage() {
 function clampInt(n, min, max) {
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, n));
-}
-
-function uniq(arr) {
-  return Array.from(new Set(arr));
 }
