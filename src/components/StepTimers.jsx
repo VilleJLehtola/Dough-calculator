@@ -1,19 +1,23 @@
 // src/components/StepTimers.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Play, Pause, RotateCw, Bell, BellOff, SunMoon, ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function StepTimers({ steps = [] }) {
+  const { t } = useTranslation("common");
+
   const models = useMemo(() => {
     return steps
       .map((s, idx) => {
         const mins = numberOrNull(s?.time);
         const durMs = mins && mins > 0 ? Math.round(mins * 60_000) : null;
-        return durMs ? { idx, text: s?.text || `Step ${idx + 1}`, durMs } : null;
+        return durMs ? { idx, text: s?.text || `${t("step", "Step")} ${idx + 1}`, durMs } : null;
       })
       .filter(Boolean);
-  }, [steps]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps, t]);
 
-  // 👇 New: stable fingerprint of models so we react when text OR durations change
+  // Stable fingerprint so we react when text OR durations change
   const modelsKey = useMemo(
     () => models.map(m => `${m.idx}:${m.durMs}:${m.text}`).join("|"),
     [models]
@@ -32,7 +36,7 @@ export default function StepTimers({ steps = [] }) {
     }))
   );
 
-  // 🔁 When language (texts) or durations change, sync without losing progress
+  // Sync when language (texts) or durations change, without losing progress
   useEffect(() => {
     setTimers(prev => {
       const byIdx = new Map(prev.map(t => [t.idx, t]));
@@ -60,7 +64,7 @@ export default function StepTimers({ steps = [] }) {
         const endAt = old.running ? Date.now() + remainingMs : null;
         return {
           idx: m.idx,
-          text: m.text,          // 👈 update text to new language
+          text: m.text, // update text to new language
           durMs: m.durMs,
           running: old.running,
           remainingMs,
@@ -75,8 +79,9 @@ export default function StepTimers({ steps = [] }) {
 
   // ---- ticking / resume after lock ----
   const tickRef = useRef(null);
+  const anyRunning = useMemo(() => timers.some(t => t.running), [timers]);
+
   useEffect(() => {
-    const anyRunning = timers.some(t => t.running);
     if (!anyRunning) {
       clearRef(tickRef);
       return;
@@ -88,7 +93,7 @@ export default function StepTimers({ steps = [] }) {
             if (!t.running || t.endAt == null) return t;
             const remaining = Math.max(0, t.endAt - Date.now());
             if (remaining === 0) {
-              notifyDone(t.text);
+              notifyDone(t.text, t);
               return { ...t, running: false, endAt: null, remainingMs: 0, doneAtLeastOnce: true };
             }
             return { ...t, remainingMs: remaining };
@@ -96,8 +101,11 @@ export default function StepTimers({ steps = [] }) {
         );
       }, 250);
     }
-    return () => clearRef(tickRef);
-  }, [timers]);
+    return () => {
+      // Cleanup interval on unmount or when anyRunning flips false→true/true→false
+      clearRef(tickRef);
+    };
+  }, [anyRunning]);
 
   useEffect(() => {
     const onVis = () => {
@@ -107,7 +115,7 @@ export default function StepTimers({ steps = [] }) {
             if (!t.running || t.endAt == null) return t;
             const remaining = Math.max(0, t.endAt - Date.now());
             if (remaining === 0) {
-              notifyDone(t.text);
+              notifyDone(t.text, t);
               return { ...t, running: false, endAt: null, remainingMs: 0, doneAtLeastOnce: true };
             }
             return { ...t, remainingMs: remaining };
@@ -141,11 +149,10 @@ export default function StepTimers({ steps = [] }) {
     if (timers.some(t => t.running)) acquireWakeLock();
   }
   useEffect(() => {
-    const anyRunning = timers.some(t => t.running);
     if (anyRunning) acquireWakeLock();
     else releaseWakeLock();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timers, keepAwake]);
+  }, [anyRunning, keepAwake]);
 
   // ---- Notifications + beep ----
   const [notiAllowed, setNotiAllowed] = useState(
@@ -187,7 +194,12 @@ export default function StepTimers({ steps = [] }) {
   async function notifyDone(label) {
     beep(); vibrate();
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-      try { new Notification("Timer finished", { body: label || "Step complete", silent: true }); } catch {}
+      try {
+        new Notification(t("timer_finished", "Timer finished"), {
+          body: label || t("step_complete", "Step complete"),
+          silent: true
+        });
+      } catch {}
     }
   }
 
@@ -244,38 +256,58 @@ export default function StepTimers({ steps = [] }) {
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={startAll} className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1">
-            <Play className="w-4 h-4" /> Start all
+          <button
+            onClick={startAll}
+            className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1"
+            aria-label={t("start_all", "Start all")}
+            title={t("start_all", "Start all")}
+          >
+            <Play className="w-4 h-4" /> {t("start_all", "Start all")}
           </button>
-          <button onClick={pauseAll} className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1">
-            <Pause className="w-4 h-4" /> Pause all
+          <button
+            onClick={pauseAll}
+            className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1"
+            aria-label={t("pause_all", "Pause all")}
+            title={t("pause_all", "Pause all")}
+          >
+            <Pause className="w-4 h-4" /> {t("pause_all", "Pause all")}
           </button>
-          <button onClick={resetAll} className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1">
-            <RotateCw className="w-4 h-4" /> Reset
+          <button
+            onClick={resetAll}
+            className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-sm inline-flex items-center gap-1"
+            aria-label={t("reset", "Reset")}
+            title={t("reset", "Reset")}
+          >
+            <RotateCw className="w-4 h-4" /> {t("reset", "Reset")}
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={keepAwake} onChange={(e) => setKeepAwake(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={keepAwake}
+              onChange={(e) => setKeepAwake(e.target.checked)}
+              aria-label={t("keep_screen_awake", "Keep screen awake")}
+            />
             <span className="inline-flex items-center gap-1">
               <SunMoon className="w-4 h-4" />
-              Keep screen awake
+              {t("keep_screen_awake", "Keep screen awake")}
             </span>
           </label>
 
           {typeof Notification !== "undefined" ? (
             notiAllowed ? (
               <span className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full border border-green-300 text-green-700 dark:text-green-300">
-                <Bell className="w-3.5 h-3.5" /> Notifications on
+                <Bell className="w-3.5 h-3.5" /> {t("notifications_on", "Notifications on")}
               </span>
             ) : (
               <button
                 onClick={ensureNotifications}
                 className="text-xs inline-flex items-center gap-1 px-2 py-1 rounded-full border border-gray-300 hover:bg-gray-50 dark:border-slate-600 dark:hover:bg-slate-700"
-                title="Enable notifications"
+                title={t("enable_notifications", "Enable notifications")}
               >
-                <BellOff className="w-3.5 h-3.5" /> Enable notifications
+                <BellOff className="w-3.5 h-3.5" /> {t("enable_notifications", "Enable notifications")}
               </button>
             )
           ) : null}
@@ -284,28 +316,33 @@ export default function StepTimers({ steps = [] }) {
 
       {/* Timers list */}
       <div className="mt-3 space-y-2">
-        {timers.map((t, i) => {
-          const clamped = t.expanded ? "" : "line-clamp-3 sm:line-clamp-2";
+        {timers.map((tState, i) => {
+          const clamped = tState.expanded ? "" : "line-clamp-3 sm:line-clamp-2";
           return (
             <div
-              key={t.idx}
+              key={tState.idx}
               className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-md border border-gray-200 dark:border-slate-700 px-3 py-2"
             >
               <div className="min-w-0 flex-1">
                 <p className={`text-sm text-gray-900 dark:text-gray-100 leading-snug whitespace-normal break-words ${clamped}`}>
-                  {t.text}
+                  {tState.text}
                 </p>
                 <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {formatMs(t.durMs)} total{t.doneAtLeastOnce ? " • completed" : ""}
+                  {formatMs(tState.durMs)} {t("total", "total")}
+                  {tState.doneAtLeastOnce ? ` • ${t("completed", "completed")}` : ""}
                 </div>
                 <button
                   className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   onClick={() => toggleExpand(i)}
                 >
-                  {t.expanded ? (
-                    <span className="inline-flex items-center gap-1"><ChevronUp className="w-3 h-3" /> Show less</span>
+                  {tState.expanded ? (
+                    <span className="inline-flex items-center gap-1">
+                      <ChevronUp className="w-3 h-3" /> {t("show_less", "Show less")}
+                    </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1"><ChevronDown className="w-3 h-3" /> Show more</span>
+                    <span className="inline-flex items-center gap-1">
+                      <ChevronDown className="w-3 h-3" /> {t("show_more", "Show more")}
+                    </span>
                   )}
                 </button>
               </div>
@@ -315,18 +352,19 @@ export default function StepTimers({ steps = [] }) {
                   className={[
                     "tabular-nums font-semibold",
                     "text-base sm:text-lg",
-                    t.running ? "text-blue-700 dark:text-blue-300" : "text-gray-800 dark:text-gray-200",
+                    tState.running ? "text-blue-700 dark:text-blue-300" : "text-gray-800 dark:text-gray-200",
                   ].join(" ")}
                   aria-live="polite"
                 >
-                  {formatMs(t.remainingMs)}
+                  {formatMs(tState.remainingMs)}
                 </span>
 
-                {t.running ? (
+                {tState.running ? (
                   <button
                     onClick={() => pauseTimer(i)}
                     className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
-                    title="Pause"
+                    title={t("pause", "Pause")}
+                    aria-label={t("pause", "Pause")}
                   >
                     <Pause className="w-4 h-4" />
                   </button>
@@ -334,7 +372,8 @@ export default function StepTimers({ steps = [] }) {
                   <button
                     onClick={() => startTimer(i)}
                     className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
-                    title="Start"
+                    title={t("start", "Start")}
+                    aria-label={t("start", "Start")}
                   >
                     <Play className="w-4 h-4" />
                   </button>
@@ -343,7 +382,8 @@ export default function StepTimers({ steps = [] }) {
                 <button
                   onClick={() => resetTimer(i)}
                   className="px-2 py-1 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 inline-flex items-center gap-1"
-                  title="Reset"
+                  title={t("reset", "Reset")}
+                  aria-label={t("reset", "Reset")}
                 >
                   <RotateCw className="w-4 h-4" />
                 </button>
@@ -355,7 +395,10 @@ export default function StepTimers({ steps = [] }) {
 
       {!("wakeLock" in navigator) && (
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Tip: Your browser may not support keeping the screen awake. Timers stay accurate and will catch up when you return.
+          {t(
+            "keep_awake_tip",
+            "Tip: Your browser may not support keeping the screen awake. Timers stay accurate and will catch up when you return."
+          )}
         </p>
       )}
     </div>
