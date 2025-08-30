@@ -24,10 +24,15 @@ export default function BrowsePage() {
   const initialQ = sp.get("q") || "";
   const initialSort = sp.get("sort") === "oldest" ? "oldest" : "newest";
   const initialImg = sp.get("img") === "1";
-  const initialTags = (sp.get("tags") || "")
+
+  // Accept both ?tags=foo,bar and one-or-many ?tag=foo&tag=bar
+  const tagsFromComma = (sp.get("tags") || "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const tagsFromSingles = (sp.getAll ? sp.getAll("tag") : []).map((s) => s.trim()).filter(Boolean);
+  const initialTags = uniq([...tagsFromComma, ...tagsFromSingles]);
+
   const initialSize = clampInt(parseInt(sp.get("size") || DEFAULT_SIZE, 10), MIN_SIZE, MAX_SIZE);
 
   // core state
@@ -70,13 +75,19 @@ export default function BrowsePage() {
     };
   }, []);
 
-  // reflect state -> URL
+  // reflect state -> URL (normalize to tags=... and drop any tag=...)
   useEffect(() => {
     const next = new URLSearchParams(sp);
     q ? next.set("q", q) : next.delete("q");
     next.set("sort", filters.sort);
     filters.hasImage ? next.set("img", "1") : next.delete("img");
-    filters.tags?.length ? next.set("tags", filters.tags.join(",")) : next.delete("tags");
+    if (filters.tags?.length) {
+      next.set("tags", filters.tags.join(","));
+    } else {
+      next.delete("tags");
+    }
+    // canonicalize: remove any single tag params if present
+    next.delete("tag");
     pageSize !== DEFAULT_SIZE ? next.set("size", String(pageSize)) : next.delete("size");
     setSp(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -411,4 +422,8 @@ export default function BrowsePage() {
 function clampInt(n, min, max) {
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, n));
+}
+
+function uniq(arr) {
+  return Array.from(new Set(arr));
 }
