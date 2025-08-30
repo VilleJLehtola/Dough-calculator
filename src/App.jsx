@@ -7,6 +7,7 @@ import { AnalyticsTracker } from './analytics';
 import ShoppingListDock from '@/components/ShoppingListDock';
 import OfflineRecipesPage from "@/pages/OfflineRecipesPage";
 import BakeModePage from "@/pages/BakeModePage";
+import RecipeBakePage from '@/pages/RecipeBakePage';
 
 // Lazy pages (code-splitting)
 const FrontPage         = lazy(() => import('./pages/FrontPage'));
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/offline" element={<OfflineRecipesPage />} />
             <Route path="/recipe/:id/bake" element={<BakeModePage />} />
+            <Route path="/recipe/:id/bake" element={<RecipeBakePage />} />
 
             {/* Recipe routes (id and id/print) */}
             <Route path="/recipe/:id" element={<RecipeViewPage />} />
