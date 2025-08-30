@@ -224,7 +224,6 @@ export default function RecipeViewPage() {
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
   const [images, setImages] = useState([]); // strings or {url}
-  const [tagList, setTagList] = useState([]); // ⬅️ unified tags
 
   // Translation payload (if any)
   const [tData, setT] = useState(null);
@@ -275,7 +274,7 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Load recipe + author + images + tags
+  // Load recipe + author + images
   useEffect(() => {
     let cancelled = false;
 
@@ -297,7 +296,6 @@ export default function RecipeViewPage() {
         setRecipe(null);
         setAuthor(null);
         setImages([]);
-        setTagList([]);
         setError(recErr.message || "Recipe not found");
         setLoading(false);
         return;
@@ -327,33 +325,6 @@ export default function RecipeViewPage() {
       } else {
         const list = await listFolderUrls(`recipes/${id}`);
         if (!cancelled) setImages(list.map((x) => x.url));
-      }
-
-      // ⬇️ Tags from relation, with safe fallbacks
-      try {
-        const { data: relTags, error: tagErr } = await supabase
-          .from("recipe_tags")
-          .select("tag, name, value")
-          .eq("recipe_id", id);
-
-        if (!tagErr && Array.isArray(relTags) && relTags.length) {
-          const list = relTags
-            .map((r) => r.tag || r.name || r.value)
-            .filter(Boolean);
-          setTagList(Array.from(new Set(list)));
-        } else {
-          const fallback = String(recRow?.tags ?? "")
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean);
-          setTagList(Array.from(new Set(fallback)));
-        }
-      } catch {
-        const fallback = String(recRow?.tags ?? "")
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        setTagList(Array.from(new Set(fallback)));
       }
 
       setLoading(false);
@@ -439,6 +410,15 @@ export default function RecipeViewPage() {
       .map((text, i) => ({ position: i + 1, text }));
   }, [tData, recipe]);
 
+  const tags = useMemo(
+    () =>
+      String(recipe?.tags ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [recipe]
+  );
+
   const totalTime = useMemo(() => {
     const raw =
       recipe?.prep_time_minutes ?? recipe?.total_time ?? recipe?.time ?? null;
@@ -477,6 +457,18 @@ export default function RecipeViewPage() {
   const [scale, setScale] = useState(1);
   const percent = Math.round(scale * 100);
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
+
+  // --- remember scale per recipe (localStorage) ---
+  const keyScale = (rid) => `rv:${rid}:scale`;
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(keyScale(id)));
+    if (Number.isFinite(saved) && saved > 0) setScale(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+  useEffect(() => {
+    if (!id) return;
+    localStorage.setItem(keyScale(id), String(scale));
+  }, [id, scale]);
 
   // Helpers to update scale from inputs
   const setByPercent = (val) => {
@@ -552,6 +544,44 @@ export default function RecipeViewPage() {
     recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
     nutrition: nutritionJsonLd, // include if available
   });
+
+  // --- step permalinks: copy + auto-scroll ---
+  const copyStepLink = (n) => {
+    try {
+      const url = new URL(window.location.href);
+      url.hash = `step-${n}`;
+      navigator.clipboard?.writeText(url.toString());
+    } catch {}
+  };
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash?.startsWith("#step-")) return;
+    const el = document.getElementById(hash.slice(1));
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [steps]);
+
+  // --- Save offline (simple local copy) ---
+  const keyOffline = (rid) => `rv:${rid}:offline`;
+  const [savedOffline, setSavedOffline] = useState(false);
+  useEffect(() => {
+    setSavedOffline(!!localStorage.getItem(keyOffline(id)));
+  }, [id]);
+  const toggleOffline = () => {
+    if (!id) return;
+    const k = keyOffline(id);
+    if (savedOffline) {
+      localStorage.removeItem(k);
+      setSavedOffline(false);
+    } else {
+      const payload = { recipe, tData, images };
+      try {
+        localStorage.setItem(k, JSON.stringify(payload));
+        setSavedOffline(true);
+      } catch {
+        // storage full or disabled
+      }
+    }
+  };
 
   // Loading / Error / Empty
   if (loading) {
@@ -639,16 +669,7 @@ export default function RecipeViewPage() {
               {author?.username || author?.email ? (
                 <div className="flex items-center gap-2">
                   <ChefHat className="w-4 h-4" />
-                  {author?.username ? (
-                    <Link
-                      to={`/u/${encodeURIComponent(author.username)}`}
-                      className="hover:underline text-gray-800 dark:text-gray-200"
-                    >
-                      {author.username}
-                    </Link>
-                  ) : (
-                    <span>{author?.email}</span>
-                  )}
+                  <span>{author?.username || author?.email}</span>
                 </div>
               ) : null}
 
@@ -688,7 +709,20 @@ export default function RecipeViewPage() {
             }
           />
 
-          {/* ⬅️ Print-friendly page */}
+          {/* Save offline toggle */}
+          <button
+            onClick={toggleOffline}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border ${
+              savedOffline
+                ? "bg-emerald-600 text-white border-emerald-600"
+                : "border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-200"
+            }`}
+            title={savedOffline ? t("remove_offline", "Remove offline copy") : t("save_offline", "Save offline")}
+          >
+            {savedOffline ? t("saved", "Saved") : t("save_offline", "Save offline")}
+          </button>
+
+          {/* Print-friendly page */}
           <Link
             to={`/recipe/${id}/print`}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
@@ -718,18 +752,16 @@ export default function RecipeViewPage() {
       {/* HERO CAROUSEL (priority first slide) */}
       <HeroCarousel title={title} items={images} t={t} overlay={null} />
 
-      {/* Tags (clickable) */}
-      {tagList?.length > 0 && (
+      {/* Tags */}
+      {tags?.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          {tagList.map((tag, i) => (
-            <Link
+          {tags.map((tag, i) => (
+            <span
               key={`${tag}-${i}`}
-              to={`/browse?tag=${encodeURIComponent(tag)}`}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/60 dark:hover:bg-gray-700/60"
-              title={`#${tag}`}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
             >
               # {tag}
-            </Link>
+            </span>
           ))}
         </div>
       )}
@@ -883,8 +915,19 @@ export default function RecipeViewPage() {
             {steps?.length ? (
               <ol className="list-decimal pl-5 space-y-2">
                 {steps.map((s, i) => (
-                  <li key={i} className="text-gray-800 dark:text-gray-100">
-                    {s.text ?? String(s ?? "")}
+                  <li id={`step-${i + 1}`} key={i} className="text-gray-800 dark:text-gray-100">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 leading-relaxed break-words">
+                        {s.text ?? String(s ?? "")}
+                      </div>
+                      <button
+                        onClick={() => copyStepLink(i + 1)}
+                        className="shrink-0 text-xs px-2 py-0.5 rounded border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+                        title={t("copy_step_link", "Copy link to this step")}
+                      >
+                        #
+                      </button>
+                    </div>
                     {s.time != null && (
                       <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
                         +{s.time} {t("minutes_short")}
