@@ -1,26 +1,26 @@
 // vite.config.js
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import path from "path";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   build: {
-    chunkSizeWarningLimit: 900,
+    sourcemap: false,
+    chunkSizeWarningLimit: 1200, // calm the warning after splitting
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes("node_modules")) {
-            if (id.includes("@supabase")) return "supabase";
-            if (id.includes("lucide-react")) return "icons";
-            if (id.includes("i18next")) return "i18n";
-            return "vendor";
-          }
+        // Create a few sensible vendor chunks so the app code can stay lean
+        manualChunks: {
+          react: ['react', 'react-dom', 'react-router-dom'],
+          supabase: ['@supabase/supabase-js'],
+          i18n: ['i18next', 'react-i18next'],
+          icons: ['lucide-react'],
         },
       },
     },
