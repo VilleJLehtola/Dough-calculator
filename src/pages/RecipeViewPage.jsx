@@ -224,6 +224,7 @@ export default function RecipeViewPage() {
   const [recipe, setRecipe] = useState(null);
   const [author, setAuthor] = useState(null);
   const [images, setImages] = useState([]); // strings or {url}
+  const [tagList, setTagList] = useState([]); // ⬅️ unified tags
 
   // Translation payload (if any)
   const [tData, setT] = useState(null);
@@ -274,7 +275,7 @@ export default function RecipeViewPage() {
     };
   }, []);
 
-  // Load recipe + author + images
+  // Load recipe + author + images + tags
   useEffect(() => {
     let cancelled = false;
 
@@ -296,6 +297,7 @@ export default function RecipeViewPage() {
         setRecipe(null);
         setAuthor(null);
         setImages([]);
+        setTagList([]);
         setError(recErr.message || "Recipe not found");
         setLoading(false);
         return;
@@ -325,6 +327,33 @@ export default function RecipeViewPage() {
       } else {
         const list = await listFolderUrls(`recipes/${id}`);
         if (!cancelled) setImages(list.map((x) => x.url));
+      }
+
+      // ⬇️ Tags from relation, with safe fallbacks
+      try {
+        const { data: relTags, error: tagErr } = await supabase
+          .from("recipe_tags")
+          .select("tag, name, value")
+          .eq("recipe_id", id);
+
+        if (!tagErr && Array.isArray(relTags) && relTags.length) {
+          const list = relTags
+            .map((r) => r.tag || r.name || r.value)
+            .filter(Boolean);
+          setTagList(Array.from(new Set(list)));
+        } else {
+          const fallback = String(recRow?.tags ?? "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          setTagList(Array.from(new Set(fallback)));
+        }
+      } catch {
+        const fallback = String(recRow?.tags ?? "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        setTagList(Array.from(new Set(fallback)));
       }
 
       setLoading(false);
@@ -410,15 +439,6 @@ export default function RecipeViewPage() {
       .map((text, i) => ({ position: i + 1, text }));
   }, [tData, recipe]);
 
-  const tags = useMemo(
-    () =>
-      String(recipe?.tags ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    [recipe]
-  );
-
   const totalTime = useMemo(() => {
     const raw =
       recipe?.prep_time_minutes ?? recipe?.total_time ?? recipe?.time ?? null;
@@ -459,7 +479,7 @@ export default function RecipeViewPage() {
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
   // Helpers to update scale from inputs
-  const setByPercent = (val) => {
+  the setByPercent = (val) => {
     const p = Math.max(5, Math.min(400, Number(val) || 0));
     setScale(p / 100);
   };
@@ -619,7 +639,16 @@ export default function RecipeViewPage() {
               {author?.username || author?.email ? (
                 <div className="flex items-center gap-2">
                   <ChefHat className="w-4 h-4" />
-                  <span>{author?.username || author?.email}</span>
+                  {author?.username ? (
+                    <Link
+                      to={`/u/${encodeURIComponent(author.username)}`}
+                      className="hover:underline text-gray-800 dark:text-gray-200"
+                    >
+                      {author.username}
+                    </Link>
+                  ) : (
+                    <span>{author?.email}</span>
+                  )}
                 </div>
               ) : null}
 
@@ -659,7 +688,7 @@ export default function RecipeViewPage() {
             }
           />
 
-            {/* ⬅️ NEW: Print-friendly page */}
+          {/* ⬅️ Print-friendly page */}
           <Link
             to={`/recipe/${id}/print`}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
@@ -689,16 +718,18 @@ export default function RecipeViewPage() {
       {/* HERO CAROUSEL (priority first slide) */}
       <HeroCarousel title={title} items={images} t={t} overlay={null} />
 
-      {/* Tags */}
-      {tags?.length > 0 && (
+      {/* Tags (clickable) */}
+      {tagList?.length > 0 && (
         <div className="mt-6 flex flex-wrap items-center gap-2">
-          {tags.map((tag, i) => (
-            <span
+          {tagList.map((tag, i) => (
+            <Link
               key={`${tag}-${i}`}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+              to={`/browse?tag=${encodeURIComponent(tag)}`}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 hover:bg-gray-200/60 dark:hover:bg-gray-700/60"
+              title={`#${tag}`}
             >
               # {tag}
-            </span>
+            </Link>
           ))}
         </div>
       )}
