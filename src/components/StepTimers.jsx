@@ -6,6 +6,7 @@ import { Play, Pause, RotateCw, Bell, BellOff, SunMoon, ChevronDown, ChevronUp }
  * StepTimers
  * - steps: [{ text, time }] where time is minutes
  * - storageKey (optional): persist state in localStorage under this key
+ *   When a saved non-fresh state exists, we show a toast that lets the user Resume/Reset/Dismiss.
  */
 export default function StepTimers({ steps = [], storageKey = null }) {
   const models = useMemo(() => {
@@ -18,13 +19,13 @@ export default function StepTimers({ steps = [], storageKey = null }) {
       .filter(Boolean);
   }, [steps]);
 
-  // 👇 New: stable fingerprint (reacts when text OR durations change)
+  // stable fingerprint (reacts when text OR durations change)
   const modelsKey = useMemo(
     () => models.map(m => `${m.idx}:${m.durMs}:${m.text}`).join("|"),
     [models]
   );
 
-  // -------------------- persistence helpers --------------------
+  // ---------- persistence helpers ----------
   function loadPersisted() {
     if (!storageKey) return null;
     try {
@@ -47,7 +48,6 @@ export default function StepTimers({ steps = [], storageKey = null }) {
           durMs: t.durMs,
           running: t.running,
           remainingMs: t.remainingMs,
-          // store absolute end time for running timers so we can catch up
           endAt: t.running && t.endAt ? t.endAt : null,
           doneAtLeastOnce: t.doneAtLeastOnce,
           expanded: t.expanded,
@@ -57,14 +57,26 @@ export default function StepTimers({ steps = [], storageKey = null }) {
       localStorage.setItem(storageKey, JSON.stringify(payload));
     } catch {}
   }
+  function clearPersisted() {
+    if (!storageKey) return;
+    try { localStorage.removeItem(storageKey); } catch {}
+  }
 
-  // -------------------- initial state (with restore) --------------------
+  // refs to communicate init facts to effects
+  const restoredInfoRef = useRef({ restored: false, hadProgress: false });
+  const prevRunningRef = useRef([]); // indices that were running in the saved state
+
+  // ---------- initial state (restore but PAUSED; show resume toast) ----------
   const [timers, setTimers] = useState(() => {
     const fromStore = loadPersisted();
     if (fromStore) {
-      // validate/normalize against current models
+      restoredInfoRef.current.restored = true;
+
       const byIdx = new Map(fromStore.map(t => [t.idx, t]));
-      return models.map(m => {
+      let hadProgress = false;
+      const prevRunning = [];
+
+      const result = models.map(m => {
         const old = byIdx.get(m.idx);
         if (!old) {
           return {
@@ -78,30 +90,40 @@ export default function StepTimers({ steps = [], storageKey = null }) {
             expanded: false,
           };
         }
-        // recompute remaining from stored endAt if running
+
+        // derive remaining from endAt if it was running
         let remainingMs = old.remainingMs ?? m.durMs;
-        let running = !!old.running;
-        let endAt = old.endAt ?? null;
-        if (running && endAt) {
-          const rem = Math.max(0, endAt - Date.now());
-          remainingMs = rem;
-          if (rem === 0) {
-            running = false;
-            endAt = null;
-          }
+        const wasRunning = !!old.running && (old.endAt || remainingMs < m.durMs);
+        if (wasRunning && old.endAt) {
+          remainingMs = Math.max(0, old.endAt - Date.now());
         }
+        // consider it "progress" if different from fresh
+        if (remainingMs < m.durMs || wasRunning || old.doneAtLeastOnce) {
+          hadProgress = true;
+        }
+        if (wasRunning && remainingMs > 0) {
+          prevRunning.push(m.idx);
+        }
+
+        // IMPORTANT: we do NOT auto-resume; everything starts paused
         return {
           idx: m.idx,
           text: old.text ?? m.text,
           durMs: m.durMs,
-          running,
-          remainingMs,
-          endAt,
+          running: false,
+          remainingMs: Math.max(0, remainingMs),
+          endAt: null,
           doneAtLeastOnce: !!old.doneAtLeastOnce,
           expanded: !!old.expanded,
         };
       });
+
+      restoredInfoRef.current.hadProgress = hadProgress;
+      prevRunningRef.current = prevRunning;
+
+      return result;
     }
+
     // fresh init
     return models.map(m => ({
       idx: m.idx,
@@ -115,7 +137,15 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     }));
   });
 
-  // 🔁 When language (texts) or durations change, sync without losing progress
+  // show resume toast if we restored meaningful progress
+  const [showResume, setShowResume] = useState(false);
+  useEffect(() => {
+    if (restoredInfoRef.current.restored && restoredInfoRef.current.hadProgress) {
+      setShowResume(true);
+    }
+  }, []);
+
+  // ---------- sync on text/duration changes ----------
   useEffect(() => {
     setTimers(prev => {
       const byIdx = new Map(prev.map(t => [t.idx, t]));
@@ -133,21 +163,20 @@ export default function StepTimers({ steps = [], storageKey = null }) {
             expanded: false,
           };
         }
-        // If duration changed, scale remaining proportionally
+        // scale remaining proportionally if duration changed
         let remainingMs = old.remainingMs;
         if (old.durMs !== m.durMs && old.durMs > 0) {
           const ratio = m.durMs / old.durMs;
           remainingMs = Math.max(0, Math.round(remainingMs * ratio));
         }
-        // If running, recompute endAt from now
-        const endAt = old.running ? Date.now() + remainingMs : null;
+        // keep paused state after a model change
         return {
           idx: m.idx,
-          text: m.text,          // update to new language
+          text: m.text,
           durMs: m.durMs,
-          running: old.running,
+          running: false,
           remainingMs,
-          endAt,
+          endAt: null,
           doneAtLeastOnce: old.doneAtLeastOnce,
           expanded: old.expanded,
         };
@@ -157,7 +186,7 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelsKey]);
 
-  // ---- ticking / resume after lock ----
+  // ---------- ticking / resume after lock ----------
   const tickRef = useRef(null);
   useEffect(() => {
     const anyRunning = timers.some(t => t.running);
@@ -205,7 +234,7 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  // ---- Keep screen awake (best-effort) ----
+  // ---------- Keep screen awake (best-effort) ----------
   const [keepAwake, setKeepAwake] = useState(isLikelyMobile());
   const wakeSentinelRef = useRef(null);
   async function acquireWakeLock() {
@@ -232,7 +261,7 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timers, keepAwake]);
 
-  // ---- Notifications + beep ----
+  // ---------- Notifications + beep ----------
   const [notiAllowed, setNotiAllowed] = useState(
     typeof Notification !== "undefined" && Notification.permission === "granted"
   );
@@ -276,7 +305,7 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     }
   }
 
-  // ---- controls ----
+  // ---------- controls ----------
   const startTimer = (i) => {
     initAudio(); ensureNotifications();
     setTimers(curr =>
@@ -325,13 +354,13 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     setTimers(curr => curr.map((t, idx) => idx === i ? { ...t, expanded: !t.expanded } : t));
   };
 
-  // 🔒 persist on every change (throttling not needed here)
+  // persist on every change
   useEffect(() => {
     savePersisted(timers);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timers, storageKey]);
 
-  // ⌨️ keyboard: Space toggles start/pause all; R resets all
+  // keyboard: Space toggles start/pause all; R resets all
   useEffect(() => {
     const onKey = (e) => {
       if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.isContentEditable)) return;
@@ -347,6 +376,26 @@ export default function StepTimers({ steps = [], storageKey = null }) {
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timers]);
+
+  // ---------- resume toast actions ----------
+  const handleResume = () => {
+    const idxs = prevRunningRef.current || [];
+    if (idxs.length) {
+      initAudio(); ensureNotifications();
+      setTimers(curr =>
+        curr.map(t => idxs.includes(t.idx)
+          ? { ...t, running: true, endAt: Date.now() + (t.remainingMs ?? t.durMs) }
+          : t
+        )
+      );
+    }
+    setShowResume(false);
+  };
+  const handleResetAll = () => {
+    clearPersisted();
+    resetAll();
+    setShowResume(false);
+  };
 
   if (!models.length) return null;
 
@@ -468,6 +517,41 @@ export default function StepTimers({ steps = [], storageKey = null }) {
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
           Tip: Your browser may not support keeping the screen awake. Timers stay accurate and will catch up when you return.
         </p>
+      )}
+
+      {/* Resume toast */}
+      {showResume && (
+        <div className="fixed z-50 bottom-4 left-0 right-0 px-3 flex justify-center">
+          <div
+            className="max-w-md w-full rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg p-3"
+            role="status" aria-live="polite"
+          >
+            <div className="text-sm text-gray-900 dark:text-gray-100">
+              Timers from your last session were found.
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={handleResume}
+                className="px-3 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-500 text-sm"
+              >
+                Resume
+              </button>
+              <button
+                onClick={handleResetAll}
+                className="px-3 py-1.5 rounded-md border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-800 text-sm"
+              >
+                Reset
+              </button>
+              <button
+                onClick={() => setShowResume(false)}
+                className="ml-auto px-2 py-1 text-xs text-gray-500 hover:underline"
+                title="Dismiss"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
