@@ -233,7 +233,7 @@ export default function RecipeBakePage() {
 
       {/* Timers — same component, but it already supports keep-awake & notifications */}
       <div className="rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 sm:p-4">
-        <StepTimers steps={steps} />
+        <StepTimers steps={steps} storageKey={`timers:recipe:${id}`} />
       </div>
 
       <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">
