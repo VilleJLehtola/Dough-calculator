@@ -1,26 +1,36 @@
 // src/App.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import FrontPage from './pages/FrontPage';
-import CalculatorPage from './pages/CalculatorPage';
-import FavoritesPage from './pages/FavoritesPage';
-import LoginPage from './pages/LoginPage';
-import BrowsePage from './pages/BrowsePage';
-import RecipeViewPage from './pages/RecipeViewPage';
 import supabase from './supabaseClient';
-import CreateRecipePage from './pages/CreateRecipePage';
-import EditRecipePage from '@/pages/EditRecipePage';
-import YourRecipesPage from './pages/YourRecipesPage';
-import ProfilePage from '@/pages/ProfilePage';
-import MyProfileRedirect from '@/pages/MyProfileRedirect';
 import { AnalyticsTracker } from './analytics';
-import PrivacyPage from '@/pages/PrivacyPage';
-import TermsPage from '@/pages/TermsPage';
-import ContactPage from '@/pages/ContactPage';
-import FAQPage from "@/pages/FAQPage";
-import ShoppingListDock from "@/components/ShoppingListDock";
-import RecipePrintPage from '@/pages/RecipePrintPage'; // ⬅️ NEW
+import ShoppingListDock from '@/components/ShoppingListDock';
+
+// Lazy pages (code-splitting)
+const FrontPage         = lazy(() => import('./pages/FrontPage'));
+const CalculatorPage    = lazy(() => import('./pages/CalculatorPage'));
+const FavoritesPage     = lazy(() => import('./pages/FavoritesPage'));
+const LoginPage         = lazy(() => import('./pages/LoginPage'));
+const BrowsePage        = lazy(() => import('./pages/BrowsePage'));
+const RecipeViewPage    = lazy(() => import('./pages/RecipeViewPage'));
+const CreateRecipePage  = lazy(() => import('./pages/CreateRecipePage'));
+const EditRecipePage    = lazy(() => import('./pages/EditRecipePage'));
+const YourRecipesPage   = lazy(() => import('./pages/YourRecipesPage'));
+const ProfilePage       = lazy(() => import('./pages/ProfilePage'));
+const MyProfileRedirect = lazy(() => import('./pages/MyProfileRedirect'));
+const PrivacyPage       = lazy(() => import('./pages/PrivacyPage'));
+const TermsPage         = lazy(() => import('./pages/TermsPage'));
+const ContactPage       = lazy(() => import('./pages/ContactPage'));
+const FAQPage           = lazy(() => import('./pages/FAQPage'));
+const RecipePrintPage   = lazy(() => import('./pages/RecipePrintPage'));
+
+function Fallback() {
+  return (
+    <div className="p-8 text-sm text-gray-600 dark:text-gray-300">
+      Loading…
+    </div>
+  );
+}
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -44,11 +54,9 @@ export default function App() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // user state will be updated by onAuthStateChange listener
   };
 
   // Since App owns the Router, we can't use useNavigate here.
-  // Use a simple hard navigation for the login button in header/mobile.
   const handleLoginClick = () => {
     window.location.href = '/login';
   };
@@ -57,33 +65,39 @@ export default function App() {
     <Router>
       <AnalyticsTracker />
       <Layout user={user} onLoginClick={handleLoginClick} onLogout={handleLogout}>
-        <Routes>
-          <Route path="/" element={<FrontPage />} />
-          <Route path="/browse" element={<BrowsePage />} />
-          <Route path="/calculator" element={<CalculatorPage />} />
-          <Route path="/favorites" element={<FavoritesPage user={user} />} />
-          <Route path="/login" element={<LoginPage setUser={setUser} />} />
-          <Route path="/create" element={<CreateRecipePage />} />
-          <Route path="/recipe/:id/edit" element={<EditRecipePage />} />
-          <Route path="/your-recipes" element={<YourRecipesPage />} />
-          <Route path="/u/:username" element={<ProfilePage />} />
-          <Route path="/profile" element={<MyProfileRedirect />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-          <Route path="/faq" element={<FAQPage />} />
+        <Suspense fallback={<Fallback />}>
+          <Routes>
+            <Route path="/" element={<FrontPage />} />
+            <Route path="/browse" element={<BrowsePage />} />
+            <Route path="/calculator" element={<CalculatorPage />} />
+            <Route path="/favorites" element={<FavoritesPage user={user} />} />
+            <Route path="/login" element={<LoginPage setUser={setUser} />} />
+            <Route path="/create" element={<CreateRecipePage />} />
+            <Route path="/recipe/:id/edit" element={<EditRecipePage />} />
+            <Route path="/your-recipes" element={<YourRecipesPage />} />
+            <Route path="/u/:username" element={<ProfilePage />} />
+            <Route path="/profile" element={<MyProfileRedirect />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/faq" element={<FAQPage />} />
 
-          {/* Recipe routes */}
-          <Route path="/recipe/:id" element={<RecipeViewPage />} />
-          <Route path="/recipe/:id/print" element={<RecipePrintPage />} /> {/* ⬅️ NEW */}
-          {/* Legacy alias so old links keep working */}
-          <Route path="/resepti/:id" element={<RecipeViewPage />} />
+            {/* Recipe routes (id and id/print) */}
+            <Route path="/recipe/:id" element={<RecipeViewPage />} />
+            <Route path="/recipe/:id/print" element={<RecipePrintPage />} />
+            {/* If you also have slug routes, keep them too: */}
+            {/* <Route path="/recipe/:id/:slug" element={<RecipeViewPage />} />
+            <Route path="/recipe/:id/:slug/print" element={<RecipePrintPage />} /> */}
 
-          {/* Fallback */}
-          <Route path="*" element={<FrontPage />} />
-        </Routes>
+            {/* Legacy alias so old links keep working */}
+            <Route path="/resepti/:id" element={<RecipeViewPage />} />
 
-        {/* ✅ Floating shopping list dock, visible on all pages */}
+            {/* Fallback */}
+            <Route path="*" element={<FrontPage />} />
+          </Routes>
+        </Suspense>
+
+        {/* Floating shopping list dock, visible on all pages */}
         <ShoppingListDock />
       </Layout>
     </Router>
