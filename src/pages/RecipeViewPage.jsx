@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import supabase from "@/supabaseClient";
-import { Clock, Users, ChefHat, Pencil, Scale, Printer } from "lucide-react";
+import { Clock, Users, ChefHat, Pencil, Scale, Printer, Timer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LikeFavoriteBar from "@/components/LikeFavoriteBar";
 import ShareButton from "@/components/ShareButton";
@@ -458,18 +458,6 @@ export default function RecipeViewPage() {
   const percent = Math.round(scale * 100);
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
-  // --- remember scale per recipe (localStorage) ---
-  const keyScale = (rid) => `rv:${rid}:scale`;
-  useEffect(() => {
-    const saved = Number(localStorage.getItem(keyScale(id)));
-    if (Number.isFinite(saved) && saved > 0) setScale(saved);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-  useEffect(() => {
-    if (!id) return;
-    localStorage.setItem(keyScale(id), String(scale));
-  }, [id, scale]);
-
   // Helpers to update scale from inputs
   const setByPercent = (val) => {
     const p = Math.max(5, Math.min(400, Number(val) || 0));
@@ -544,44 +532,6 @@ export default function RecipeViewPage() {
     recipeYield: recipe?.servings ? String(recipe.servings) : undefined,
     nutrition: nutritionJsonLd, // include if available
   });
-
-  // --- step permalinks: copy + auto-scroll ---
-  const copyStepLink = (n) => {
-    try {
-      const url = new URL(window.location.href);
-      url.hash = `step-${n}`;
-      navigator.clipboard?.writeText(url.toString());
-    } catch {}
-  };
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (!hash?.startsWith("#step-")) return;
-    const el = document.getElementById(hash.slice(1));
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [steps]);
-
-  // --- Save offline (simple local copy) ---
-  const keyOffline = (rid) => `rv:${rid}:offline`;
-  const [savedOffline, setSavedOffline] = useState(false);
-  useEffect(() => {
-    setSavedOffline(!!localStorage.getItem(keyOffline(id)));
-  }, [id]);
-  const toggleOffline = () => {
-    if (!id) return;
-    const k = keyOffline(id);
-    if (savedOffline) {
-      localStorage.removeItem(k);
-      setSavedOffline(false);
-    } else {
-      const payload = { recipe, tData, images };
-      try {
-        localStorage.setItem(k, JSON.stringify(payload));
-        setSavedOffline(true);
-      } catch {
-        // storage full or disabled
-      }
-    }
-  };
 
   // Loading / Error / Empty
   if (loading) {
@@ -709,19 +659,6 @@ export default function RecipeViewPage() {
             }
           />
 
-          {/* Save offline toggle */}
-          <button
-            onClick={toggleOffline}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border ${
-              savedOffline
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : "border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-800 dark:text-gray-200"
-            }`}
-            title={savedOffline ? t("remove_offline", "Remove offline copy") : t("save_offline", "Save offline")}
-          >
-            {savedOffline ? t("saved", "Saved") : t("save_offline", "Save offline")}
-          </button>
-
           {/* Print-friendly page */}
           <Link
             to={`/recipe/${id}/print`}
@@ -729,6 +666,15 @@ export default function RecipeViewPage() {
           >
             <Printer className="w-4 h-4" />
             {t("print", "Print")}
+          </Link>
+
+          {/* ✅ Bake mode */}
+          <Link
+            to={`/recipe/${id}/bake`}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
+          >
+            <Timer className="w-4 h-4" />
+            {t("bake_mode", "Bake mode")}
           </Link>
 
           {canEdit && (
@@ -915,19 +861,8 @@ export default function RecipeViewPage() {
             {steps?.length ? (
               <ol className="list-decimal pl-5 space-y-2">
                 {steps.map((s, i) => (
-                  <li id={`step-${i + 1}`} key={i} className="text-gray-800 dark:text-gray-100">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1 leading-relaxed break-words">
-                        {s.text ?? String(s ?? "")}
-                      </div>
-                      <button
-                        onClick={() => copyStepLink(i + 1)}
-                        className="shrink-0 text-xs px-2 py-0.5 rounded border border-gray-300 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700"
-                        title={t("copy_step_link", "Copy link to this step")}
-                      >
-                        #
-                      </button>
-                    </div>
+                  <li key={i} className="text-gray-800 dark:text-gray-100">
+                    {s.text ?? String(s ?? "")}
                     {s.time != null && (
                       <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-slate-700">
                         +{s.time} {t("minutes_short")}
