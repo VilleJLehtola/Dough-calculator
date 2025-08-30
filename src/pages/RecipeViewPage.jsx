@@ -479,7 +479,7 @@ export default function RecipeViewPage() {
   const targetFlour = baseFlour ? Math.round(baseFlour * scale) : null;
 
   // Helpers to update scale from inputs
-  the setByPercent = (val) => {
+  const setByPercent = (val) => {
     const p = Math.max(5, Math.min(400, Number(val) || 0));
     setScale(p / 100);
   };
