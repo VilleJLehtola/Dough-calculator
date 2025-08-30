@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import supabase from './supabaseClient';
 import { AnalyticsTracker } from './analytics';
 import ShoppingListDock from '@/components/ShoppingListDock';
+import OfflineRecipesPage from "@/pages/OfflineRecipesPage";
 
 // Lazy pages (code-splitting)
 const FrontPage         = lazy(() => import('./pages/FrontPage'));
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/faq" element={<FAQPage />} />
+            <Route path="/offline" element={<OfflineRecipesPage />} />
 
             {/* Recipe routes (id and id/print) */}
             <Route path="/recipe/:id" element={<RecipeViewPage />} />
