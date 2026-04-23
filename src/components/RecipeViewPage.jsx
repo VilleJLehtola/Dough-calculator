@@ -9,10 +9,15 @@ import 'slick-carousel/slick/slick-theme.css';
 export default function RecipeViewPage() {
   const { id } = useParams();
   const [recipe, setRecipe] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const { t } = useTranslation();
 
   useEffect(() => {
     const fetchRecipe = async () => {
+      setLoading(true);
+      setError('');
+
       const { data, error } = await supabase
         .from('recipes')
         .select(
@@ -26,7 +31,12 @@ export default function RecipeViewPage() {
         .eq('id', id)
         .single();
 
-      if (error || !data) return;
+      if (error || !data) {
+        console.error('Failed to load recipe', error);
+        setError(t('Could not load recipe.'));
+        setLoading(false);
+        return;
+      }
 
       const parsedIngredients = (() => {
         try {
@@ -49,13 +59,22 @@ export default function RecipeViewPage() {
       })();
 
       setRecipe({ ...data, ingredients: parsedIngredients, flour_types: parsedFlours });
+      setLoading(false);
     };
 
     fetchRecipe();
   }, [id]);
 
+  if (loading) {
+    return <p className="text-center p-4">{t('Loading...')}</p>;
+  }
+
+  if (error) {
+    return <p className="text-center p-4 text-red-500">{error}</p>;
+  }
+
   if (!recipe) {
-    return <p className="text-center p-4">Ladataan...</p>;
+    return <p className="text-center p-4">{t('No recipes found')}</p>;
   }
 
   const {
