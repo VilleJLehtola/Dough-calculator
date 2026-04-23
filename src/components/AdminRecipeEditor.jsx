@@ -7,9 +7,10 @@ import { DoughOptions } from './AdminRecipeEditor/DoughOptions';
 import { TimeInputs } from './AdminRecipeEditor/TimeInputs';
 import { FoldScheduler } from './AdminRecipeEditor/FoldScheduler';
 import { InstructionsEditor } from './AdminRecipeEditor/InstructionsEditor';
+import { isAdminUser } from '../utils/auth';
 
 export default function AdminRecipeEditor({ user, existingRecipe }) {
-  const isAdmin = user?.email === 'ville.j.lehtola@gmail.com';
+  const isAdmin = isAdminUser(user);
   if (!isAdmin) return null;
 
   const [title, setTitle] = useState('');
